@@ -2,6 +2,7 @@
 
 import sqlite3
 from typing import Any, Generator
+from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -160,4 +161,76 @@ def enterprise_user(
 def enterprise_auth_headers(enterprise_user: dict[str, Any]) -> dict[str, str]:
     """Provide authentication headers for the seeded enterprise user."""
     return {"X-API-Key": f"userkey_{enterprise_user['username']}"}
+
+
+# ==============================================================================
+# Day 28: Async Mock Fixtures & Test Doubles
+# ==============================================================================
+
+class MockNotificationService:
+    """Test spy container for asynchronous background notification and audit tasks."""
+
+    def __init__(self) -> None:
+        self.send_welcome_notification = AsyncMock()
+        self.record_audit_log = AsyncMock()
+
+
+@pytest.fixture
+def mock_user_repository() -> AsyncMock:
+    """Reusable AsyncMock strictly adhering to UserRepositoryProtocol."""
+    from datetime import datetime, timezone
+    from app.repositories.user_repository import UserEntity
+
+    mock = AsyncMock(spec=UserRepositoryProtocol)
+    mock.get_by_id.return_value = None
+    mock.get_by_email.return_value = None
+    mock.get_by_username.return_value = None
+    mock.create.return_value = UserEntity(
+        id=1,
+        email="mocked.user@example.com",
+        username="mocked_user",
+        password_hash="mocked_hash",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        age=25,
+        role="user",
+        full_name="Mocked User",
+    )
+    mock.update.return_value = UserEntity(
+        id=1,
+        email="mocked.user@example.com",
+        username="mocked_user_updated",
+        password_hash="mocked_hash",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        age=26,
+        role="user",
+        full_name="Mocked User Updated",
+    )
+    mock.delete.return_value = True
+    mock.list_all.return_value = []
+    return mock
+
+
+@pytest.fixture
+def mock_notification_service(monkeypatch: pytest.MonkeyPatch) -> Generator[MockNotificationService, None, None]:
+    """Provide AsyncMock spies for background notification and audit logging tasks."""
+    spy = MockNotificationService()
+    monkeypatch.setattr("app.routers.user_router.send_welcome_notification", spy.send_welcome_notification)
+    monkeypatch.setattr("app.routers.user_router.record_audit_log", spy.record_audit_log)
+    yield spy
+
+
+@pytest.fixture
+def mock_db_session() -> AsyncMock:
+    """AsyncMock simulating SQLAlchemy's AsyncSession with mockable execute, commit, and rollback."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    session = AsyncMock(spec=AsyncSession)
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    session.close = AsyncMock()
+    return session
+
 

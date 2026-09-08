@@ -42,7 +42,7 @@ Tracking Legend:
 - [x] **Day 25**: Sliding Window Log Algorithm for In-Memory Request Rate Limiting & Zero-Leak Monitoring
 - [x] **Day 26**: Binary Search (O(log N)) & Two-Pointer Range Filtering Architecture
 - [x] **Day 27**: Custom ASGI Middleware (Latency Tracking, Correlation IDs & Security Header Injection)
-- [ ] **Day 28**: API Versioning Strategies (URL Path vs Header-Based)
+- [x] **Day 28**: Advanced Async Testing with pytest-asyncio, AsyncMock & Dependency Overrides
 - [ ] **Day 29**: OpenAPI / Swagger Customization, Tags & Documentation Schemas
 - [ ] **Day 30**: Phase 2 Capstone: Fully Tested Async Service with Strict Validation
 

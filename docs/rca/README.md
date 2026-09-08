@@ -34,6 +34,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 25** | [Boundary Burst Defect & Idle Memory Leaks](day-25_sliding_window_boundary_burst_and_idle_memory_leak.md) | Prevented 2x boundary spikes via Sliding Window Log continuous rolling horizon; implemented active zero-leak memory sweeps for ephemeral client IDs. |
 | **Day 26** | [Binary Search Bounds & Route Shadowing](day-26_binary_search_range_boundary_invariants_and_route_shadowing.md) | Enforced required DTO transient fields in test registration payloads; resolved heterogeneous dictionary typing in strict mypy; guaranteed literal route precedence for `/filter/by-age`. |
 | **Day 27** | [Perimeter Middleware & Trace ID Desync](day-27_custom_asgi_middleware_and_security_headers.md) | Enforced monotonic `time.perf_counter()` latency tracking; eliminated trace ID desynchronization between error bodies and response headers; injected 5 OWASP defensive headers across all status codes. |
+| **Day 28** | [AsyncMock Invariants & TestClient Background Task Isolation](day-28_async_testing_mock_lifecycles_and_dependency_overrides.md) | Resolved TestClient background task error propagation via `raise_server_exceptions=False` to verify gateway resilience; enforced spec-bound `AsyncMock`; guaranteed dependency override state teardown. |
 
 ---
 
