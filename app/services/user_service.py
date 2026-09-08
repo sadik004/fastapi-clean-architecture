@@ -4,12 +4,20 @@ import asyncio
 from datetime import datetime, timezone
 import hashlib
 from typing import Any, Optional
+from app.core.dsa.trie import PrefixTrie
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.core.security import get_password_hash, verify_password
 from app.core.unit_of_work import UnitOfWorkProtocol
 from app.repositories.post_repository import PostEntity
 from app.repositories.user_repository import UserEntity, UserRepositoryProtocol
 from app.schemas.user import UserCreate, UserProfileUpdate, UserRole, UserUpdate
+
+_user_search_trie = PrefixTrie()
+
+
+def get_user_search_trie() -> PrefixTrie:
+    """Singleton provider for user search autocomplete PrefixTrie."""
+    return _user_search_trie
 
 
 class UserService:
@@ -19,9 +27,22 @@ class UserService:
         self,
         repository: UserRepositoryProtocol,
         uow: Optional[UnitOfWorkProtocol] = None,
+        trie: Optional[PrefixTrie] = None,
     ) -> None:
         self._repo = repository
         self._uow = uow
+        self._trie = trie if trie is not None else get_user_search_trie()
+
+    def _index_user_in_trie(self, user: UserEntity) -> None:
+        """Index user username and full_name into PrefixTrie."""
+        payload = {
+            "id": user.id,
+            "username": user.username,
+            "full_name": user.full_name,
+        }
+        self._trie.insert(key=user.username, payload=payload, score=2)
+        if user.full_name:
+            self._trie.insert(key=user.full_name, payload=payload, score=1)
 
     async def register_user(self, payload: UserCreate) -> UserEntity:
         """Register a new user with O(1) uniqueness validation asynchronously.
@@ -43,7 +64,7 @@ class UserService:
         # CPU-bound key derivation offloaded to thread pool to prevent event loop starvation
         password_hash = await get_password_hash(payload.password)
 
-        return await self._repo.create(
+        created_user = await self._repo.create(
             email=payload.email,
             username=payload.username,
             password_hash=password_hash,
@@ -54,6 +75,8 @@ class UserService:
             bio=payload.bio,
             company_name=payload.company_name,
         )
+        self._index_user_in_trie(created_user)
+        return created_user
 
     async def update_user(self, user_id: int, payload: UserUpdate) -> UserEntity:
         """Update user attributes with O(1) domain uniqueness verification asynchronously.
@@ -94,6 +117,13 @@ class UserService:
         if updated_user is None:
             raise UserNotFoundException(user_id=user_id)
 
+        # Synchronize PrefixTrie indexing
+        if user.username != updated_user.username:
+            self._trie.delete(user.username)
+        if user.full_name and user.full_name != updated_user.full_name:
+            self._trie.delete(user.full_name)
+        self._index_user_in_trie(updated_user)
+
         return updated_user
 
     async def update_profile(self, user_id: int, payload: UserProfileUpdate) -> UserEntity:
@@ -116,9 +146,15 @@ class UserService:
         Raises:
             UserNotFoundException: If user does not exist.
         """
+        user = await self.get_user_by_id(user_id)
         deleted = await self._repo.delete(user_id)
         if not deleted:
             raise UserNotFoundException(user_id=user_id)
+
+        # Prune user entries from PrefixTrie
+        self._trie.delete(user.username)
+        if user.full_name:
+            self._trie.delete(user.full_name)
 
     async def get_user_by_id(self, user_id: int) -> UserEntity:
         """Fetch user by ID with validation asynchronously.
@@ -298,7 +334,50 @@ class UserService:
             # 3. Atomically commit both repository operations together
             await active_uow.commit()
 
+            # Index into search trie
+            self._index_user_in_trie(user)
+
             return user, post
+
+    async def autocomplete_users(
+        self,
+        prefix: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Autocomplete user suggestions by prefix in O(k) sub-millisecond time.
+
+        Args:
+            prefix: The search prefix string.
+            limit: Maximum number of suggestions to return.
+
+        Returns:
+            List of matching user dictionaries with matched_term metadata.
+        """
+        completions = self._trie.autocomplete(prefix=prefix, limit=limit)
+        results: list[dict[str, Any]] = []
+        seen_ids: set[int] = set()
+
+        for matched_term, payloads in completions:
+            for p in payloads:
+                if isinstance(p, dict) and "id" in p:
+                    uid = p["id"]
+                    if uid not in seen_ids:
+                        seen_ids.add(uid)
+                        results.append({
+                            "id": p["id"],
+                            "username": p["username"],
+                            "full_name": p.get("full_name"),
+                            "matched_term": matched_term,
+                        })
+                        if len(results) >= limit:
+                            return results
+        return results
+
+    async def sync_trie_from_repository(self) -> None:
+        """Hydrate or re-sync the PrefixTrie from repository storage."""
+        users = await self._repo.list_all(limit=10000, offset=0)
+        for u in users:
+            self._index_user_in_trie(u)
 
 
 

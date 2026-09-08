@@ -394,3 +394,14 @@ class UserReportResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class UserAutocompleteResponse(BaseModel):
+    """Output projection for instant, search-as-you-type prefix autocomplete."""
+
+    id: int = Field(..., description="Unique identifier of the user")
+    username: str = Field(..., description="Normalized username")
+    full_name: Optional[str] = Field(default=None, description="User full name")
+    matched_term: Optional[str] = Field(default=None, description="The trie key matching the prefix")
+
+    model_config = ConfigDict(from_attributes=True)
+

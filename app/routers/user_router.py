@@ -26,6 +26,7 @@ from app.schemas.post import (
     UserWithInitialPostResponse,
 )
 from app.schemas.user import (
+    UserAutocompleteResponse,
     UserCreate,
     UserDashboardResponse,
     UserProfileUpdate,
@@ -168,6 +169,40 @@ async def get_admin_metrics(
         "total_users": len(users),
         "admin_count": admin_count,
     }
+
+
+@router.get(
+    "/autocomplete",
+    response_model=list[UserAutocompleteResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Instant sub-millisecond user autocomplete search via PrefixTrie",
+)
+async def autocomplete_users(
+    q: Annotated[
+        str,
+        Query(
+            min_length=1,
+            max_length=50,
+            description="Search prefix query string",
+        ),
+    ],
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=50,
+            description="Maximum number of completions to return",
+        ),
+    ] = 10,
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> list[UserAutocompleteResponse]:
+    """Endpoint for sub-millisecond search-as-you-type user autocomplete.
+
+    Leverages in-memory slotted PrefixTrie achieving O(k) time complexity,
+    completely independent of total database records N.
+    """
+    results = await service.autocomplete_users(prefix=q, limit=limit)
+    return [UserAutocompleteResponse.model_validate(item) for item in results]
 
 
 @router.get(
