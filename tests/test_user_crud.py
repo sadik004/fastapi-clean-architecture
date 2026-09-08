@@ -1,26 +1,6 @@
 """Integration test suite verifying full User CRUD lifecycle and FastAPI Dependency Injection."""
 
-from typing import Generator
-import pytest
 from fastapi.testclient import TestClient
-
-from app.main import app
-from app.routers.user_router import get_user_repository
-
-
-@pytest.fixture(autouse=True)
-def clean_repository() -> Generator[None, None, None]:
-    """Fixture to reset repository state between tests."""
-    repo = get_user_repository()
-    repo.clear()
-    yield
-    repo.clear()
-
-
-@pytest.fixture
-def client() -> TestClient:
-    """FastAPI TestClient fixture."""
-    return TestClient(app)
 
 
 def test_complete_crud_lifecycle(client: TestClient) -> None:

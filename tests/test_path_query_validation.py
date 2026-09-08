@@ -1,26 +1,9 @@
 """Comprehensive test suite for FastAPI Path and Query parameter validation."""
 
-from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.routers.user_router import get_user_repository
-
-
-@pytest.fixture(autouse=True)
-def clean_repository() -> Generator[None, None, None]:
-    """Fixture to ensure repository state is cleared between tests."""
-    repo = get_user_repository()
-    repo.clear()
-    yield
-    repo.clear()
-
-
-@pytest.fixture
-def client() -> TestClient:
-    """FastAPI TestClient fixture."""
-    return TestClient(app)
 
 
 # ==========================================

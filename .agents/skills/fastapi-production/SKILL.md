@@ -106,6 +106,8 @@ All algorithms, data transformations, and data structures must be optimized for 
 20. **Polymorphic Domain Exceptions**: Design domain-level exceptions to accept multiple lookup identifiers (e.g., ID or username) cleanly with exact type hints to prevent transport-layer type mismatches in strict mypy.
 21. **OpenAPI 3.1 Nullable Awareness**: Account for `anyOf: [schema, {"type": "null"}]` when testing or introspecting optional/nullable parameter contracts in OpenAPI 3.1.0.
 22. **Comprehensive Testing**: Every endpoint, repository method, and schema must have corresponding unit and integration tests under `tests/`.
+23. **Centralized `conftest.py` & Test Isolation**: Centralize shared testing fixtures (`client`, `clean_repo`, payloads) in `tests/conftest.py` with `autouse=True` teardowns using `yield` and `repo.clear()` to guarantee $\mathcal{O}(1)$ test independence without state pollution.
+24. **Parametrized Verification Matrices & Test Classes**: Group test suites into structured test classes (`TestUserRegistration`, `TestUserRetrieval`, etc.) and use `@pytest.mark.parametrize` to systematically test combinatorial boundary matrices, eliminating duplicate boilerplate tests.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -126,6 +128,8 @@ All algorithms, data transformations, and data structures must be optimized for 
 16. **Direct DB in Routers**: Calling `db.query()`, `session.execute()`, or repository methods directly inside router handlers.
 17. **Untyped / `Any` shortcuts**: Using `Any` or omitting return types to bypass type checking.
 18. **Swallowing Exceptions**: Bare `except:` clauses without logging and proper error propagation.
+19. **Inter-Test State Pollution**: Leaving in-memory repositories or database tables populated between tests, causing test ordering dependencies or unpredictable test failures.
+20. **Copy-Paste Fixture Duplication**: Declaring identical `client` or `clean_repository` fixture functions locally in every individual test file instead of defining them in `tests/conftest.py`.
 
 ---
 
