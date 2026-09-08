@@ -23,7 +23,7 @@ Tracking Legend:
 - [x] **Day 10**: Dependency Lifecycle Cleanup (The yield Mechanism, Two-Phase Context & Transactional Teardown)
 - [x] **Day 11**: Python Asyncio Fundamentals (Event Loop Mechanics, Coroutines & Concurrent Task Orchestration)
 - [x] **Day 12**: Non-Blocking vs Blocking Execution (Preventing Event Loop Starvation with asyncio.to_thread)
-- [ ] **Day 13**: Request ID Middleware & Correlation Tracing
+- [x] **Day 13**: FastAPI BackgroundTasks Architecture & Safe Memory Lifecycle
 - [ ] **Day 14**: In-Memory Sorting & Binary Search Application
 - [ ] **Day 15**: Phase 1 Capstone: End-to-End In-Memory Micro-Service Audit & Review
 

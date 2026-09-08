@@ -9,17 +9,20 @@ from app.core.dependencies import transaction_manager
 from app.main import app
 from app.repositories.user_repository import UserRepositoryProtocol
 from app.routers.user_router import get_user_repository
+from app.services.notification_service import clear_notification_service
 
 
 @pytest.fixture(autouse=True)
 def clean_repo() -> Generator[UserRepositoryProtocol, None, None]:
-    """Autouse fixture ensuring clean, isolated repository and transaction state before and after every test."""
+    """Autouse fixture ensuring clean, isolated repository, transaction, and background task state."""
     repo = get_user_repository()
     repo.clear()
     transaction_manager.clear()
+    clear_notification_service()
     yield repo
     repo.clear()
     transaction_manager.clear()
+    clear_notification_service()
 
 
 @pytest.fixture

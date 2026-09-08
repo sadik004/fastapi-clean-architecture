@@ -1,7 +1,8 @@
 """User Router handling HTTP endpoints, request/response validation, and status codes."""
 
+from datetime import datetime, timezone
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Response, status
 
 from app.core.dependencies import (
     RoleChecker,
@@ -27,6 +28,7 @@ from app.schemas.user import (
     UserRole,
     UserUpdate,
 )
+from app.services.notification_service import record_audit_log, send_welcome_notification
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -57,6 +59,7 @@ __all__ = [
 async def create_user(
     payload: UserCreate,
     service: Annotated[UserService, Depends(get_user_service)],
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     tx: Annotated[ScopedTransactionContext, Depends(get_transaction_context)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to register a new user."""
@@ -64,6 +67,18 @@ async def create_user(
         tx.stage(f"create_user:{payload.username}")
     try:
         created_user = await service.register_user(payload=payload)
+        # Safe Memory Boundary: Pass ONLY immutable primitives, NEVER request-scoped dependencies
+        background_tasks.add_task(
+            send_welcome_notification,
+            created_user.email,
+            created_user.username,
+        )
+        background_tasks.add_task(
+            record_audit_log,
+            "create_user",
+            created_user.id,
+            datetime.now(timezone.utc),
+        )
         return UserResponse.model_validate(created_user)
     except UserAlreadyExistsException as exc:
         raise HTTPException(
@@ -281,6 +296,7 @@ async def update_user(
     ),
     authorized_user: Annotated[UserEntity, Depends(require_user_ownership)] = None,  # type: ignore[assignment]
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     tx: Annotated[ScopedTransactionContext, Depends(get_transaction_context)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to update user attributes."""
@@ -288,6 +304,13 @@ async def update_user(
         tx.stage(f"update_user:{user_id}")
     try:
         updated_user = await service.update_user(user_id=user_id, payload=payload)
+        # Safe Memory Boundary: Pass ONLY immutable primitives to background tasks
+        background_tasks.add_task(
+            record_audit_log,
+            "update_user",
+            updated_user.id,
+            datetime.now(timezone.utc),
+        )
         return UserResponse.model_validate(updated_user)
     except UserNotFoundException as exc:
         raise HTTPException(
