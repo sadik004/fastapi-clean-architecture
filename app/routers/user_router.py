@@ -3,8 +3,14 @@
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 
+from app.core.dependencies import (
+    get_current_active_admin,
+    get_current_user,
+    get_user_repository,
+    get_user_service,
+)
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
-from app.repositories.user_repository import InMemoryUserRepository, UserRepositoryProtocol
+from app.repositories.user_repository import UserEntity
 from app.schemas.user import (
     UserCreate,
     UserProfileUpdate,
@@ -16,20 +22,8 @@ from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-# Singleton repository instance for in-memory persistence across requests
-_user_repository = InMemoryUserRepository()
-
-
-def get_user_repository() -> UserRepositoryProtocol:
-    """Dependency provider for UserRepositoryProtocol."""
-    return _user_repository
-
-
-def get_user_service(
-    repo: Annotated[UserRepositoryProtocol, Depends(get_user_repository)],
-) -> UserService:
-    """Dependency provider for UserService."""
-    return UserService(repository=repo)
+# Re-export for backwards compatibility with existing test suites
+__all__ = ["get_user_repository", "get_user_service", "router"]
 
 
 @router.post(
@@ -78,6 +72,19 @@ def get_user_by_username(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=exc.message,
         ) from exc
+
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get currently authenticated user profile",
+)
+def get_current_user_profile(
+    current_user: Annotated[UserEntity, Depends(get_current_user)],
+) -> UserResponse:
+    """Endpoint to fetch the authenticated user profile."""
+    return UserResponse.model_validate(current_user)
 
 
 @router.get(
@@ -228,6 +235,7 @@ def delete_user(
         le=2_147_483_647,
         description="The unique positive integer ID of the user",
     ),
+    current_admin: Annotated[UserEntity, Depends(get_current_active_admin)] = None,  # type: ignore[assignment]
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
 ) -> Response:
     """Endpoint to delete a user by ID."""

@@ -328,6 +328,8 @@ class TestUserLifecycle:
     def test_full_lifecycle_and_index_purging(
         self,
         client: TestClient,
+        admin_user: dict[str, Any],
+        admin_auth_headers: dict[str, str],
         sample_user_payload: dict[str, Any],
     ) -> None:
         """Verify CREATE -> READ -> UPDATE -> PATCH -> DELETE -> 404 -> RE-REGISTER flow."""
@@ -354,8 +356,8 @@ class TestUserLifecycle:
         assert patch_resp.status_code == 200
         assert patch_resp.json()["bio"] == "Architectural leader."
 
-        # 5. DELETE (204 No Content)
-        del_resp = client.delete(f"/users/{user_id}")
+        # 5. DELETE (204 No Content) - Authorized via admin_auth_headers
+        del_resp = client.delete(f"/users/{user_id}", headers=admin_auth_headers)
         assert del_resp.status_code == 204
 
         # 6. VERIFY 404 AFTER DELETION

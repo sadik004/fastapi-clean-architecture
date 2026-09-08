@@ -1,5 +1,6 @@
 """Comprehensive test suite for FastAPI Path and Query parameter validation."""
 
+from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
@@ -25,7 +26,12 @@ def test_path_user_id_bounds_get(client: TestClient, invalid_id: object) -> None
     "invalid_id",
     [0, -1, "abc", 2_147_483_648],
 )
-def test_path_user_id_bounds_all_endpoints(client: TestClient, invalid_id: object) -> None:
+def test_path_user_id_bounds_all_endpoints(
+    client: TestClient,
+    admin_user: dict[str, Any],
+    admin_auth_headers: dict[str, str],
+    invalid_id: object,
+) -> None:
     """Verify PUT, PATCH, and DELETE endpoints enforce the same Path(ge=1, le=2_147_483_647) constraints."""
     put_resp = client.put(f"/users/{invalid_id}", json={"full_name": "New Name"})
     assert put_resp.status_code == 422
@@ -33,7 +39,7 @@ def test_path_user_id_bounds_all_endpoints(client: TestClient, invalid_id: objec
     patch_resp = client.patch(f"/users/{invalid_id}", json={"full_name": "New Name"})
     assert patch_resp.status_code == 422
 
-    delete_resp = client.delete(f"/users/{invalid_id}")
+    delete_resp = client.delete(f"/users/{invalid_id}", headers=admin_auth_headers)
     assert delete_resp.status_code == 422
 
 

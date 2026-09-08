@@ -18,7 +18,7 @@ Tracking Legend:
 - [x] **Day 05**: Pydantic v2 Model-Level Validation (Cross-Field Invariants with @model_validator(mode='after'))
 - [x] **Day 06**: FastAPI Path & Query Validation (Path(), Query(), and Custom Regex Constraints)
 - [x] **Day 07**: Pytest Architecture, TestClient Mastery & Parametrized Verification
-- [ ] **Day 08**: Testing with Pytest & HTTPX AsyncClient
+- [x] **Day 08**: FastAPI Dependency Injection Architecture (Cached AppConfig & Declarative Auth Guard)
 - [ ] **Day 09**: Dependency Injection Primer in FastAPI (`Depends`)
 - [ ] **Day 10**: Service Layer Decoupling & Pure Business Logic Isolation
 - [ ] **Day 11**: Global Error Handling & Consistent JSON Error Schemas
