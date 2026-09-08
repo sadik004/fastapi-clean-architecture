@@ -1,26 +1,44 @@
 """Centralized Pytest configuration and shared test fixtures."""
 
+import sqlite3
 from typing import Any, Generator
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
-from app.core.dependencies import transaction_manager
+from app.core.dependencies import _user_repository, transaction_manager
 from app.main import app
 from app.repositories.user_repository import UserRepositoryProtocol
 from app.routers.user_router import get_user_repository
 from app.services.notification_service import clear_notification_service
 
 
+def _clean_database() -> None:
+    """Reset the database users table between tests for isolation."""
+    settings = get_settings()
+    if settings.database_url.startswith("sqlite"):
+        db_path = settings.database_url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
+        if db_path and db_path != ":memory:":
+            try:
+                with sqlite3.connect(db_path) as conn:
+                    conn.execute("DELETE FROM users")
+                    conn.commit()
+            except sqlite3.OperationalError:
+                pass
+
+
 @pytest.fixture(autouse=True)
 def clean_repo() -> Generator[UserRepositoryProtocol, None, None]:
     """Autouse fixture ensuring clean, isolated repository, transaction, and background task state."""
-    repo = get_user_repository()
-    repo.clear()
+    _user_repository.clear()
+    _clean_database()
     transaction_manager.clear()
     clear_notification_service()
-    yield repo
-    repo.clear()
+    app.dependency_overrides[get_user_repository] = lambda: _user_repository
+    yield _user_repository
+    app.dependency_overrides.pop(get_user_repository, None)
+    _user_repository.clear()
+    _clean_database()
     transaction_manager.clear()
     clear_notification_service()
 

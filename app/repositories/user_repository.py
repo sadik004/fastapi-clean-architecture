@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional, Protocol
+from typing import Any, Optional, Protocol
 
 
 @dataclass
@@ -64,6 +64,7 @@ class UserRepositoryProtocol(Protocol):
         phone_number: Optional[str] = None,
         bio: Optional[str] = None,
         company_name: Optional[str] = None,
+        update_data: Optional[Any] = None,
     ) -> Optional[UserEntity]:
         """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
         ...
@@ -161,8 +162,25 @@ class InMemoryUserRepository:
         phone_number: Optional[str] = None,
         bio: Optional[str] = None,
         company_name: Optional[str] = None,
+        update_data: Optional[Any] = None,
     ) -> Optional[UserEntity]:
         """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
+        if update_data is not None:
+            data = update_data.model_dump(exclude_unset=True) if hasattr(update_data, "model_dump") else dict(update_data)
+            email = data.get("email", email)
+            username = data.get("username", username)
+            age = data.get("age", age)
+            role_val = data.get("role", role)
+            role = (
+                role_val.value
+                if role_val is not None and hasattr(role_val, "value")
+                else (str(role_val) if role_val is not None else role)
+            )
+            full_name = data.get("full_name", full_name)
+            phone_number = data.get("phone_number", phone_number)
+            bio = data.get("bio", bio)
+            company_name = data.get("company_name", company_name)
+
         user = self._store.get(user_id)
         if user is None:
             return None
@@ -268,3 +286,16 @@ class InMemoryUserRepository:
         self._email_index.clear()
         self._username_index.clear()
         self._current_id = 0
+
+
+# Re-export SqlAlchemyUserRepository for clean module namespace
+from app.repositories.sqlalchemy_user_repository import (  # noqa: E402
+    SqlAlchemyUserRepository as SqlAlchemyUserRepository,
+)
+
+__all__ = [
+    "InMemoryUserRepository",
+    "SqlAlchemyUserRepository",
+    "UserEntity",
+    "UserRepositoryProtocol",
+]

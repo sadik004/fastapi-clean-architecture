@@ -6,6 +6,8 @@ from enum import Enum
 from typing import Annotated, Any, Optional
 from fastapi import Depends, Header, HTTPException, Path, status
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import Settings, get_settings
 from app.core.database import apply_migrations as apply_migrations
 from app.core.database import get_db_pool_status as get_db_pool_status
@@ -14,6 +16,7 @@ from app.core.database import rollback_migration as rollback_migration
 from app.core.exceptions import UserNotFoundException
 from app.repositories.user_repository import (
     InMemoryUserRepository,
+    SqlAlchemyUserRepository,
     UserEntity,
     UserRepositoryProtocol,
 )
@@ -24,9 +27,20 @@ from app.services.user_service import UserService
 _user_repository = InMemoryUserRepository()
 
 
-def get_user_repository() -> UserRepositoryProtocol:
-    """Dependency provider for UserRepositoryProtocol."""
+def get_user_repository(
+    session: Annotated[Optional[AsyncSession], Depends(get_db_session)] = None,
+) -> UserRepositoryProtocol:
+    """Dependency provider for UserRepositoryProtocol.
+
+    In FastAPI request lifecycles, injects an active AsyncSession from get_db_session
+    and yields a production SqlAlchemyUserRepository.
+    When invoked without a session argument (e.g., isolated unit test assertions),
+    falls back to the in-memory repository.
+    """
+    if session is not None:
+        return SqlAlchemyUserRepository(session=session)
     return _user_repository
+
 
 
 def get_user_service(

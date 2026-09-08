@@ -142,6 +142,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 56. **Isolated TestBase for Test-Only Entities**: Always define dedicated declarative bases (e.g., `class TestBase(AsyncAttrs, DeclarativeBase): pass`) for temporary or test-only ORM models. Never inherit from production `Base`, which pollutes `Base.metadata` and causes Alembic `compare_metadata` schema drift assertions to fail with phantom tables.
 57. **Async Alembic Migrations with Dynamic Config Binding**: Always bind `target_metadata = Base.metadata` and resolve database connection strings dynamically from `get_settings().database_url` in `alembic/env.py`. Enable `render_as_batch=True` on migration contexts for cross-dialect compatibility with SQLite table alterations.
 58. **Automated Schema Drift Testing via `compare_metadata`**: Include automated integration tests running `alembic.autogenerate.compare_metadata(migration_context, Base.metadata)` against upgraded test databases to guarantee 100% synchronization between SQLAlchemy declarative models and Alembic revision scripts.
+59. **Concrete Repository Protocol Implementation & Zero ORM Leakage**: Concrete database repositories (`SqlAlchemyUserRepository`) must implement abstract protocol interfaces (`UserRepositoryProtocol`) and map ORM models (`UserModel`) to pure domain dataclass entities (`UserEntity`) via private `_to_entity()` mappers before returning. Raw ORM models must NEVER escape into the Service or Router layers.
+60. **Database Engine-Level Pagination & Filtering**: Always apply `limit`, `offset`, ordering, and search/filter predicates directly at the SQL query level (`stmt.order_by(...).limit(limit).offset(offset)`). Never fetch unbounded rows into Python collections to perform in-memory slicing or filtering.
+61. **Dual-Mode Repository Dependency Provider**: Structure repository dependencies with optional session parameters (`session: Annotated[Optional[AsyncSession], Depends(get_db_session)] = None`), returning real `SqlAlchemyUserRepository(session=session)` during FastAPI requests while supporting in-memory mocks (`InMemoryUserRepository`) for fast, isolated unit testing.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -194,6 +197,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 48. **Subclassing Production `Base` for Test-Only ORM Models**: Defining temporary test entities that inherit from production `Base`, polluting global `Base.metadata.tables` across test sessions and breaking schema drift assertions.
 49. **Relying on `Base.metadata.create_all()` in Production Lifespan**: Using `create_all()` on production startup instead of version-controlled migrations (`alembic upgrade head`), which leaves production environments incapable of rolling back, tracking DDL history, or altering existing columns.
 50. **Hardcoding Database URLs in `alembic.ini`**: Storing plaintext database credentials or static connection strings in `alembic.ini` instead of dynamically sourcing configuration from Pydantic `get_settings().database_url` inside `env.py`.
+51. **Leaking Raw ORM Models Outside Repository Layer**: Returning `UserModel` instances directly to services or router endpoints, exposing database sessions, lazy-loading greenlet traps, and internal database schema details.
+52. **Executing Queries or ORM Logic in Services or Routers**: Writing `select()`, `session.execute()`, or database mutations inside `UserService` or API endpoints, violating Clean Architecture and preventing persistence engine swapping.
+53. **In-Memory Pagination Over Relational Queries**: Querying full tables or collections into Python memory and applying slicing (`list(users)[offset:offset+limit]`), degrading throughput to $\mathcal{O}(N)$ and causing memory exhaustion under large database tables.
 
 ---
 
