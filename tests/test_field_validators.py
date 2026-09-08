@@ -12,6 +12,7 @@ def test_username_auto_normalization() -> None:
         email="dev@example.com",
         username="  JohnDoe_Dev  ",
         password="SecurePassword123!",
+        password_confirm="SecurePassword123!",
     )
     assert user.username == "johndoe_dev"
 
@@ -23,6 +24,7 @@ def test_username_rejects_consecutive_underscores() -> None:
             email="dev@example.com",
             username="john__doe",
             password="SecurePassword123!",
+            password_confirm="SecurePassword123!",
         )
     assert "consecutive underscores" in str(exc_info.value)
 
@@ -38,6 +40,7 @@ def test_username_rejects_reserved_keywords(reserved_name: str) -> None:
             email="dev@example.com",
             username=reserved_name,
             password="SecurePassword123!",
+            password_confirm="SecurePassword123!",
         )
     assert "reserved system keyword" in str(exc_info.value)
 
@@ -49,6 +52,7 @@ def test_username_rejects_reserved_keywords_with_mixed_case_and_padding() -> Non
             email="dev@example.com",
             username="   ADMIN   ",
             password="SecurePassword123!",
+            password_confirm="SecurePassword123!",
         )
     assert "reserved system keyword" in str(exc_info.value)
 
@@ -59,6 +63,7 @@ def test_full_name_whitespace_collapsing_and_title_casing() -> None:
         email="ada@example.com",
         username="ada_lovelace",
         password="SecurePassword123!",
+        password_confirm="SecurePassword123!",
         full_name="   ada     marie   lovelace   ",
     )
     assert user.full_name == "Ada Marie Lovelace"
@@ -70,6 +75,7 @@ def test_full_name_empty_whitespace_becomes_none() -> None:
         email="ada@example.com",
         username="ada_lovelace",
         password="SecurePassword123!",
+        password_confirm="SecurePassword123!",
         full_name="     ",
     )
     assert user.full_name is None
@@ -90,6 +96,7 @@ def test_phone_number_e164_valid(valid_phone: str) -> None:
         email="phone@example.com",
         username="phone_user",
         password="SecurePassword123!",
+        password_confirm="SecurePassword123!",
         phone_number=valid_phone,
     )
     assert user.phone_number == valid_phone.strip()
@@ -112,6 +119,7 @@ def test_phone_number_e164_invalid(invalid_phone: str) -> None:
             email="phone@example.com",
             username="phone_user",
             password="SecurePassword123!",
+            password_confirm="SecurePassword123!",
             phone_number=invalid_phone,
         )
     assert "E.164" in str(exc_info.value)
@@ -124,6 +132,7 @@ def test_bio_html_tag_stripping() -> None:
         email="bio@example.com",
         username="bio_engineer",
         password="SecurePassword123!",
+        password_confirm="SecurePassword123!",
         bio=xss_bio,
     )
     assert user.bio == "alert('xss')Senior Backend Engineer with Python expertise."

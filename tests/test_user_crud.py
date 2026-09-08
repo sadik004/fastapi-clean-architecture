@@ -30,6 +30,7 @@ def test_complete_crud_lifecycle(client: TestClient) -> None:
         "email": "lifecycle@example.com",
         "username": "lifecycle_user",
         "password": "SecurePassword123!",
+        "password_confirm": "SecurePassword123!",
         "age": 22,
         "role": "user",
     }
@@ -78,6 +79,7 @@ def test_complete_crud_lifecycle(client: TestClient) -> None:
             "email": "updated_email@example.com",
             "username": "updated_handle",
             "password": "AnotherPassword123!",
+            "password_confirm": "AnotherPassword123!",
         },
     )
     assert recreate_resp.status_code == 201
@@ -92,6 +94,7 @@ def test_put_user_conflict_scenarios(client: TestClient) -> None:
             "email": "user1@example.com",
             "username": "handle_one",
             "password": "Password123!",
+            "password_confirm": "Password123!",
         },
     )
 
@@ -101,6 +104,7 @@ def test_put_user_conflict_scenarios(client: TestClient) -> None:
             "email": "user2@example.com",
             "username": "handle_two",
             "password": "Password123!",
+            "password_confirm": "Password123!",
         },
     ).json()
 
@@ -144,6 +148,7 @@ def test_list_users_pagination(client: TestClient) -> None:
                 "email": f"page_user_{i}@example.com",
                 "username": f"page_user_{i}",
                 "password": "Password123!",
+                "password_confirm": "Password123!",
             },
         )
 

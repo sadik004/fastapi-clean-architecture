@@ -15,7 +15,8 @@ class UserService:
         """Register a new user with O(1) uniqueness validation.
 
         Incoming payload fields are already normalized, sanitized, and invariant-verified
-        by Pydantic v2 schemas at the application boundary.
+        by Pydantic v2 schemas at the application boundary. Transient fields (like
+        password_confirm) are safely stripped from persistence operations.
 
         Raises:
             UserAlreadyExistsException: If email or username is already taken.
@@ -39,6 +40,7 @@ class UserService:
             full_name=payload.full_name,
             phone_number=payload.phone_number,
             bio=payload.bio,
+            company_name=payload.company_name,
         )
 
     def update_user(self, user_id: int, payload: UserUpdate) -> UserEntity:
@@ -75,6 +77,7 @@ class UserService:
             full_name=payload.full_name,
             phone_number=payload.phone_number,
             bio=payload.bio,
+            company_name=payload.company_name,
         )
         if updated_user is None:
             raise UserNotFoundException(user_id=user_id)
@@ -91,6 +94,7 @@ class UserService:
                 full_name=payload.full_name,
                 phone_number=payload.phone_number,
                 bio=payload.bio,
+                company_name=payload.company_name,
             ),
         )
 

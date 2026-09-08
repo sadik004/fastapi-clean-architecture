@@ -20,6 +20,7 @@ class UserEntity:
     full_name: Optional[str] = None
     phone_number: Optional[str] = None
     bio: Optional[str] = None
+    company_name: Optional[str] = None
 
 
 class UserRepositoryProtocol(Protocol):
@@ -35,6 +36,7 @@ class UserRepositoryProtocol(Protocol):
         full_name: Optional[str] = None,
         phone_number: Optional[str] = None,
         bio: Optional[str] = None,
+        company_name: Optional[str] = None,
     ) -> UserEntity:
         """Create and persist a new user entity."""
         ...
@@ -61,6 +63,7 @@ class UserRepositoryProtocol(Protocol):
         full_name: Optional[str] = None,
         phone_number: Optional[str] = None,
         bio: Optional[str] = None,
+        company_name: Optional[str] = None,
     ) -> Optional[UserEntity]:
         """Update an existing user entity and synchronize indexes in O(1) time."""
         ...
@@ -112,6 +115,7 @@ class InMemoryUserRepository:
         full_name: Optional[str] = None,
         phone_number: Optional[str] = None,
         bio: Optional[str] = None,
+        company_name: Optional[str] = None,
     ) -> UserEntity:
         """Create and store a new user entity with O(1) indexing."""
         self._current_id += 1
@@ -127,6 +131,7 @@ class InMemoryUserRepository:
             full_name=full_name,
             phone_number=phone_number,
             bio=bio,
+            company_name=company_name,
         )
 
         # O(1) primary storage insert
@@ -148,6 +153,7 @@ class InMemoryUserRepository:
         full_name: Optional[str] = None,
         phone_number: Optional[str] = None,
         bio: Optional[str] = None,
+        company_name: Optional[str] = None,
     ) -> Optional[UserEntity]:
         """Update an existing user entity and synchronize indexes in O(1) time."""
         user = self._store.get(user_id)
@@ -180,6 +186,9 @@ class InMemoryUserRepository:
 
         if bio is not None:
             user.bio = bio
+
+        if company_name is not None:
+            user.company_name = company_name
 
         return user
 

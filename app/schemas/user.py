@@ -1,10 +1,10 @@
-"""Pydantic v2 schemas for User domain with custom @field_validator rules and sanitization."""
+"""Pydantic v2 schemas for User domain with custom @field_validator and @model_validator rules."""
 
 from datetime import datetime
 from enum import Enum
 import re
-from typing import Any, Optional, Pattern
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from typing import Any, Optional, Pattern, Self
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 # Module-level pre-compiled regexes & sets for O(1) lookups and O(k) pattern matching
 RESERVED_USERNAMES: frozenset[str] = frozenset(
@@ -65,11 +65,20 @@ def sanitize_bio_before(v: Any) -> Any:
     return v
 
 
+def sanitize_company_name_before(v: Any) -> Any:
+    """Strip whitespace from company name (mode='before')."""
+    if isinstance(v, str):
+        cleaned = v.strip()
+        return cleaned if cleaned else None
+    return v
+
+
 class UserRole(str, Enum):
     """User authorization roles."""
 
     USER = "user"
     ADMIN = "admin"
+    ENTERPRISE = "enterprise"
 
 
 class UserBase(BaseModel):
@@ -99,6 +108,11 @@ class UserBase(BaseModel):
         default=None,
         max_length=500,
         description="User biography with HTML tags automatically stripped",
+    )
+    company_name: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Organization or company name for enterprise accounts",
     )
 
     @field_validator("username", mode="before")
@@ -133,6 +147,11 @@ class UserBase(BaseModel):
     def sanitize_bio(cls, v: Any) -> Any:
         return sanitize_bio_before(v)
 
+    @field_validator("company_name", mode="before")
+    @classmethod
+    def normalize_company_name(cls, v: Any) -> Any:
+        return sanitize_company_name_before(v)
+
 
 class UserCreate(UserBase):
     """Input payload schema for creating a new user."""
@@ -142,6 +161,12 @@ class UserCreate(UserBase):
         min_length=8,
         max_length=128,
         description="Plaintext password for registration (minimum 8 characters)",
+    )
+    password_confirm: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        description="Password confirmation that must match password identically",
     )
     age: Optional[int] = Field(
         default=None,
@@ -153,6 +178,25 @@ class UserCreate(UserBase):
         default=UserRole.USER,
         description="Assigned user role",
     )
+
+    @model_validator(mode="after")
+    def validate_cross_field_invariants(self) -> Self:
+        """Enforce cross-field business invariants in O(1) space."""
+        # Invariant 1: Password Confirmation Match
+        if self.password != self.password_confirm:
+            raise ValueError("Passwords do not match.")
+
+        # Invariant 2: Credential Integrity (password must not contain username)
+        if self.username.lower() in self.password.lower():
+            raise ValueError("Password must not contain the username.")
+
+        # Invariant 3: Conditional Role Requirements (Enterprise requires company_name)
+        if self.role == UserRole.ENTERPRISE and (
+            not self.company_name or not self.company_name.strip()
+        ):
+            raise ValueError("company_name is strictly required when role is 'enterprise'.")
+
+        return self
 
 
 class UserUpdate(BaseModel):
@@ -182,6 +226,11 @@ class UserUpdate(BaseModel):
         default=None,
         max_length=500,
         description="Updated user biography with HTML tags automatically stripped",
+    )
+    company_name: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Updated organization or company name",
     )
     age: Optional[int] = Field(
         default=None,
@@ -224,6 +273,11 @@ class UserUpdate(BaseModel):
     def sanitize_bio(cls, v: Any) -> Any:
         return sanitize_bio_before(v)
 
+    @field_validator("company_name", mode="before")
+    @classmethod
+    def normalize_company_name(cls, v: Any) -> Any:
+        return sanitize_company_name_before(v)
+
 
 class UserProfileUpdate(BaseModel):
     """Input payload schema for updating user profile fields."""
@@ -248,6 +302,11 @@ class UserProfileUpdate(BaseModel):
         default=None,
         max_length=500,
         description="Updated user biography with HTML tags automatically stripped",
+    )
+    company_name: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Updated organization or company name",
     )
     age: Optional[int] = Field(
         default=None,
@@ -286,11 +345,17 @@ class UserProfileUpdate(BaseModel):
     def sanitize_bio(cls, v: Any) -> Any:
         return sanitize_bio_before(v)
 
+    @field_validator("company_name", mode="before")
+    @classmethod
+    def normalize_company_name(cls, v: Any) -> Any:
+        return sanitize_company_name_before(v)
+
 
 class UserResponse(UserBase):
     """Output response schema for returning user data.
 
-    Sensitive internal fields (e.g. password, password_hash) are strictly excluded.
+    Sensitive internal fields (e.g. password, password_hash) and transient validation
+    fields (e.g. password_confirm) are strictly excluded.
     """
 
     id: int = Field(..., description="Unique identifier of the user")

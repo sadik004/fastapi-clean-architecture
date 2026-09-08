@@ -93,27 +93,33 @@ All algorithms, data transformations, and data structures must be optimized for 
 7. **Pydantic Schemas & DTO Separation**: Separate schemas for creation (`UserCreate`), response projection (`UserResponse`), and partial mutations (`UserProfileUpdate`, `UserUpdate`). Internal entity fields (e.g. `password_hash`) must never be declared on response models.
 8. **Pydantic v2 Field Constraints**: Enforce length boundaries (`min_length`, `max_length`), regex patterns (`pattern`), numeric ranges (`ge`, `le`), and strict typing (`EmailStr`, `Enum`) directly in `Field()` to leverage C/Rust-speed validation in `pydantic-core`.
 9. **Schema-Level Sanitization with `@field_validator`**: Perform all input trimming, lowercase normalization, whitespace collapsing, and XSS HTML tag stripping at the schema boundary (`mode='before'`) and enforce business invariants (`mode='after'`).
-10. **Module-Level Pre-Compiled Regex**: Pre-compile all regex patterns (`re.compile(...)`) at module scope to eliminate regex compilation latency during request validation.
-11. **Module-Level `frozenset` Lookups**: Use `frozenset` collections for reserved keywords, blocked terms, or allowed lists to guarantee strictly $\mathcal{O}(1)$ membership testing.
-12. **Entity Hydration with ConfigDict**: Use `model_config = ConfigDict(from_attributes=True)` on response DTOs for safe serialization from domain models/entities without leaking non-schema fields.
-13. **Immutable Defaults & `default_factory`**: Never use mutable objects (`list`, `dict`) as default values in schemas or functions; always use `Field(default_factory=...)` to prevent reference leaks.
-14. **Dependency Injection via `Depends`**: Utilize FastAPI's `Depends` for providing abstract repository protocols and service instances into router endpoints.
-15. **Comprehensive Testing**: Every endpoint, repository method, and schema must have corresponding unit and integration tests under `tests/`.
+10. **Cross-Field Invariants with `@model_validator(mode='after')`**: Enforce multi-field rules (e.g., password confirmation matches, password-not-in-username, conditional role requirements) at the model level using `Self` return typing.
+11. **Direct Attribute Access on `self`**: Access attributes directly on `self` (e.g., `self.password`, `self.username`) inside `@model_validator` to avoid redundant dictionary allocations from `self.model_dump()`.
+12. **Transient Validation Field Exclusion**: Fields used solely for input validation (e.g. `password_confirm`) must remain transient to creation schemas and never leak into domain entities (`UserEntity`), repositories, or response schemas (`UserResponse`).
+13. **Module-Level Pre-Compiled Regex**: Pre-compile all regex patterns (`re.compile(...)`) at module scope to eliminate regex compilation latency during request validation.
+14. **Module-Level `frozenset` Lookups**: Use `frozenset` collections for reserved keywords, blocked terms, or allowed lists to guarantee strictly $\mathcal{O}(1)$ membership testing.
+15. **Entity Hydration with ConfigDict**: Use `model_config = ConfigDict(from_attributes=True)` on response DTOs for safe serialization from domain models/entities without leaking non-schema fields.
+16. **Immutable Defaults & `default_factory`**: Never use mutable objects (`list`, `dict`) as default values in schemas or functions; always use `Field(default_factory=...)` to prevent reference leaks.
+17. **Dependency Injection via `Depends`**: Utilize FastAPI's `Depends` for providing abstract repository protocols and service instances into router endpoints.
+18. **Comprehensive Testing**: Every endpoint, repository method, and schema must have corresponding unit and integration tests under `tests/`.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
 2. **Monolithic Spaghetti**: Putting router logic, DB queries, and schemas inside a single file or endpoint handler.
-3. **Cleaning Strings Inside Routers or Services**: Calling `.strip()`, `.lower()`, or string-cleaning utilities inside router endpoints or business logic instead of declaring Pydantic validators.
-4. **Re-Compiling Regex Inside Functions**: Executing `re.search(...)` or `re.compile(...)` inside function bodies or request handlers ($\mathcal{O}(m)$ compilation overhead per request).
-5. **$\mathcal{O}(n)$ List Scans for Blocked Terms**: Checking `if username in ['admin', 'root']` using lists rather than module-level hash sets (`frozenset`).
-6. **Manual Validation Inside Routers**: Parsing raw dicts, performing ad-hoc validation loops, or checking lengths/types manually inside router functions instead of relying on Pydantic DTOs.
-7. **Exposing Internal Entities**: Returning ORM models, domain entities (`UserEntity`), or raw database records directly to the client instead of mapping to strict response DTOs.
-8. **Memory Leaks from Dangling Indexes**: Deleting or updating entities in repositories without purging or synchronizing secondary inverted index maps.
-9. **$\mathcal{O}(n)$ Scans Over Storage**: Scanning lists or iterating over `_store.values()` when searching by unique identifier, email, or username.
-10. **Mutable Default Arguments**: Defining `def fn(items=[])` or `items: list = []` in Pydantic models or function signatures.
-11. **Direct DB in Routers**: Calling `db.query()`, `session.execute()`, or repository methods directly inside router handlers.
-12. **Untyped / `Any` shortcuts**: Using `Any` or omitting return types to bypass type checking.
-13. **Swallowing Exceptions**: Bare `except:` clauses without logging and proper error propagation.
+3. **Cross-Field Validation in Router or Service Bodies**: Writing `if password != confirm` or conditional field logic inside router functions or services instead of in `@model_validator(mode='after')`.
+4. **Calling `self.model_dump()` Inside Validators**: Converting models to dictionaries inside `@model_validator` handlers, causing needless heap allocations and slower validation.
+5. **Persisting Confirmation Fields to Database/Entity**: Storing transient validation artifacts like `password_confirm` in domain entities or databases.
+6. **Cleaning Strings Inside Routers or Services**: Calling `.strip()`, `.lower()`, or string-cleaning utilities inside router endpoints or business logic instead of declaring Pydantic validators.
+7. **Re-Compiling Regex Inside Functions**: Executing `re.search(...)` or `re.compile(...)` inside function bodies or request handlers ($\mathcal{O}(m)$ compilation overhead per request).
+8. **$\mathcal{O}(n)$ List Scans for Blocked Terms**: Checking `if username in ['admin', 'root']` using lists rather than module-level hash sets (`frozenset`).
+9. **Manual Validation Inside Routers**: Parsing raw dicts, performing ad-hoc validation loops, or checking lengths/types manually inside router functions instead of relying on Pydantic DTOs.
+10. **Exposing Internal Entities**: Returning ORM models, domain entities (`UserEntity`), or raw database records directly to the client instead of mapping to strict response DTOs.
+11. **Memory Leaks from Dangling Indexes**: Deleting or updating entities in repositories without purging or synchronizing secondary inverted index maps.
+12. **$\mathcal{O}(n)$ Scans Over Storage**: Scanning lists or iterating over `_store.values()` when searching by unique identifier, email, or username.
+13. **Mutable Default Arguments**: Defining `def fn(items=[])` or `items: list = []` in Pydantic models or function signatures.
+14. **Direct DB in Routers**: Calling `db.query()`, `session.execute()`, or repository methods directly inside router handlers.
+15. **Untyped / `Any` shortcuts**: Using `Any` or omitting return types to bypass type checking.
+16. **Swallowing Exceptions**: Bare `except:` clauses without logging and proper error propagation.
 
 ---
 

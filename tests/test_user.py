@@ -36,6 +36,7 @@ def test_create_user_success(client: TestClient) -> None:
         "email": "lead.architect@example.com",
         "username": "lead_architect",
         "password": "SuperSecretPassword123",
+        "password_confirm": "SuperSecretPassword123",
         "age": 28,
         "role": "admin",
     }
@@ -50,9 +51,10 @@ def test_create_user_success(client: TestClient) -> None:
     assert data["is_active"] is True
     assert "created_at" in data
 
-    # Strict sensitive field exclusion guarantee
+    # Strict sensitive and transient field exclusion guarantee
     assert "password" not in data
     assert "password_hash" not in data
+    assert "password_confirm" not in data
 
 
 def test_create_user_duplicate_email(client: TestClient) -> None:
@@ -61,6 +63,7 @@ def test_create_user_duplicate_email(client: TestClient) -> None:
         "email": "duplicate@example.com",
         "username": "user_one",
         "password": "ValidPassword123!",
+        "password_confirm": "ValidPassword123!",
     }
     first_resp = client.post("/users/", json=payload)
     assert first_resp.status_code == 201
@@ -69,6 +72,7 @@ def test_create_user_duplicate_email(client: TestClient) -> None:
         "email": "duplicate@example.com",
         "username": "user_two",
         "password": "ValidPassword123!",
+        "password_confirm": "ValidPassword123!",
     }
     second_resp = client.post("/users/", json=duplicate_payload)
     assert second_resp.status_code == 409
@@ -81,6 +85,7 @@ def test_create_user_duplicate_username(client: TestClient) -> None:
         "email": "first@example.com",
         "username": "same_handle",
         "password": "ValidPassword123!",
+        "password_confirm": "ValidPassword123!",
     }
     first_resp = client.post("/users/", json=payload)
     assert first_resp.status_code == 201
@@ -89,6 +94,7 @@ def test_create_user_duplicate_username(client: TestClient) -> None:
         "email": "second@example.com",
         "username": "same_handle",
         "password": "ValidPassword123!",
+        "password_confirm": "ValidPassword123!",
     }
     second_resp = client.post("/users/", json=duplicate_payload)
     assert second_resp.status_code == 409
@@ -114,6 +120,7 @@ def test_create_user_validation_failures(
         "email": "valid@example.com",
         "username": "valid_user",
         "password": "ValidPassword123!",
+        "password_confirm": "ValidPassword123!",
         "age": 25,
         field: invalid_val,
     }
@@ -131,6 +138,7 @@ def test_get_user_by_id_success(client: TestClient) -> None:
             "email": "fetch@example.com",
             "username": "fetch_user",
             "password": "ValidPassword123!",
+            "password_confirm": "ValidPassword123!",
         },
     )
     assert create_resp.status_code == 201
@@ -143,6 +151,7 @@ def test_get_user_by_id_success(client: TestClient) -> None:
     assert data["email"] == "fetch@example.com"
     assert "password" not in data
     assert "password_hash" not in data
+    assert "password_confirm" not in data
 
 
 def test_get_user_by_id_not_found(client: TestClient) -> None:
@@ -160,6 +169,7 @@ def test_patch_user_profile_success(client: TestClient) -> None:
             "email": "profile@example.com",
             "username": "original_name",
             "password": "ValidPassword123!",
+            "password_confirm": "ValidPassword123!",
             "age": 21,
         },
     )
@@ -175,6 +185,7 @@ def test_patch_user_profile_success(client: TestClient) -> None:
     assert data["age"] == 22
     assert "password" not in data
     assert "password_hash" not in data
+    assert "password_confirm" not in data
 
 
 def test_patch_user_profile_validation_error(client: TestClient) -> None:
@@ -185,6 +196,7 @@ def test_patch_user_profile_validation_error(client: TestClient) -> None:
             "email": "profile_val@example.com",
             "username": "profile_val",
             "password": "ValidPassword123!",
+            "password_confirm": "ValidPassword123!",
         },
     )
     user_id = create_resp.json()["id"]
@@ -201,6 +213,7 @@ def test_patch_user_profile_duplicate_username(client: TestClient) -> None:
             "email": "user1@example.com",
             "username": "taken_handle",
             "password": "ValidPassword123!",
+            "password_confirm": "ValidPassword123!",
         },
     )
     second_user = client.post(
@@ -209,6 +222,7 @@ def test_patch_user_profile_duplicate_username(client: TestClient) -> None:
             "email": "user2@example.com",
             "username": "second_handle",
             "password": "ValidPassword123!",
+            "password_confirm": "ValidPassword123!",
         },
     ).json()
 
@@ -234,6 +248,7 @@ def test_list_users(client: TestClient) -> None:
             "email": "u1@example.com",
             "username": "user1",
             "password": "ValidPassword123!",
+            "password_confirm": "ValidPassword123!",
         },
     )
     client.post(
@@ -242,6 +257,7 @@ def test_list_users(client: TestClient) -> None:
             "email": "u2@example.com",
             "username": "user2",
             "password": "ValidPassword123!",
+            "password_confirm": "ValidPassword123!",
         },
     )
 
@@ -253,6 +269,7 @@ def test_list_users(client: TestClient) -> None:
     for u in data:
         assert "password" not in u
         assert "password_hash" not in u
+        assert "password_confirm" not in u
 
 
 def test_create_user_with_sanitized_inputs(client: TestClient) -> None:
@@ -261,6 +278,7 @@ def test_create_user_with_sanitized_inputs(client: TestClient) -> None:
         "email": "sanitized@example.com",
         "username": "   SuperCoder_99   ",
         "password": "SecurePassword123!",
+        "password_confirm": "SecurePassword123!",
         "full_name": "  alan     mathison   turing  ",
         "phone_number": "   +14155552671   ",
         "bio": "<script>alert('xss')</script>Pioneer in <b>Computer Science</b>.",
@@ -291,6 +309,7 @@ def test_create_user_rejects_reserved_username(
         "email": "reserved@example.com",
         "username": reserved_name,
         "password": "SecurePassword123!",
+        "password_confirm": "SecurePassword123!",
     }
     response = client.post("/users/", json=payload)
     assert response.status_code == 422
@@ -303,6 +322,7 @@ def test_create_user_rejects_consecutive_underscores(client: TestClient) -> None
         "email": "underscores@example.com",
         "username": "invalid__handle",
         "password": "SecurePassword123!",
+        "password_confirm": "SecurePassword123!",
     }
     response = client.post("/users/", json=payload)
     assert response.status_code == 422
@@ -315,9 +335,67 @@ def test_create_user_rejects_invalid_phone(client: TestClient) -> None:
         "email": "badphone@example.com",
         "username": "valid_user",
         "password": "SecurePassword123!",
+        "password_confirm": "SecurePassword123!",
         "phone_number": "14155552671",  # missing leading +
     }
     response = client.post("/users/", json=payload)
     assert response.status_code == 422
     assert "E.164" in response.text
 
+
+def test_create_user_password_mismatch_returns_422(client: TestClient) -> None:
+    """Verify POST /users/ returns HTTP 422 when password and password_confirm do not match."""
+    payload = {
+        "email": "mismatch@example.com",
+        "username": "mismatch_user",
+        "password": "SecurePassword123!",
+        "password_confirm": "DifferentPassword123!",
+    }
+    response = client.post("/users/", json=payload)
+    assert response.status_code == 422
+    assert "Passwords do not match." in response.text
+
+
+def test_create_user_password_containing_username_returns_422(client: TestClient) -> None:
+    """Verify POST /users/ returns HTTP 422 when password contains username."""
+    payload = {
+        "email": "trivial@example.com",
+        "username": "john_coder",
+        "password": "Super_john_coder_123!",
+        "password_confirm": "Super_john_coder_123!",
+    }
+    response = client.post("/users/", json=payload)
+    assert response.status_code == 422
+    assert "Password must not contain the username." in response.text
+
+
+def test_create_user_enterprise_requires_company_name(client: TestClient) -> None:
+    """Verify POST /users/ returns HTTP 422 when role=enterprise without company_name."""
+    payload = {
+        "email": "enterprise@example.com",
+        "username": "enterprise_user",
+        "password": "SecurePassword123!",
+        "password_confirm": "SecurePassword123!",
+        "role": "enterprise",
+    }
+    response = client.post("/users/", json=payload)
+    assert response.status_code == 422
+    assert "company_name is strictly required when role is 'enterprise'." in response.text
+
+
+def test_create_user_enterprise_with_company_name_succeeds(client: TestClient) -> None:
+    """Verify POST /users/ returns HTTP 201 when role=enterprise with company_name."""
+    payload = {
+        "email": "corp@example.com",
+        "username": "corp_admin",
+        "password": "SecurePassword123!",
+        "password_confirm": "SecurePassword123!",
+        "role": "enterprise",
+        "company_name": "Antigravity Systems Inc.",
+    }
+    response = client.post("/users/", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["role"] == "enterprise"
+    assert data["company_name"] == "Antigravity Systems Inc."
+    assert "password_confirm" not in data

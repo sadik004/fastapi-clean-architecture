@@ -14,6 +14,7 @@ def test_user_create_valid_minimal() -> None:
         email="jane.doe@example.com",
         username="jane_doe",
         password="strongpassword123",
+        password_confirm="strongpassword123",
     )
     assert user.email == "jane.doe@example.com"
     assert user.username == "jane_doe"
@@ -28,6 +29,7 @@ def test_user_create_valid_full() -> None:
         email="admin.user@example.com",
         username="admin_99",
         password="SecurePassword#2026",
+        password_confirm="SecurePassword#2026",
         age=30,
         role=UserRole.ADMIN,
     )
@@ -53,6 +55,7 @@ def test_user_create_invalid_username(invalid_username: str) -> None:
             email="valid@example.com",
             username=invalid_username,
             password="validpassword123",
+            password_confirm="validpassword123",
         )
     assert "username" in str(exc_info.value)
 
@@ -73,6 +76,7 @@ def test_user_create_invalid_email(invalid_email: str) -> None:
             email=invalid_email,
             username="valid_user",
             password="validpassword123",
+            password_confirm="validpassword123",
         )
     assert "email" in str(exc_info.value)
 
@@ -85,6 +89,7 @@ def test_user_create_invalid_age(invalid_age: int) -> None:
             email="valid@example.com",
             username="valid_user",
             password="validpassword123",
+            password_confirm="validpassword123",
             age=invalid_age,
         )
     assert "age" in str(exc_info.value)
@@ -97,6 +102,7 @@ def test_user_create_valid_age_boundaries(valid_age: int) -> None:
         email="valid@example.com",
         username="valid_user",
         password="validpassword123",
+        password_confirm="validpassword123",
         age=valid_age,
     )
     assert user.age == valid_age
@@ -109,6 +115,7 @@ def test_user_create_invalid_password_length() -> None:
             email="valid@example.com",
             username="valid_user",
             password="short",
+            password_confirm="short",
         )
     assert "password" in str(exc_info.value)
 
@@ -120,6 +127,7 @@ def test_user_create_invalid_role() -> None:
             email="valid@example.com",
             username="valid_user",
             password="validpassword123",
+            password_confirm="validpassword123",
             role="superadmin",  # type: ignore[arg-type]
         )
     assert "role" in str(exc_info.value)
@@ -153,7 +161,7 @@ def test_user_profile_update_invalid_fields() -> None:
 
 
 def test_user_response_excludes_sensitive_fields() -> None:
-    """Verify UserResponse never exposes password or password_hash."""
+    """Verify UserResponse never exposes password, password_hash, or password_confirm."""
     entity = UserEntity(
         id=1,
         email="architect@example.com",
@@ -163,6 +171,7 @@ def test_user_response_excludes_sensitive_fields() -> None:
         created_at=datetime.now(timezone.utc),
         age=32,
         role="user",
+        company_name="Tech Corp",
     )
 
     response = UserResponse.model_validate(entity)
@@ -173,11 +182,14 @@ def test_user_response_excludes_sensitive_fields() -> None:
     assert dumped["username"] == "architect_01"
     assert dumped["age"] == 32
     assert dumped["role"] == UserRole.USER
+    assert dumped["company_name"] == "Tech Corp"
     assert dumped["is_active"] is True
     assert "created_at" in dumped
 
-    # Strict guarantee: sensitive fields are not in the response model or dump
+    # Strict guarantee: sensitive and transient fields are not in the response model or dump
     assert "password" not in dumped
     assert "password_hash" not in dumped
+    assert "password_confirm" not in dumped
     assert not hasattr(response, "password")
     assert not hasattr(response, "password_hash")
+    assert not hasattr(response, "password_confirm")
