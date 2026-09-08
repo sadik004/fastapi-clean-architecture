@@ -115,6 +115,8 @@ All algorithms, data transformations, and data structures must be optimized for 
 29. **Parameterized Callable Class Dependencies**: Implement complex authorization guards as callable classes (`__init__` storing immutable state and `__call__` resolving dependencies via `Depends()`), enabling flexible, reusable decorators like `Depends(RoleChecker([UserRole.ADMIN, UserRole.ENTERPRISE]))` with $\mathcal{O}(1)$ `frozenset` membership checking.
 30. **Chained Hierarchical Sub-Dependencies for IDOR Prevention**: Structure authorization guards as chained dependencies that resolve both path parameters (`user_id: Path(...)`) and authenticated user context (`current_user: Depends(get_current_user)`), enforcing ownership boundaries declaratively before endpoint logic executes.
 31. **Request-Scoped DAG Memoization (`use_cache=True`)**: Leverage FastAPI's built-in dependency memoization to share sub-dependency evaluations (e.g. `get_current_user`) across multiple branches of the request dependency graph without redundant queries or computation.
+32. **Two-Phase Generator Dependencies with `yield`**: Structure resource lifecycle dependencies (transactions, database sessions, audit contexts) as generator functions with `yield`, performing acquisition in Phase 1 (pre-yield) and guaranteed teardown in Phase 2 (post-yield).
+33. **Exception-Safe Transactional Cleanup via `try...except...finally`**: In generator dependencies, always wrap `yield` in `try...except...finally:`: commit on normal execution, roll back on exception and re-raise, and unconditionally release sessions/locks in `finally:` to guarantee zero leaked resources under any HTTP status code.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -144,6 +146,8 @@ All algorithms, data transformations, and data structures must be optimized for 
 25. **Imperative Authorization Logic Inside Router Bodies**: Writing manual role or ownership checks (e.g. `if current_user.id != user_id: raise HTTPException(403)`) inside endpoint handler functions instead of enforcing them declaratively via `Depends()`.
 26. **Copy-Pasting Role Matrices Across Endpoints**: Hardcoding lists of allowed roles or permissions repeatedly inside individual route definitions instead of utilizing parameterized callable dependencies (`RoleChecker`).
 27. **Self-Referential Dependency Overrides**: Assigning a mock or spy in `app.dependency_overrides` that declares a dependency on the exact function being overridden, causing infinite recursion (`RecursionError`) during dependency resolution.
+28. **Omitting `finally:` in Generator Dependencies**: Placing cleanup code after `yield` without a `finally:` block, causing resource leaks (dangling database connections, uncommitted locks, orphaned sessions) whenever an endpoint or validation raises an `HTTPException`.
+29. **Manual Resource Teardown in Router Endpoints**: Imperatively managing session commits, rollbacks, or lock releases (`session.commit()`, `db.rollback()`) inside individual endpoint handlers instead of delegating lifecycle management to declarative `yield` dependencies.
 
 ---
 

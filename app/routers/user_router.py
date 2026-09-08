@@ -5,11 +5,16 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, st
 
 from app.core.dependencies import (
     RoleChecker,
+    ScopedTransactionContext,
+    TransactionStatus,
     get_current_active_admin,
     get_current_user,
+    get_transaction_context,
     get_user_repository,
     get_user_service,
     require_user_ownership,
+    track_request_lifecycle,
+    transaction_manager,
 )
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.repositories.user_repository import UserEntity
@@ -27,12 +32,17 @@ router = APIRouter(prefix="/users", tags=["Users"])
 # Re-export for backwards compatibility with existing test suites
 __all__ = [
     "RoleChecker",
+    "ScopedTransactionContext",
+    "TransactionStatus",
     "get_current_active_admin",
     "get_current_user",
+    "get_transaction_context",
     "get_user_repository",
     "get_user_service",
     "require_user_ownership",
     "router",
+    "track_request_lifecycle",
+    "transaction_manager",
 ]
 
 
@@ -45,8 +55,11 @@ __all__ = [
 def create_user(
     payload: UserCreate,
     service: Annotated[UserService, Depends(get_user_service)],
+    tx: Annotated[ScopedTransactionContext, Depends(get_transaction_context)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to register a new user."""
+    if tx is not None:
+        tx.stage(f"create_user:{payload.username}")
     try:
         created_user = service.register_user(payload=payload)
         return UserResponse.model_validate(created_user)
@@ -209,8 +222,11 @@ def update_user(
     ),
     authorized_user: Annotated[UserEntity, Depends(require_user_ownership)] = None,  # type: ignore[assignment]
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+    tx: Annotated[ScopedTransactionContext, Depends(get_transaction_context)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to update user attributes."""
+    if tx is not None:
+        tx.stage(f"update_user:{user_id}")
     try:
         updated_user = service.update_user(user_id=user_id, payload=payload)
         return UserResponse.model_validate(updated_user)
@@ -242,8 +258,11 @@ def update_user_profile(
     ),
     authorized_user: Annotated[UserEntity, Depends(require_user_ownership)] = None,  # type: ignore[assignment]
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+    tx: Annotated[ScopedTransactionContext, Depends(get_transaction_context)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to partially update user profile attributes."""
+    if tx is not None:
+        tx.stage(f"patch_user:{user_id}")
     try:
         updated_user = service.update_profile(user_id=user_id, payload=payload)
         return UserResponse.model_validate(updated_user)
@@ -273,8 +292,11 @@ def delete_user(
     ),
     current_admin: Annotated[UserEntity, Depends(get_current_active_admin)] = None,  # type: ignore[assignment]
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+    tx: Annotated[ScopedTransactionContext, Depends(get_transaction_context)] = None,  # type: ignore[assignment]
 ) -> Response:
     """Endpoint to delete a user by ID."""
+    if tx is not None:
+        tx.stage(f"delete_user:{user_id}")
     try:
         service.delete_user(user_id=user_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)

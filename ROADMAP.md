@@ -20,7 +20,7 @@ Tracking Legend:
 - [x] **Day 07**: Pytest Architecture, TestClient Mastery & Parametrized Verification
 - [x] **Day 08**: FastAPI Dependency Injection Architecture (Cached AppConfig & Declarative Auth Guard)
 - [x] **Day 09**: Dependency Chaining, Sub-Dependencies & Parameterized Class Guards
-- [ ] **Day 10**: Service Layer Decoupling & Pure Business Logic Isolation
+- [x] **Day 10**: Dependency Lifecycle Cleanup (The yield Mechanism, Two-Phase Context & Transactional Teardown)
 - [ ] **Day 11**: Global Error Handling & Consistent JSON Error Schemas
 - [ ] **Day 12**: Pydantic Settings & Environment Configurations (`.env`)
 - [ ] **Day 13**: Request ID Middleware & Correlation Tracing

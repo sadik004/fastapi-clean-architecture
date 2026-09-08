@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.core.dependencies import transaction_manager
 from app.main import app
 from app.repositories.user_repository import UserRepositoryProtocol
 from app.routers.user_router import get_user_repository
@@ -12,11 +13,13 @@ from app.routers.user_router import get_user_repository
 
 @pytest.fixture(autouse=True)
 def clean_repo() -> Generator[UserRepositoryProtocol, None, None]:
-    """Autouse fixture ensuring clean, isolated repository state before and after every test."""
+    """Autouse fixture ensuring clean, isolated repository and transaction state before and after every test."""
     repo = get_user_repository()
     repo.clear()
+    transaction_manager.clear()
     yield repo
     repo.clear()
+    transaction_manager.clear()
 
 
 @pytest.fixture
