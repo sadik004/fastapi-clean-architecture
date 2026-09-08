@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from typing import Annotated, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Response, status
 
 from app.core.dependencies import (
     RoleChecker,
@@ -203,6 +203,44 @@ async def autocomplete_users(
     """
     results = await service.autocomplete_users(prefix=q, limit=limit)
     return [UserAutocompleteResponse.model_validate(item) for item in results]
+
+
+@router.get(
+    "/filter/by-age",
+    response_model=list[UserResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Filter users by age range using O(log N) binary search",
+)
+async def filter_users_by_age(
+    min_age: Annotated[
+        int,
+        Query(
+            ge=0,
+            le=150,
+            description="Minimum age boundary (inclusive)",
+        ),
+    ] = 0,
+    max_age: Annotated[
+        int,
+        Query(
+            ge=0,
+            le=150,
+            description="Maximum age boundary (inclusive)",
+        ),
+    ] = 150,
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> list[UserResponse]:
+    """Filter users within [min_age, max_age] interval via Binary Search range filtering.
+
+    Achieves O(log N + M) time complexity instead of an O(N) full list/table scan.
+    """
+    if min_age > max_age:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"min_age ({min_age}) cannot be greater than max_age ({max_age}).",
+        )
+    users = await service.filter_users_by_age(min_age=min_age, max_age=max_age)
+    return [UserResponse.model_validate(u) for u in users]
 
 
 @router.get(

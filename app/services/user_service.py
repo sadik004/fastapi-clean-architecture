@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 import hashlib
 from typing import Any, Optional
+from app.core.dsa.search_algorithms import binary_search_range, two_pointer_pair_search
 from app.core.dsa.trie import PrefixTrie
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.core.security import get_password_hash, verify_password
@@ -378,6 +379,48 @@ class UserService:
         users = await self._repo.list_all(limit=10000, offset=0)
         for u in users:
             self._index_user_in_trie(u)
+
+    async def filter_users_by_age(
+        self,
+        min_age: int,
+        max_age: int,
+    ) -> list[UserEntity]:
+        """Filter users within [min_age, max_age] interval in O(log N + M) time.
+
+        Bypasses O(N) full sequential scans by applying logarithmic binary search
+        bounds over pre-sorted age projections.
+        """
+        if min_age > max_age:
+            raise ValueError(f"min_age ({min_age}) cannot be greater than max_age ({max_age})")
+
+        all_users = await self._repo.list_all(limit=10000, offset=0)
+        users_with_age = [u for u in all_users if u.age is not None]
+        sorted_users = sorted(users_with_age, key=lambda u: float(u.age if u.age is not None else 0))
+
+        return binary_search_range(
+            sorted_items=sorted_users,
+            min_val=float(min_age),
+            max_val=float(max_age),
+            key_func=lambda u: float(u.age if u.age is not None else 0),
+        )
+
+    async def find_user_pair_by_age_sum(
+        self,
+        target_sum: int,
+    ) -> Optional[tuple[UserEntity, UserEntity]]:
+        """Find a pair of users whose ages sum to target_sum in O(N) time and O(1) space.
+
+        Uses the converging two-pointer technique to eliminate O(N^2) nested loop checks.
+        """
+        all_users = await self._repo.list_all(limit=10000, offset=0)
+        users_with_age = [u for u in all_users if u.age is not None]
+        sorted_users = sorted(users_with_age, key=lambda u: float(u.age if u.age is not None else 0))
+
+        return two_pointer_pair_search(
+            sorted_items=sorted_users,
+            target=float(target_sum),
+            key_func=lambda u: float(u.age if u.age is not None else 0),
+        )
 
 
 

@@ -7,6 +7,11 @@ from app.core.dsa.priority_queue import (
     PriorityJob,
     PriorityJobScheduler,
 )
+from app.core.dsa.search_algorithms import (
+    binary_search_bounds,
+    binary_search_range,
+    two_pointer_pair_search,
+)
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.core.dsa.trie import PrefixTrie, TrieNode
 
@@ -19,6 +24,9 @@ __all__ = [
     "PriorityJobScheduler",
     "SlidingWindowLog",
     "TrieNode",
+    "binary_search_bounds",
+    "binary_search_range",
     "diagnose_hash_health",
     "measure_memory_footprint",
+    "two_pointer_pair_search",
 ]
