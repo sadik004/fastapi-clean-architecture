@@ -7,6 +7,7 @@ from app.core.dsa.priority_queue import (
     PriorityJob,
     PriorityJobScheduler,
 )
+from app.core.dsa.sliding_window import SlidingWindowLog
 from app.core.dsa.trie import PrefixTrie, TrieNode
 
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     "PrefixTrie",
     "PriorityJob",
     "PriorityJobScheduler",
+    "SlidingWindowLog",
     "TrieNode",
     "diagnose_hash_health",
     "measure_memory_footprint",

@@ -4,7 +4,9 @@ import uuid
 from collections.abc import Generator, Sequence
 from enum import Enum
 from typing import Annotated, Any, Optional
-from fastapi import Depends, Header, HTTPException, Path, status
+from fastapi import Depends, Header, HTTPException, Path, Request, status
+
+from app.core.dsa.sliding_window import SlidingWindowLog
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -320,4 +322,62 @@ def track_request_lifecycle() -> Generator[RequestLifecycleContext, None, None]:
         yield ctx
     finally:
         ctx.complete()
+
+
+# Global sliding window rate limiter instance (default 60s, 100 requests)
+_global_rate_limiter = SlidingWindowLog(window_seconds=60.0, max_requests=100)
+
+
+def get_global_rate_limiter() -> SlidingWindowLog:
+    """Dependency provider returning the shared global rate limiter instance."""
+    return _global_rate_limiter
+
+
+class SlidingWindowRateLimiterDependency:
+    """Callable FastAPI dependency enforcing sliding window rate limits per client."""
+
+    def __init__(
+        self,
+        window: float = 60.0,
+        limit: int = 100,
+        limiter: Optional[SlidingWindowLog] = None,
+    ) -> None:
+        self.window = window
+        self.limit = limit
+        self.limiter = limiter or _global_rate_limiter
+
+    async def __call__(self, request: Request) -> str:
+        """Extract client identifier and enforce sliding window rate limit.
+
+        Raises:
+            HTTPException(429) with Retry-After header if limit is breached.
+        """
+        # Resolve client identifier: prefer X-Forwarded-For if behind reverse proxy, else client.host
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            client_id = forwarded_for.split(",")[0].strip()
+        elif request.client and request.client.host:
+            client_id = request.client.host
+        else:
+            client_id = "127.0.0.1"
+
+        allowed, count, retry_after = self.limiter.record_and_check(client_id)
+        if not allowed:
+            retry_seconds = max(1, int(retry_after) + 1)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too Many Requests: Rate limit exceeded",
+                headers={"Retry-After": str(retry_seconds)},
+            )
+        return client_id
+
+
+def check_sliding_window_rate_limit(
+    window: float = 60.0,
+    limit: int = 100,
+    limiter: Optional[SlidingWindowLog] = None,
+) -> SlidingWindowRateLimiterDependency:
+    """Factory creating a reusable SlidingWindowRateLimiter dependency."""
+    return SlidingWindowRateLimiterDependency(window=window, limit=limit, limiter=limiter)
+
 

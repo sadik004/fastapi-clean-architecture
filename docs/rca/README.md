@@ -31,6 +31,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 22** | [Slotted Dataclasses & PEP 412 Split Tables](day-22_slotted_dataclass_memory_optimization_and_pep412_split_table.md) | Enforced `@dataclass(slots=True)` across domain entities eliminating `__dict__` overhead; preserved slotted subclass hierarchies; calibrated dual-mode memory benchmarks for PEP 412. |
 | **Day 23** | [Annotated Query Defaults & Trie Branch Pruning](day-23_trie_annotated_query_default_and_deletion_pruning.md) | Resolved FastAPI `Annotated` query parameter default conflict; implemented recursive bottom-up node pruning on trie deletion; enforced literal route precedence for `/autocomplete`. |
 | **Day 24** | [Dataclass Comparator Dict Crash & Latency Jitter](day-24_heapq_dataclass_comparator_dict_crash_and_latency_jitter.md) | Excluded unorderable fields via `field(compare=False)` in slotted priority job dataclass; provided monotonic FIFO tie-breakers; calibrated test latency tolerance. |
+| **Day 25** | [Boundary Burst Defect & Idle Memory Leaks](day-25_sliding_window_boundary_burst_and_idle_memory_leak.md) | Prevented 2x boundary spikes via Sliding Window Log continuous rolling horizon; implemented active zero-leak memory sweeps for ephemeral client IDs. |
 
 ---
 

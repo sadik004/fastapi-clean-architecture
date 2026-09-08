@@ -39,7 +39,7 @@ Tracking Legend:
 - [x] **Day 22**: Deep Memory Optimization with __slots__ & Slotted Dataclasses
 - [x] **Day 23**: The Trie (Prefix Tree) Data Structure for O(k) Sub-Millisecond Autocomplete Search
 - [x] **Day 24**: Priority Queue (heapq) Architecture for Priority-Based Background Job Scheduling
-- [ ] **Day 25**: Test Fixtures, Scopes & Database Lifecycle in Pytest
+- [x] **Day 25**: Sliding Window Log Algorithm for In-Memory Request Rate Limiting & Zero-Leak Monitoring
 - [ ] **Day 26**: Strict Type Safety with Mypy (`mypy --strict`)
 - [ ] **Day 27**: Code Quality, Formatting & Linting Automation with Ruff
 - [ ] **Day 28**: API Versioning Strategies (URL Path vs Header-Based)
