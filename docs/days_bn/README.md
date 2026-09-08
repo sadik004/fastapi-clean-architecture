@@ -6,7 +6,7 @@
 
 ---
 
-## দিন ০১ থেকে ২৫: মাস্টার ইনডেক্স টেবিল (Master Index)
+## দিন ০১ থেকে ৩০: মাস ১ সম্পন্ন ও সিলগালা (Month 1 Master Index - Sealed v1.0.0)
 
 | দিন (Day) | মূল বিষয়বস্তু (Topic) | ব্যবহৃত DSA (Exact DSA Name) | বাস্তব জীবনের উপমা (Real-World Analogy) | মূল টেকনিক্যাল লজিক ও প্রোডাকশন সিনারিও | বিস্তারিত গাইড লিঙ্ক |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -39,6 +39,7 @@
 | **Day 27** | **কাস্টম ASGI মিডলওয়্যার** (Custom ASGI Middleware, Latency Tracking & Security Headers) | ASGI Pipeline Middleware Onion Wrapping Pattern & Direct Header Hash Map Mutation | বিমানবন্দরের সেন্ট্রাল সিকিউরিটি ও এন্ট্রি টাইম-স্ট্যাম্প গেট | `time.perf_counter()` দিয়ে সাব-মাইক্রোসেকেন্ড প্রসেস টাইম (`X-Process-Time-Ms`); ইউনিক `X-Request-ID` ও `request.state` বাইন্ডিং; ৫টি OWASP সিকিউরিটি হেডার ইনজেকশন; এরর এনভেলপ `trace_id`-র সাথে ১০০% সিঙ্ক। | [Day 27 বিস্তারিত গাইড](day-27.md) |
 | **Day 28** | **অ্যাডভান্সড অ্যাসিনক্রোনাস টেস্টিং** (Advanced Async Testing with pytest-asyncio, AsyncMock & Dependency Overrides) | Async Test Double Pattern, Dynamic Dependency Inversion Overrides & In-Memory Coroutine Spying | পাইলটের ফ্লাইট সিমুলেটর ও সিনেমার স্টান্টম্যানের ডামি | `AsyncMock(spec=...)` দিয়ে জিরো-আই/ও মেমোরি টেস্ট; ডাটাবেস ও ডিস্ক ক্র্যাশ ফেলিউর ইনজেকশন (`side_effect`); এসএমটিপি টাইমআউট আইসোলেশন; `app.dependency_overrides` দিয়ে সাব-মিলিসেকেন্ড রাউট টেস্ট। | [Day 28 বিস্তারিত গাইড](day-28.md) |
 | **Day 29** | **জিরো-টলারেন্স টাইপ সেফটি ও রাস্ট লিন্টার** (Zero-Tolerance Static Type Safety & Rust-Powered Linting Audit) | Abstract Syntax Tree (AST) Traversal ($\mathcal{O}(V + E)$) & Directed Acyclic Type Lattice | ওষুধ কারখানার এক্স-রে স্ক্যানার ও আল্ট্রা-প্রিসিশন কোয়ালিটি গেটওয়ে | `mypy --strict` ও `ruff` দিয়ে ৭৫টি ফাইলে ১০০% টাইপ সেফটি; প্রোডাকশনে `print()` সম্পূর্ণ নিষিদ্ধ (`T201`); কোনো `# type: ignore` ছাড়া জিরো ওয়ার্নিং কোয়ালিটি গেট। | [Day 29 বিস্তারিত গাইড](day-29.md) |
+| **Day 30** | **মাস ১ কনসোলিডেশন, স্কিল সিলগালা ও গ্র্যাজুয়েশন** (Month 1 Consolidation, Skill Sealing & Foundation Graduation) | Master Skill Sealing & Semantic Milestone Baseline (`v1.0.0-month1-core`) | মার্শাল আর্টসে ব্ল্যাক-বেল্ট অর্জন ও সিলমোহর দেওয়া প্রাচীন মাস্টার স্ক্রোল | প্রথম মাসের ৯৮টি গুড প্যাটার্ন ও ৮৪টি অ্যান্টি-প্যাটার্ন একত্র করে `.agents/skills/fastapi-core/SKILL.md`-এ সিলগালা; ৩৫৫টি টেস্ট ১০০% গ্রিন; সেমান্টিক ট্যাগ `v1.0.0-month1-core` রিলিজ। | [Day 30 বিস্তারিত গাইড](day-30.md) |
 
 ---
 
