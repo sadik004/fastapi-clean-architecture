@@ -1,6 +1,5 @@
 # RCA: Day 04 Regex Re-compilation & $\mathcal{O}(m)$ Keyword List Scans
 
-- **Date**: 2026-09-08
 - **Trigger**: Performance audit during custom `@field_validator` implementation.
 
 ---

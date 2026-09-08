@@ -1,6 +1,5 @@
 # RCA: Day 06 Path & Query Validation, Domain Exception Typing, and OpenAPI 3.1 Schema Traps
 
-- **Date**: 2026-09-08
 - **Trigger**: Test failure & Mypy `--strict` type errors during Day 06 implementation.
 
 ---

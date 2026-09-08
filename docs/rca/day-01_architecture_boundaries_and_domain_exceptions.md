@@ -1,6 +1,5 @@
 # RCA: Day 01 3-Tier Layer Coupling & In-Memory Linear Scan Trap
 
-- **Date**: 2026-09-08
 - **Trigger**: Architectural boundary audit during initial project initialization.
 
 ---

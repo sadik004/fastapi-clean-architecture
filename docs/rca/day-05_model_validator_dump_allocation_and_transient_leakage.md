@@ -1,6 +1,5 @@
 # RCA: Day 05 `model_dump()` Allocation Overhead & Transient Validation Field Leakage
 
-- **Date**: 2026-09-08
 - **Trigger**: Cross-field invariant code review during Day 05 implementation.
 
 ---

@@ -1,6 +1,5 @@
 # RCA: Day 03 Repository Secondary Index Desynchronization & Ghost Keys
 
-- **Date**: 2026-09-08
 - **Trigger**: Integration test failure during user update and re-registration after deletion.
 
 ---

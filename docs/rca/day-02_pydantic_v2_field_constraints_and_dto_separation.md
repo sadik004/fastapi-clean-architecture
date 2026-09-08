@@ -1,6 +1,5 @@
 # RCA: Day 02 Sensitive Credential Leakage & DTO Boundary Violations
 
-- **Date**: 2026-09-08
 - **Trigger**: Schema design audit during Pydantic v2 migration.
 
 ---
