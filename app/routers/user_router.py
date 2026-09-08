@@ -22,6 +22,7 @@ from app.schemas.user import (
     UserCreate,
     UserDashboardResponse,
     UserProfileUpdate,
+    UserReportResponse,
     UserResponse,
     UserRole,
     UserUpdate,
@@ -189,6 +190,33 @@ async def get_user_dashboard(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=exc.message,
         ) from exc
+
+
+@router.post(
+    "/{user_id}/export-report",
+    response_model=UserReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate CPU-bound analytical user report offloaded to worker thread",
+)
+async def export_user_report(
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the user",
+    ),
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> UserReportResponse:
+    """Endpoint triggering heavy report calculation offloaded via asyncio.to_thread."""
+    try:
+        report = await service.generate_user_report(user_id=user_id)
+        return UserReportResponse.model_validate(report)
+    except UserNotFoundException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        ) from exc
+
 
 
 @router.get(

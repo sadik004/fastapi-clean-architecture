@@ -120,6 +120,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 34. **Asynchronous Repository Protocol Contracts**: Declare all I/O-bound data access methods in `typing.Protocol` interfaces as `async def` coroutines, guaranteeing non-blocking cooperative execution across all persistence implementations.
 35. **Concurrent I/O Task Orchestration with `asyncio.gather`**: Orchestrate independent I/O tasks (e.g. user profile lookup, activity logs, and account metrics) concurrently using `asyncio.gather(*tasks)` in the Service layer, achieving $\mathcal{O}(\max(t_i))$ response latency instead of serial $\mathcal{O}(\sum t_i)$.
 36. **Clean Task Cancellation on Concurrency Failures**: Wrap `asyncio.gather` task collections with exception-handling logic to explicitly cancel pending sibling tasks if any concurrent branch raises an error, eliminating orphaned background tasks and resource leaks.
+37. **Offloading CPU-Bound Tasks via `asyncio.to_thread`**: Any CPU-intensive computation (cryptographic key derivation, heavy dataset checksums, image processing) must be offloaded to worker threads using `await asyncio.to_thread(func, *args)`, keeping the main asyncio event loop responsive to concurrent HTTP traffic.
+38. **Thread-Safe Pure Worker Functions**: Synchronous functions executed via `asyncio.to_thread` must be pure or thread-safe, operating on immutable or local parameters and avoiding un-synchronized mutations of shared in-memory dictionaries or entities.
+39. **High-Responsiveness Health Probes**: System health check endpoints (`GET /health`) must execute as lightweight `async def` coroutines directly on the event loop, responding in sub-5ms to prevent orchestrator (e.g. Kubernetes) health check timeouts under heavy background thread computation.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -154,6 +157,8 @@ All algorithms, data transformations, and data structures must be optimized for 
 30. **Blocking the Event Loop with Synchronous Sleep / I/O in Coroutines**: Calling `time.sleep()`, synchronous socket operations, or blocking disk I/O inside `async def` functions, freezing the single-threaded event loop and stalling all concurrent requests. Always use `await asyncio.sleep()`.
 31. **Sequential `await` Loops for Independent I/O Operations**: Awaiting multiple independent network or database operations sequentially in loops (`await f1(); await f2()`), degrading latency to $\mathcal{O}(\sum t_i)$ instead of parallel cooperative execution via `asyncio.gather` ($\mathcal{O}(\max(t_i))$).
 32. **Unawaited Coroutines and Orphaned Background Tasks**: Invoking `async def` methods without `await` or `asyncio.run()`, returning raw coroutine objects and triggering `RuntimeWarning: coroutine was never awaited`, or failing to cancel lingering tasks when a concurrent batch fails.
+33. **Executing Heavy CPU-Bound Code Directly on the Event Loop**: Running cryptographic key derivations (e.g. 100,000 PBKDF2 iterations), heavy loops, or large data parsing directly inside coroutines without `asyncio.to_thread`, causing event loop starvation and blocking concurrent requests.
+34. **Unsynchronized Shared State Mutations in Worker Threads**: Allowing background worker threads dispatched via `asyncio.to_thread` to mutate shared in-memory state or repository dictionaries without locks, introducing subtle concurrency race conditions.
 
 ---
 

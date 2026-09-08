@@ -1,8 +1,11 @@
 """User Service containing pure business logic, domain rules, and async task orchestration."""
 
 import asyncio
+from datetime import datetime, timezone
+import hashlib
 from typing import Any, Optional
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
+from app.core.security import get_password_hash, verify_password
 from app.repositories.user_repository import UserEntity, UserRepositoryProtocol
 from app.schemas.user import UserCreate, UserProfileUpdate, UserRole, UserUpdate
 
@@ -30,8 +33,8 @@ class UserService:
         if await self._repo.get_by_username(payload.username) is not None:
             raise UserAlreadyExistsException(f"Username '{payload.username}' is already taken.")
 
-        # Simulate secure hash generation before persistence
-        password_hash = f"argon2_hash_{payload.password}"
+        # CPU-bound key derivation offloaded to thread pool to prevent event loop starvation
+        password_hash = await get_password_hash(payload.password)
 
         return await self._repo.create(
             email=payload.email,
@@ -201,4 +204,41 @@ class UserService:
                 if not t.done():
                     t.cancel()
             raise
+
+    async def authenticate_user(
+        self,
+        username: str,
+        password: str,
+    ) -> Optional[UserEntity]:
+        """Authenticate a user using constant-time hash verification offloaded to worker thread."""
+        user = await self._repo.get_by_username(username)
+        if user is None:
+            return None
+        is_valid = await verify_password(password, user.password_hash)
+        if not is_valid:
+            return None
+        return user
+
+    @staticmethod
+    def _sync_compute_heavy_report(user_id: int, username: str) -> dict[str, Any]:
+        """CPU-bound heavy report generation simulating cryptographic verification over large dataset."""
+        hasher = hashlib.sha256()
+        records_count = 50_000
+        for i in range(records_count):
+            hasher.update(f"{user_id}:{username}:{i}".encode("utf-8"))
+        return {
+            "user_id": user_id,
+            "username": username,
+            "report_checksum": hasher.hexdigest(),
+            "records_processed": records_count,
+            "generated_at": datetime.now(timezone.utc),
+        }
+
+    async def generate_user_report(self, user_id: int) -> dict[str, Any]:
+        """Generate an analytics report by offloading CPU-bound computation to worker thread."""
+        user = await self.get_user_by_id(user_id)
+        return await asyncio.to_thread(
+            self._sync_compute_heavy_report, user.id, user.username
+        )
+
 

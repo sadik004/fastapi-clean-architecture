@@ -9,7 +9,9 @@ def test_health_check(client: TestClient) -> None:
     """Verify health check endpoint returns 200 OK."""
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert "timestamp" in data
 
 
 def test_create_user_success(client: TestClient) -> None:

@@ -1,5 +1,6 @@
 """FastAPI Application Entrypoint."""
 
+from datetime import datetime, timezone
 from fastapi import FastAPI
 from app.routers.user_router import router as user_router
 
@@ -14,6 +15,10 @@ app.include_router(user_router)
 
 
 @app.get("/health", tags=["Health"])
-def health_check() -> dict[str, str]:
-    """Health check endpoint to verify service liveness."""
-    return {"status": "healthy"}
+async def health_check() -> dict[str, str]:
+    """Non-blocking health check endpoint to verify service liveness and responsiveness."""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+

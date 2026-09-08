@@ -379,3 +379,18 @@ class UserDashboardResponse(BaseModel):
     )
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserReportResponse(BaseModel):
+    """Output projection for CPU-heavy data analytics and report export."""
+
+    user_id: int = Field(..., description="Unique identifier of the user")
+    username: str = Field(..., description="Normalized username")
+    report_checksum: str = Field(
+        ..., description="Cryptographic integrity checksum of generated dataset"
+    )
+    records_processed: int = Field(..., description="Total synthetic records analyzed")
+    generated_at: datetime = Field(..., description="Timestamp of report completion")
+
+    model_config = ConfigDict(from_attributes=True)
+

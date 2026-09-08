@@ -22,7 +22,7 @@ Tracking Legend:
 - [x] **Day 09**: Dependency Chaining, Sub-Dependencies & Parameterized Class Guards
 - [x] **Day 10**: Dependency Lifecycle Cleanup (The yield Mechanism, Two-Phase Context & Transactional Teardown)
 - [x] **Day 11**: Python Asyncio Fundamentals (Event Loop Mechanics, Coroutines & Concurrent Task Orchestration)
-- [ ] **Day 12**: Pydantic Settings & Environment Configurations (`.env`)
+- [x] **Day 12**: Non-Blocking vs Blocking Execution (Preventing Event Loop Starvation with asyncio.to_thread)
 - [ ] **Day 13**: Request ID Middleware & Correlation Tracing
 - [ ] **Day 14**: In-Memory Sorting & Binary Search Application
 - [ ] **Day 15**: Phase 1 Capstone: End-to-End In-Memory Micro-Service Audit & Review
