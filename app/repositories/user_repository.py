@@ -1,6 +1,6 @@
 """In-memory User Repository strictly enforcing O(1) hash map operations and Protocol decoupling."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
@@ -21,6 +21,14 @@ class UserEntity:
     phone_number: Optional[str] = None
     bio: Optional[str] = None
     company_name: Optional[str] = None
+
+
+@dataclass
+class UserWithPostsEntity(UserEntity):
+    """Domain entity representing a user along with their eager-loaded posts."""
+
+    posts: list[Any] = field(default_factory=list)
+
 
 
 class UserRepositoryProtocol(Protocol):
@@ -298,4 +306,6 @@ __all__ = [
     "SqlAlchemyUserRepository",
     "UserEntity",
     "UserRepositoryProtocol",
+    "UserWithPostsEntity",
 ]
+

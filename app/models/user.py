@@ -1,11 +1,14 @@
 """SQLAlchemy 2.0 Declarative ORM Entity for Users."""
 
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.post import PostModel
 
 
 class UserModel(Base):
@@ -37,3 +40,12 @@ class UserModel(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    # 1-to-Many collection relationship with strict defensive lazy="raise"
+    posts: Mapped[list["PostModel"]] = relationship(
+        "PostModel",
+        back_populates="author",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
+

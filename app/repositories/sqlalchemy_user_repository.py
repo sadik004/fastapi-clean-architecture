@@ -14,10 +14,11 @@ import sqlite3
 from typing import Optional
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.models.user import UserModel
-from app.repositories.user_repository import UserEntity
+from app.repositories.user_repository import UserEntity, UserWithPostsEntity
 from app.schemas.user import UserUpdate
 
 
@@ -51,6 +52,45 @@ class SqlAlchemyUserRepository:
             phone_number=model.phone_number,
             bio=model.bio,
             company_name=model.company_name,
+        )
+
+    @classmethod
+    def _to_user_with_posts_entity(cls, model: UserModel) -> UserWithPostsEntity:
+        """Convert UserModel with eagerly loaded posts into UserWithPostsEntity."""
+        from app.repositories.post_repository import PostEntity
+
+        base_entity = cls._to_entity(model)
+        posts_entities: list[PostEntity] = []
+        if getattr(model, "posts", None) is not None:
+            for p in model.posts:
+                created_at = p.created_at
+                if created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+                posts_entities.append(
+                    PostEntity(
+                        id=p.id,
+                        title=p.title,
+                        content=p.content,
+                        user_id=p.user_id,
+                        created_at=created_at,
+                        author=base_entity,
+                    )
+                )
+
+        return UserWithPostsEntity(
+            id=base_entity.id,
+            email=base_entity.email,
+            username=base_entity.username,
+            password_hash=base_entity.password_hash,
+            is_active=base_entity.is_active,
+            created_at=base_entity.created_at,
+            age=base_entity.age,
+            role=base_entity.role,
+            full_name=base_entity.full_name,
+            phone_number=base_entity.phone_number,
+            bio=base_entity.bio,
+            company_name=base_entity.company_name,
+            posts=posts_entities,
         )
 
     async def create(
@@ -212,6 +252,42 @@ class SqlAlchemyUserRepository:
         models = result.scalars().all()
         return [self._to_entity(m) for m in models]
 
+    async def get_user_with_posts(self, user_id: int) -> Optional[UserWithPostsEntity]:
+        """Fetch user along with their posts using selectinload() (strictly 2 queries)."""
+        stmt = (
+            select(UserModel)
+            .options(selectinload(UserModel.posts))
+            .where(UserModel.id == user_id)
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return self._to_user_with_posts_entity(model) if model is not None else None
+
+    async def list_users_with_posts(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> list[UserWithPostsEntity]:
+        """List users with their posts using selectinload() (strictly 2 queries for arbitrary N).
+
+        Executes:
+        1. SELECT users ... LIMIT :limit OFFSET :offset
+        2. SELECT posts ... WHERE posts.user_id IN (:user_ids)
+
+        Completely eliminates N+1 queries (1 + N queries) and prevents Cartesian
+        product explosion caused by joinedload on collections.
+        """
+        stmt = (
+            select(UserModel)
+            .options(selectinload(UserModel.posts))
+            .order_by(UserModel.id.asc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+        return [self._to_user_with_posts_entity(m) for m in models]
+
     def clear(self) -> None:
         """Reset repository database state synchronously (convenience for test isolation)."""
         settings = get_settings()
@@ -220,7 +296,9 @@ class SqlAlchemyUserRepository:
             if db_path and db_path != ":memory:":
                 try:
                     with sqlite3.connect(db_path) as conn:
+                        conn.execute("DELETE FROM posts")
                         conn.execute("DELETE FROM users")
                         conn.commit()
                 except sqlite3.OperationalError:
                     pass
+

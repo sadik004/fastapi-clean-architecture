@@ -80,25 +80,37 @@ async def test_migration_bidirectional_reversibility() -> None:
     # Ensure current head is applied
     apply_migrations(revision="head")
 
-    # Roll back by 1 revision
+    # Roll back by 1 revision (posts table dropped, users remains)
     rollback_migration(revision="-1")
 
-    # Verify users table was dropped
+    # Verify posts table was dropped while users remains
     async with engine.connect() as conn:
-        tables_after_rollback = await conn.run_sync(
+        tables_after_rollback_1 = await conn.run_sync(
             lambda sync_conn: inspect(sync_conn).get_table_names()
         )
-        assert "users" not in tables_after_rollback
+        assert "posts" not in tables_after_rollback_1
+        assert "users" in tables_after_rollback_1
+
+    # Roll back to base (all tables dropped)
+    rollback_migration(revision="base")
+
+    async with engine.connect() as conn:
+        tables_after_rollback_base = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_table_names()
+        )
+        assert "users" not in tables_after_rollback_base
+        assert "posts" not in tables_after_rollback_base
 
     # Re-apply migrations to head
     apply_migrations(revision="head")
 
-    # Verify users table was successfully restored
+    # Verify both tables were successfully restored
     async with engine.connect() as conn:
         tables_after_reupgrade = await conn.run_sync(
             lambda sync_conn: inspect(sync_conn).get_table_names()
         )
         assert "users" in tables_after_reupgrade
+        assert "posts" in tables_after_reupgrade
 
 
 # ============================================================================

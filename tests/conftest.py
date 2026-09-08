@@ -14,13 +14,14 @@ from app.services.notification_service import clear_notification_service
 
 
 def _clean_database() -> None:
-    """Reset the database users table between tests for isolation."""
+    """Reset the database tables between tests for isolation."""
     settings = get_settings()
     if settings.database_url.startswith("sqlite"):
         db_path = settings.database_url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
         if db_path and db_path != ":memory:":
             try:
                 with sqlite3.connect(db_path) as conn:
+                    conn.execute("DELETE FROM posts")
                     conn.execute("DELETE FROM users")
                     conn.commit()
             except sqlite3.OperationalError:

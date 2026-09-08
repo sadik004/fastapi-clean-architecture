@@ -33,7 +33,7 @@ Tracking Legend:
 - [x] **Day 16**: Database Connection Pooling Architecture (pool_size, max_overflow & Stale Connection Eviction via pool_pre_ping)
 - [x] **Day 17**: Automatic Async Database Schema Migration with Alembic & SQLAlchemy 2.0 Models
 - [x] **Day 18**: The Repository Pattern (SQLAlchemy 2.0 Async Repository & Domain Entity Decoupling)
-- [ ] **Day 19**: Custom Validation with Pydantic `@field_validator` & `@model_validator`
+- [x] **Day 19**: Preventing the N+1 Query Problem with selectinload, joinedload & Defensive lazy="raise"
 - [ ] **Day 20**: Nested Schema Serialization & Recursive Models
 - [ ] **Day 21**: Query Parameters, Path Parameters & Header Constraints
 - [ ] **Day 22**: File Uploads & Stream Handling with Memory Bounds
