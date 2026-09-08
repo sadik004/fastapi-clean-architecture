@@ -16,6 +16,7 @@ from app.core.database import (
     get_db_session,
 )
 from app.core.exception_handlers import register_exception_handlers
+from app.routers.job_router import router as job_router
 from app.routers.user_router import router as user_router
 
 
@@ -48,6 +49,7 @@ register_exception_handlers(app)
 
 # Mount feature routers
 app.include_router(user_router)
+app.include_router(job_router)
 
 
 @app.get("/health", tags=["Health"])

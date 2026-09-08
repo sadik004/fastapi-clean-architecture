@@ -30,6 +30,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 21** | [Open Addressing Perturbation & Tombstone Chains](day-21_compact_hash_table_open_addressing_and_tombstone_preservation.md) | Implemented CPython perturbation recurrence `$5i + 1 + perturb$` to eliminate primary clustering; preserved probe chains on deletion via dummy tombstones; bounded load factor to $\le 2/3$. |
 | **Day 22** | [Slotted Dataclasses & PEP 412 Split Tables](day-22_slotted_dataclass_memory_optimization_and_pep412_split_table.md) | Enforced `@dataclass(slots=True)` across domain entities eliminating `__dict__` overhead; preserved slotted subclass hierarchies; calibrated dual-mode memory benchmarks for PEP 412. |
 | **Day 23** | [Annotated Query Defaults & Trie Branch Pruning](day-23_trie_annotated_query_default_and_deletion_pruning.md) | Resolved FastAPI `Annotated` query parameter default conflict; implemented recursive bottom-up node pruning on trie deletion; enforced literal route precedence for `/autocomplete`. |
+| **Day 24** | [Dataclass Comparator Dict Crash & Latency Jitter](day-24_heapq_dataclass_comparator_dict_crash_and_latency_jitter.md) | Excluded unorderable fields via `field(compare=False)` in slotted priority job dataclass; provided monotonic FIFO tie-breakers; calibrated test latency tolerance. |
 
 ---
 
