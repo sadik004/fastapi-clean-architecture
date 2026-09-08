@@ -131,6 +131,10 @@ All algorithms, data transformations, and data structures must be optimized for 
 45. **Centralized Enterprise Error Envelope**: Unify all error responses (4xx, 5xx) under a standardized, predictable schema contract (`ErrorResponse` containing `code`, `message`, `status_code`, `timestamp`, `trace_id`, and `details`).
 46. **Safe 500 Traceback Masking & Trace ID Correlation**: Catch-all unhandled 500 exception handlers must securely log the complete Python stack trace internally with a unique UUID `trace_id`, while returning a sanitized, masked response to the client (`"An unexpected error occurred. Please contact support with trace ID."`), guaranteeing zero information leakage of internal file paths, SQL fragments, or secrets.
 47. **HTTP Header Preservation in Exception Handlers**: When normalizing HTTP exceptions (e.g. 401 Unauthorized), extract and preserve response headers (`WWW-Authenticate`, `Retry-After`) on the final `JSONResponse` to maintain full compliance with RFC specifications.
+48. **`expire_on_commit=False` in Async SQLAlchemy**: Always configure `expire_on_commit=False` on `async_sessionmaker`. In async mode, accessing post-commit attributes with `expire_on_commit=True` triggers implicit synchronous lazy loading, raising `sqlalchemy.exc.MissingGreenlet`.
+49. **Clean Lifespan Socket Disposal (`await engine.dispose()`)**: Always use FastAPI's `@asynccontextmanager async def lifespan(app: FastAPI)` to run schema initialization (`Base.metadata.create_all`) on startup and `await engine.dispose()` on shutdown, cleanly draining all connection pool sockets and preventing connection leaks.
+50. **Transactional Async Session Generator Dependency**: Implement database session dependencies (`get_db_session() -> AsyncGenerator[AsyncSession, None]`) with two-phase lifecycle: `try: yield session; await session.commit() except Exception: await session.rollback(); raise finally: await session.close()`.
+51. **Pytest-Asyncio Strict Mode Fixture Decorator (`@pytest_asyncio.fixture`)**: In pytest-asyncio strict mode, always use `@pytest_asyncio.fixture` for asynchronous generator fixtures (`async def`) to guarantee proper async context initialization and teardown.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -173,6 +177,10 @@ All algorithms, data transformations, and data structures must be optimized for 
 38. **Raising `HTTPException` Inside Domain Services or Repositories**: Directly importing and raising `fastapi.HTTPException` in business logic or data access layers, coupling the domain model to the HTTP transport layer and preventing reuse across non-HTTP contexts (CLI, background workers, RPC).
 39. **Leaking Internal Stack Traces and System Internals in 500 Errors**: Returning raw Python exception tracebacks, unhandled database errors (e.g. unique constraint syntax, SQL tables), or filesystem paths directly in API response bodies, exposing severe security vulnerabilities to attackers.
 40. **Inconsistent Error Response Envelopes**: Returning ad-hoc, fragmented error shapes across different endpoints (e.g., raw strings, varying keys like `msg`, `error_description`, `error_msg`, `detail`), breaking client SDKs and degrading API usability.
+41. **Default `expire_on_commit=True` in Async SQLAlchemy**: Leaving `expire_on_commit=True` in async sessionmakers, causing immediate runtime `MissingGreenlet` crashes when accessing entity fields post-commit.
+42. **Omitting `engine.dispose()` on Application Shutdown**: Terminating the FastAPI app without disposing the async engine, leaving orphaned socket connections open on the database server.
+43. **Instantiating Engines or Sessions Manually Inside Router Bodies**: Calling `create_async_engine()` or creating ad-hoc `AsyncSession()` directly inside endpoints or service methods instead of injecting sessions via `Depends(get_db_session)`.
+44. **Using Standard `@pytest.fixture` on Async Fixtures in Strict Mode**: Decorating `async def` fixtures with `@pytest.fixture` in pytest-asyncio strict mode, resulting in unexecuted fixture setups and missing table errors.
 
 ---
 

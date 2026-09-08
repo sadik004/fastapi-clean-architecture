@@ -25,7 +25,7 @@ Tracking Legend:
 - [x] **Day 12**: Non-Blocking vs Blocking Execution (Preventing Event Loop Starvation with asyncio.to_thread)
 - [x] **Day 13**: FastAPI BackgroundTasks Architecture & Safe Memory Lifecycle
 - [x] **Day 14**: Global Exception Handling (Domain Exception Hierarchy, Centralized Error Envelope & Safe 500 Masking)
-- [ ] **Day 15**: Phase 1 Capstone: End-to-End In-Memory Micro-Service Audit & Review
+- [x] **Day 15**: SQLAlchemy 2.0 Async Setup (create_async_engine, async_sessionmaker & Lifespan Management)
 
 ---
 

@@ -28,3 +28,9 @@ env/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Database Files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
