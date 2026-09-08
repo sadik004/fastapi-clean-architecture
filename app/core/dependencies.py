@@ -51,6 +51,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing API Key header",
+            headers={"WWW-Authenticate": "ApiKey"},
         )
 
     target_username: Optional[str] = None
@@ -68,6 +69,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "ApiKey"},
         )
 
     try:
@@ -76,6 +78,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "ApiKey"},
         ) from exc
 
     if not user.is_active:

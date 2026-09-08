@@ -24,7 +24,7 @@ Tracking Legend:
 - [x] **Day 11**: Python Asyncio Fundamentals (Event Loop Mechanics, Coroutines & Concurrent Task Orchestration)
 - [x] **Day 12**: Non-Blocking vs Blocking Execution (Preventing Event Loop Starvation with asyncio.to_thread)
 - [x] **Day 13**: FastAPI BackgroundTasks Architecture & Safe Memory Lifecycle
-- [ ] **Day 14**: In-Memory Sorting & Binary Search Application
+- [x] **Day 14**: Global Exception Handling (Domain Exception Hierarchy, Centralized Error Envelope & Safe 500 Masking)
 - [ ] **Day 15**: Phase 1 Capstone: End-to-End In-Memory Micro-Service Audit & Review
 
 ---

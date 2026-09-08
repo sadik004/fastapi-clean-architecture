@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from typing import Annotated, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query, Response, status
 
 from app.core.dependencies import (
     RoleChecker,
@@ -38,6 +38,8 @@ __all__ = [
     "RoleChecker",
     "ScopedTransactionContext",
     "TransactionStatus",
+    "UserAlreadyExistsException",
+    "UserNotFoundException",
     "get_current_active_admin",
     "get_current_user",
     "get_transaction_context",
@@ -65,26 +67,20 @@ async def create_user(
     """Endpoint to register a new user."""
     if tx is not None:
         tx.stage(f"create_user:{payload.username}")
-    try:
-        created_user = await service.register_user(payload=payload)
-        # Safe Memory Boundary: Pass ONLY immutable primitives, NEVER request-scoped dependencies
-        background_tasks.add_task(
-            send_welcome_notification,
-            created_user.email,
-            created_user.username,
-        )
-        background_tasks.add_task(
-            record_audit_log,
-            "create_user",
-            created_user.id,
-            datetime.now(timezone.utc),
-        )
-        return UserResponse.model_validate(created_user)
-    except UserAlreadyExistsException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=exc.message,
-        ) from exc
+    created_user = await service.register_user(payload=payload)
+    # Safe Memory Boundary: Pass ONLY immutable primitives, NEVER request-scoped dependencies
+    background_tasks.add_task(
+        send_welcome_notification,
+        created_user.email,
+        created_user.username,
+    )
+    background_tasks.add_task(
+        record_audit_log,
+        "create_user",
+        created_user.id,
+        datetime.now(timezone.utc),
+    )
+    return UserResponse.model_validate(created_user)
 
 
 @router.get(
@@ -104,14 +100,8 @@ async def get_user_by_username(
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to fetch a user by normalized username."""
-    try:
-        user = await service.get_user_by_username(username=username)
-        return UserResponse.model_validate(user)
-    except UserNotFoundException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=exc.message,
-        ) from exc
+    user = await service.get_user_by_username(username=username)
+    return UserResponse.model_validate(user)
 
 
 @router.get(
@@ -167,14 +157,8 @@ async def get_user_by_id(
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to fetch a user by ID."""
-    try:
-        user = await service.get_user_by_id(user_id=user_id)
-        return UserResponse.model_validate(user)
-    except UserNotFoundException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=exc.message,
-        ) from exc
+    user = await service.get_user_by_id(user_id=user_id)
+    return UserResponse.model_validate(user)
 
 
 @router.get(
@@ -193,18 +177,12 @@ async def get_user_dashboard(
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
 ) -> UserDashboardResponse:
     """Endpoint to aggregate user profile, activity logs, and account metrics concurrently."""
-    try:
-        dashboard_data = await service.get_user_dashboard(user_id=user_id)
-        return UserDashboardResponse(
-            profile=UserResponse.model_validate(dashboard_data["profile"]),
-            activity_logs=dashboard_data["activity_logs"],
-            stats=dashboard_data["stats"],
-        )
-    except UserNotFoundException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=exc.message,
-        ) from exc
+    dashboard_data = await service.get_user_dashboard(user_id=user_id)
+    return UserDashboardResponse(
+        profile=UserResponse.model_validate(dashboard_data["profile"]),
+        activity_logs=dashboard_data["activity_logs"],
+        stats=dashboard_data["stats"],
+    )
 
 
 @router.post(
@@ -223,15 +201,8 @@ async def export_user_report(
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
 ) -> UserReportResponse:
     """Endpoint triggering heavy report calculation offloaded via asyncio.to_thread."""
-    try:
-        report = await service.generate_user_report(user_id=user_id)
-        return UserReportResponse.model_validate(report)
-    except UserNotFoundException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=exc.message,
-        ) from exc
-
+    report = await service.generate_user_report(user_id=user_id)
+    return UserReportResponse.model_validate(report)
 
 
 @router.get(
@@ -302,26 +273,15 @@ async def update_user(
     """Endpoint to update user attributes."""
     if tx is not None:
         tx.stage(f"update_user:{user_id}")
-    try:
-        updated_user = await service.update_user(user_id=user_id, payload=payload)
-        # Safe Memory Boundary: Pass ONLY immutable primitives to background tasks
-        background_tasks.add_task(
-            record_audit_log,
-            "update_user",
-            updated_user.id,
-            datetime.now(timezone.utc),
-        )
-        return UserResponse.model_validate(updated_user)
-    except UserNotFoundException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=exc.message,
-        ) from exc
-    except UserAlreadyExistsException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=exc.message,
-        ) from exc
+    updated_user = await service.update_user(user_id=user_id, payload=payload)
+    # Safe Memory Boundary: Pass ONLY immutable primitives to background tasks
+    background_tasks.add_task(
+        record_audit_log,
+        "update_user",
+        updated_user.id,
+        datetime.now(timezone.utc),
+    )
+    return UserResponse.model_validate(updated_user)
 
 
 @router.patch(
@@ -345,19 +305,8 @@ async def update_user_profile(
     """Endpoint to partially update user profile attributes."""
     if tx is not None:
         tx.stage(f"patch_user:{user_id}")
-    try:
-        updated_user = await service.update_profile(user_id=user_id, payload=payload)
-        return UserResponse.model_validate(updated_user)
-    except UserNotFoundException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=exc.message,
-        ) from exc
-    except UserAlreadyExistsException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=exc.message,
-        ) from exc
+    updated_user = await service.update_profile(user_id=user_id, payload=payload)
+    return UserResponse.model_validate(updated_user)
 
 
 @router.delete(
@@ -379,12 +328,5 @@ async def delete_user(
     """Endpoint to delete a user by ID."""
     if tx is not None:
         tx.stage(f"delete_user:{user_id}")
-    try:
-        await service.delete_user(user_id=user_id)
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-    except UserNotFoundException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=exc.message,
-        ) from exc
-
+    await service.delete_user(user_id=user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
