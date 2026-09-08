@@ -19,6 +19,9 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 09** | [Override Recursion & IDOR Ownership](day-09_dependency_override_recursion_and_idor_protection.md) | Eliminated self-referential override cycles in DAG; enforced `require_user_ownership` to eliminate IDOR profile tampering. |
 | **Day 10** | [Unseeded Auth Fixture & Yield Teardown](day-10_unseeded_auth_fixture_and_yield_teardown.md) | Enforced coupled entity/header fixtures; wrapped `yield` in `try...except...finally` for guaranteed rollback and zero resource leaks. |
 | **Day 11** | [Unawaited Coroutines & Gather Cancellation](day-11_async_unawaited_coroutine_and_concurrency_error_propagation.md) | Safely resolved async repo methods in sync callers via `asyncio.run()`; prevented orphaned background tasks on `asyncio.gather` failure by cancelling pending siblings. |
+| **Day 12** | [Event Loop Starvation & CPU Offloading](day-12_event_loop_starvation_and_cpu_bound_offloading.md) | Offloaded CPU-heavy PBKDF2 hashing and checksum computations via `asyncio.to_thread`; preserved sub-5ms event loop health probes. |
+| **Day 13** | [Dependency Lifetime & Bounded Memory](day-13_background_tasks_dependency_lifetime_and_bounded_memory.md) | Enforced strict primitive invariant for `BackgroundTasks` arguments; bounded in-memory queues using `deque(maxlen=1000)` to eliminate OOM leaks. |
+| **Day 14** | [Domain Hierarchy & Safe 500 Masking](day-14_global_exception_handling_and_safe_500_masking.md) | Decoupled domain services from `HTTPException` via `BaseDomainException` hierarchy; masked 500 errors with UUID `trace_id` preventing information leakage. |
 
 ---
 
