@@ -253,3 +253,71 @@ def test_list_users(client: TestClient) -> None:
     for u in data:
         assert "password" not in u
         assert "password_hash" not in u
+
+
+def test_create_user_with_sanitized_inputs(client: TestClient) -> None:
+    """Verify endpoint receives, sanitizes, and returns normalized field data."""
+    payload = {
+        "email": "sanitized@example.com",
+        "username": "   SuperCoder_99   ",
+        "password": "SecurePassword123!",
+        "full_name": "  alan     mathison   turing  ",
+        "phone_number": "   +14155552671   ",
+        "bio": "<script>alert('xss')</script>Pioneer in <b>Computer Science</b>.",
+    }
+    response = client.post("/users/", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["username"] == "supercoder_99"
+    assert data["full_name"] == "Alan Mathison Turing"
+    assert data["phone_number"] == "+14155552671"
+    assert data["bio"] == "alert('xss')Pioneer in Computer Science."
+
+    # Verify persistence layer preserves sanitized state
+    get_resp = client.get(f"/users/{data['id']}")
+    assert get_resp.status_code == 200
+    get_data = get_resp.json()
+    assert get_data["username"] == "supercoder_99"
+    assert get_data["full_name"] == "Alan Mathison Turing"
+    assert get_data["bio"] == "alert('xss')Pioneer in Computer Science."
+
+
+@pytest.mark.parametrize("reserved_name", ["admin", "root", "  SYSTEM  ", "superuser"])
+def test_create_user_rejects_reserved_username(
+    client: TestClient, reserved_name: str
+) -> None:
+    """Verify POST /users/ rejects reserved system usernames with HTTP 422."""
+    payload = {
+        "email": "reserved@example.com",
+        "username": reserved_name,
+        "password": "SecurePassword123!",
+    }
+    response = client.post("/users/", json=payload)
+    assert response.status_code == 422
+    assert "reserved system keyword" in response.text
+
+
+def test_create_user_rejects_consecutive_underscores(client: TestClient) -> None:
+    """Verify POST /users/ rejects consecutive underscores with HTTP 422."""
+    payload = {
+        "email": "underscores@example.com",
+        "username": "invalid__handle",
+        "password": "SecurePassword123!",
+    }
+    response = client.post("/users/", json=payload)
+    assert response.status_code == 422
+    assert "consecutive underscores" in response.text
+
+
+def test_create_user_rejects_invalid_phone(client: TestClient) -> None:
+    """Verify POST /users/ rejects non-E.164 phone formats with HTTP 422."""
+    payload = {
+        "email": "badphone@example.com",
+        "username": "valid_user",
+        "password": "SecurePassword123!",
+        "phone_number": "14155552671",  # missing leading +
+    }
+    response = client.post("/users/", json=payload)
+    assert response.status_code == 422
+    assert "E.164" in response.text
+

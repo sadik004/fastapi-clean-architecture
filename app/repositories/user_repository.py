@@ -17,6 +17,9 @@ class UserEntity:
     created_at: datetime
     age: Optional[int] = None
     role: str = "user"
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    bio: Optional[str] = None
 
 
 class UserRepositoryProtocol(Protocol):
@@ -29,6 +32,9 @@ class UserRepositoryProtocol(Protocol):
         password_hash: str,
         age: Optional[int] = None,
         role: str = "user",
+        full_name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        bio: Optional[str] = None,
     ) -> UserEntity:
         """Create and persist a new user entity."""
         ...
@@ -52,6 +58,9 @@ class UserRepositoryProtocol(Protocol):
         username: Optional[str] = None,
         age: Optional[int] = None,
         role: Optional[str] = None,
+        full_name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        bio: Optional[str] = None,
     ) -> Optional[UserEntity]:
         """Update an existing user entity and synchronize indexes in O(1) time."""
         ...
@@ -100,6 +109,9 @@ class InMemoryUserRepository:
         password_hash: str,
         age: Optional[int] = None,
         role: str = "user",
+        full_name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        bio: Optional[str] = None,
     ) -> UserEntity:
         """Create and store a new user entity with O(1) indexing."""
         self._current_id += 1
@@ -112,6 +124,9 @@ class InMemoryUserRepository:
             created_at=datetime.now(timezone.utc),
             age=age,
             role=role,
+            full_name=full_name,
+            phone_number=phone_number,
+            bio=bio,
         )
 
         # O(1) primary storage insert
@@ -130,6 +145,9 @@ class InMemoryUserRepository:
         username: Optional[str] = None,
         age: Optional[int] = None,
         role: Optional[str] = None,
+        full_name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        bio: Optional[str] = None,
     ) -> Optional[UserEntity]:
         """Update an existing user entity and synchronize indexes in O(1) time."""
         user = self._store.get(user_id)
@@ -153,6 +171,15 @@ class InMemoryUserRepository:
 
         if role is not None:
             user.role = role
+
+        if full_name is not None:
+            user.full_name = full_name
+
+        if phone_number is not None:
+            user.phone_number = phone_number
+
+        if bio is not None:
+            user.bio = bio
 
         return user
 

@@ -1,9 +1,68 @@
-"""Pydantic v2 schemas for User domain with strict field constraints and DTO separation."""
+"""Pydantic v2 schemas for User domain with custom @field_validator rules and sanitization."""
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+import re
+from typing import Any, Optional, Pattern
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+# Module-level pre-compiled regexes & sets for O(1) lookups and O(k) pattern matching
+RESERVED_USERNAMES: frozenset[str] = frozenset(
+    {"admin", "root", "system", "superuser", "administrator", "operator"}
+)
+RE_E164_PHONE: Pattern[str] = re.compile(r"^\+[1-9]\d{1,14}$")
+RE_HTML_TAGS: Pattern[str] = re.compile(r"<[^<]+?>")
+
+
+def sanitize_username_before(v: Any) -> Any:
+    """Strip whitespace and lowercase raw username input (mode='before')."""
+    if isinstance(v, str):
+        return v.strip().lower()
+    return v
+
+
+def validate_username_after(v: Optional[str]) -> Optional[str]:
+    """Enforce invariants: reject consecutive underscores and reserved system keywords (mode='after')."""
+    if v is None:
+        return v
+    if "__" in v:
+        raise ValueError("Username cannot contain consecutive underscores ('__').")
+    if v in RESERVED_USERNAMES:
+        raise ValueError(f"Username '{v}' is a reserved system keyword.")
+    return v
+
+
+def sanitize_full_name_before(v: Any) -> Any:
+    """Strip, collapse multiple whitespace characters into single space, and Title Case (mode='before')."""
+    if isinstance(v, str):
+        collapsed = " ".join(v.split())
+        return collapsed.title() if collapsed else None
+    return v
+
+
+def sanitize_phone_number_before(v: Any) -> Any:
+    """Trim whitespace from phone number (mode='before')."""
+    if isinstance(v, str):
+        cleaned = v.strip()
+        return cleaned if cleaned else None
+    return v
+
+
+def validate_phone_number_after(v: Optional[str]) -> Optional[str]:
+    """Validate phone conforms to international E.164 format via pre-compiled regex (mode='after')."""
+    if v is not None and not RE_E164_PHONE.match(v):
+        raise ValueError(
+            "Phone number must conform to international E.164 format (e.g. +1234567890)."
+        )
+    return v
+
+
+def sanitize_bio_before(v: Any) -> Any:
+    """Strip dangerous HTML tags to defend against XSS injection (mode='before')."""
+    if isinstance(v, str):
+        cleaned = RE_HTML_TAGS.sub("", v).strip()
+        return cleaned if cleaned else None
+    return v
 
 
 class UserRole(str, Enum):
@@ -27,6 +86,52 @@ class UserBase(BaseModel):
         pattern=r"^[a-zA-Z0-9_]+$",
         description="Unique username containing only alphanumeric characters and underscores",
     )
+    full_name: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="User's full name, auto-normalized to Title Case",
+    )
+    phone_number: Optional[str] = Field(
+        default=None,
+        description="International phone number conforming to E.164 format",
+    )
+    bio: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="User biography with HTML tags automatically stripped",
+    )
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def normalize_username(cls, v: Any) -> Any:
+        return sanitize_username_before(v)
+
+    @field_validator("username", mode="after")
+    @classmethod
+    def check_username_invariants(cls, v: str) -> str:
+        res = validate_username_after(v)
+        assert res is not None
+        return res
+
+    @field_validator("full_name", mode="before")
+    @classmethod
+    def normalize_full_name(cls, v: Any) -> Any:
+        return sanitize_full_name_before(v)
+
+    @field_validator("phone_number", mode="before")
+    @classmethod
+    def normalize_phone_number(cls, v: Any) -> Any:
+        return sanitize_phone_number_before(v)
+
+    @field_validator("phone_number", mode="after")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        return validate_phone_number_after(v)
+
+    @field_validator("bio", mode="before")
+    @classmethod
+    def sanitize_bio(cls, v: Any) -> Any:
+        return sanitize_bio_before(v)
 
 
 class UserCreate(UserBase):
@@ -64,6 +169,20 @@ class UserUpdate(BaseModel):
         pattern=r"^[a-zA-Z0-9_]+$",
         description="Updated username containing only alphanumeric characters and underscores",
     )
+    full_name: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Updated full name, auto-normalized to Title Case",
+    )
+    phone_number: Optional[str] = Field(
+        default=None,
+        description="Updated international phone number conforming to E.164 format",
+    )
+    bio: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Updated user biography with HTML tags automatically stripped",
+    )
     age: Optional[int] = Field(
         default=None,
         ge=18,
@@ -74,6 +193,36 @@ class UserUpdate(BaseModel):
         default=None,
         description="Updated user role",
     )
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def normalize_username(cls, v: Any) -> Any:
+        return sanitize_username_before(v)
+
+    @field_validator("username", mode="after")
+    @classmethod
+    def check_username_invariants(cls, v: Optional[str]) -> Optional[str]:
+        return validate_username_after(v)
+
+    @field_validator("full_name", mode="before")
+    @classmethod
+    def normalize_full_name(cls, v: Any) -> Any:
+        return sanitize_full_name_before(v)
+
+    @field_validator("phone_number", mode="before")
+    @classmethod
+    def normalize_phone_number(cls, v: Any) -> Any:
+        return sanitize_phone_number_before(v)
+
+    @field_validator("phone_number", mode="after")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        return validate_phone_number_after(v)
+
+    @field_validator("bio", mode="before")
+    @classmethod
+    def sanitize_bio(cls, v: Any) -> Any:
+        return sanitize_bio_before(v)
 
 
 class UserProfileUpdate(BaseModel):
@@ -86,12 +235,56 @@ class UserProfileUpdate(BaseModel):
         pattern=r"^[a-zA-Z0-9_]+$",
         description="Updated username containing only alphanumeric characters and underscores",
     )
+    full_name: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Updated full name, auto-normalized to Title Case",
+    )
+    phone_number: Optional[str] = Field(
+        default=None,
+        description="Updated international phone number conforming to E.164 format",
+    )
+    bio: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Updated user biography with HTML tags automatically stripped",
+    )
     age: Optional[int] = Field(
         default=None,
         ge=18,
         le=120,
         description="Updated user age (must be between 18 and 120)",
     )
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def normalize_username(cls, v: Any) -> Any:
+        return sanitize_username_before(v)
+
+    @field_validator("username", mode="after")
+    @classmethod
+    def check_username_invariants(cls, v: Optional[str]) -> Optional[str]:
+        return validate_username_after(v)
+
+    @field_validator("full_name", mode="before")
+    @classmethod
+    def normalize_full_name(cls, v: Any) -> Any:
+        return sanitize_full_name_before(v)
+
+    @field_validator("phone_number", mode="before")
+    @classmethod
+    def normalize_phone_number(cls, v: Any) -> Any:
+        return sanitize_phone_number_before(v)
+
+    @field_validator("phone_number", mode="after")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        return validate_phone_number_after(v)
+
+    @field_validator("bio", mode="before")
+    @classmethod
+    def sanitize_bio(cls, v: Any) -> Any:
+        return sanitize_bio_before(v)
 
 
 class UserResponse(UserBase):

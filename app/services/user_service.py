@@ -14,6 +14,9 @@ class UserService:
     def register_user(self, payload: UserCreate) -> UserEntity:
         """Register a new user with O(1) uniqueness validation.
 
+        Incoming payload fields are already normalized, sanitized, and invariant-verified
+        by Pydantic v2 schemas at the application boundary.
+
         Raises:
             UserAlreadyExistsException: If email or username is already taken.
         """
@@ -33,6 +36,9 @@ class UserService:
             password_hash=password_hash,
             age=payload.age,
             role=payload.role.value,
+            full_name=payload.full_name,
+            phone_number=payload.phone_number,
+            bio=payload.bio,
         )
 
     def update_user(self, user_id: int, payload: UserUpdate) -> UserEntity:
@@ -66,6 +72,9 @@ class UserService:
             username=payload.username,
             age=payload.age,
             role=role_val,
+            full_name=payload.full_name,
+            phone_number=payload.phone_number,
+            bio=payload.bio,
         )
         if updated_user is None:
             raise UserNotFoundException(user_id=user_id)
@@ -76,7 +85,13 @@ class UserService:
         """Update user profile fields (backward compatible helper)."""
         return self.update_user(
             user_id=user_id,
-            payload=UserUpdate(username=payload.username, age=payload.age),
+            payload=UserUpdate(
+                username=payload.username,
+                age=payload.age,
+                full_name=payload.full_name,
+                phone_number=payload.phone_number,
+                bio=payload.bio,
+            ),
         )
 
     def delete_user(self, user_id: int) -> None:
