@@ -11,9 +11,9 @@ from app.models.post import PostModel
 from app.repositories.user_repository import UserEntity
 
 
-@dataclass
+@dataclass(slots=True)
 class PostEntity:
-    """Domain entity representing an authored post, detached from ORM sessions."""
+    """Domain entity representing an authored post, detached from ORM sessions and memory-optimized with __slots__."""
 
     id: int
     title: str

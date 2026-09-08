@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
 
-@dataclass
+@dataclass(slots=True)
 class UserEntity:
-    """Internal domain entity stored by the repository."""
+    """Internal domain entity stored by the repository, memory-optimized with __slots__."""
 
     id: int
     email: str
@@ -23,9 +23,9 @@ class UserEntity:
     company_name: Optional[str] = None
 
 
-@dataclass
+@dataclass(slots=True)
 class UserWithPostsEntity(UserEntity):
-    """Domain entity representing a user along with their eager-loaded posts."""
+    """Domain entity representing a user along with their eager-loaded posts, memory-optimized with __slots__."""
 
     posts: list[Any] = field(default_factory=list)
 
