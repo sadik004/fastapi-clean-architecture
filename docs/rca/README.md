@@ -14,6 +14,8 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 04** | [Regex Recompilation & List Scans](day-04_field_validators_regex_recompilation_and_list_lookup.md) | Pre-compiled regular expressions at module scope; replaced $\mathcal{O}(m)$ list scans with $\mathcal{O}(1)$ `frozenset` lookups. |
 | **Day 05** | [model_dump() Allocation & Transient Leaks](day-05_model_validator_dump_allocation_and_transient_leakage.md) | Replaced `self.model_dump()` with direct attribute access in `@model_validator`; isolated transient validation fields. |
 | **Day 06** | [Path/Query Validation & OpenAPI Traps](day-06_path_query_validation_and_openapi.md) | Polymorphic `UserNotFoundException`; OpenAPI 3.1 `anyOf` schema awareness; DTO update responsibility boundaries. |
+| **Day 07** | [Pytest Lifecycle & State Isolation](day-07_pytest_fixture_lifecycle_and_test_isolation.md) | Centralized generator fixture in `conftest.py` with `autouse=True` teardown; eliminated fixture copy-paste duplication. |
+| **Day 08** | [Route Order Precedence & Timing Attacks](day-08_route_order_precedence_and_constant_time_auth.md) | Placed literal sub-paths before dynamic path parameters; eliminated timing attacks using `secrets.compare_digest`. |
 
 ---
 
