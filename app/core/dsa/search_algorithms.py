@@ -6,7 +6,7 @@ and O(N^2) nested loop patterns.
 """
 
 from collections.abc import Callable, Sequence
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 T = TypeVar("T")
 
@@ -98,7 +98,7 @@ def two_pointer_pair_search(
     target: float,
     key_func: Callable[[T], float],
     tolerance: float = 1e-9,
-) -> Optional[tuple[T, T]]:
+) -> tuple[T, T] | None:
     """Find a pair of distinct elements whose combined metric sums to `target`.
 
     Executes in strictly O(N) time and O(1) auxiliary space using two converging

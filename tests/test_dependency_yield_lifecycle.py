@@ -61,7 +61,7 @@ def unhandled_error_route(
 
 
 @pytest.fixture(scope="module", autouse=True)
-def register_lifecycle_router() -> Generator[None, None, None]:
+def register_lifecycle_router() -> Generator[None]:
     """Register lifecycle test router on the application for the test module."""
     app.include_router(lifecycle_router)
     yield

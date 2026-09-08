@@ -3,7 +3,7 @@
 import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI
@@ -23,7 +23,7 @@ from app.routers.user_router import router as user_router
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Lifespan context manager for application startup and shutdown events.
 
     Startup:
@@ -63,7 +63,7 @@ async def health_check() -> dict[str, str]:
     """Non-blocking health check endpoint to verify service liveness and responsiveness."""
     return {
         "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -100,6 +100,4 @@ async def db_pool_health_check() -> dict[str, Any]:
 @app.get("/test/raise-unhandled-500", include_in_schema=False)
 async def raise_unhandled_500() -> None:
     """Internal test route to verify unhandled 500 error masking and trace ID generation."""
-    raise RuntimeError(
-        "Simulated unhandled internal database crash with secret credentials: db_pass=SuperSecret!"
-    )
+    raise RuntimeError("Simulated unhandled internal database crash with secret credentials: db_pass=SuperSecret!")

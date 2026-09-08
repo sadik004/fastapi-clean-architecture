@@ -1,9 +1,9 @@
 """Memory profiling and footprint benchmarking utilities for slotted vs unslotted classes."""
 
-from collections.abc import Callable
 import gc
 import sys
 import tracemalloc
+from collections.abc import Callable
 from typing import Any
 
 
@@ -60,12 +60,10 @@ def measure_memory_footprint(
     unslotted_heap_kb = current_unslotted / 1024.0
     slotted_heap_kb = current_slotted / 1024.0
 
-    heap_savings_pct = (
-        ((unslotted_heap_kb - slotted_heap_kb) / max(unslotted_heap_kb, 0.001)) * 100.0
-    )
+    heap_savings_pct = ((unslotted_heap_kb - slotted_heap_kb) / max(unslotted_heap_kb, 0.001)) * 100.0
     instance_savings_pct = (
-        ((unslotted_instance_total - slotted_instance_total) / max(unslotted_instance_total, 1)) * 100.0
-    )
+        (unslotted_instance_total - slotted_instance_total) / max(unslotted_instance_total, 1)
+    ) * 100.0
 
     return {
         "count": count,

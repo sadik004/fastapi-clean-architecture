@@ -2,6 +2,7 @@
 
 from collections.abc import Generator
 from typing import Any
+
 import pytest
 from fastapi import APIRouter, Depends, status
 from fastapi.testclient import TestClient
@@ -14,7 +15,6 @@ from app.core.dependencies import (
 from app.main import app
 from app.repositories.user_repository import UserEntity
 from app.schemas.user import UserRole
-
 
 # ============================================================================
 # Auxiliary Router for Sub-Dependency DAG and Role Combination Checks
@@ -49,7 +49,7 @@ def multi_subdep_endpoint(
 
 
 @pytest.fixture(scope="module", autouse=True)
-def register_dag_router() -> Generator[None, None, None]:
+def register_dag_router() -> Generator[None]:
     """Register auxiliary router on application for module test lifecycle."""
     app.include_router(dag_router)
     yield

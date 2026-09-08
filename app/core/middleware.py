@@ -6,6 +6,7 @@ incoming HTTP requests and outgoing responses in O(1) time complexity.
 
 import time
 import uuid
+
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response

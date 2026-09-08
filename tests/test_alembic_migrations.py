@@ -9,12 +9,13 @@ Verifies:
 """
 
 from typing import Any
+
 import pytest
-from alembic.autogenerate import compare_metadata
-from alembic.migration import MigrationContext
 from sqlalchemy import inspect, select
 from sqlalchemy.engine import Connection
 
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext
 from app.core.database import (
     Base,
     apply_migrations,
@@ -23,7 +24,6 @@ from app.core.database import (
     rollback_migration,
 )
 from app.models.user import UserModel
-
 
 # ============================================================================
 # 1. Programmatic Upgrade & Table Inspection Tests
@@ -38,6 +38,7 @@ async def test_apply_migrations_creates_users_table_and_indexes() -> None:
 
     # Inspect schema via active engine connection
     async with engine.connect() as conn:
+
         def check_tables_and_indexes(sync_conn: Connection) -> dict[str, Any]:
             inspector = inspect(sync_conn)
             tables = inspector.get_table_names()
@@ -60,11 +61,7 @@ async def test_apply_migrations_creates_users_table_and_indexes() -> None:
         assert "created_at" in inspection["columns"]
         assert "updated_at" in inspection["columns"]
 
-        index_column_names = {
-            col
-            for idx in inspection["indexes"]
-            for col in idx.get("column_names", [])
-        }
+        index_column_names = {col for idx in inspection["indexes"] for col in idx.get("column_names", [])}
         assert "email" in index_column_names
         assert "username" in index_column_names
 
@@ -85,9 +82,7 @@ async def test_migration_bidirectional_reversibility() -> None:
 
     # Verify posts table was dropped while users remains
     async with engine.connect() as conn:
-        tables_after_rollback_1 = await conn.run_sync(
-            lambda sync_conn: inspect(sync_conn).get_table_names()
-        )
+        tables_after_rollback_1 = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "posts" not in tables_after_rollback_1
         assert "users" in tables_after_rollback_1
 
@@ -95,9 +90,7 @@ async def test_migration_bidirectional_reversibility() -> None:
     rollback_migration(revision="base")
 
     async with engine.connect() as conn:
-        tables_after_rollback_base = await conn.run_sync(
-            lambda sync_conn: inspect(sync_conn).get_table_names()
-        )
+        tables_after_rollback_base = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "users" not in tables_after_rollback_base
         assert "posts" not in tables_after_rollback_base
 
@@ -106,9 +99,7 @@ async def test_migration_bidirectional_reversibility() -> None:
 
     # Verify both tables were successfully restored
     async with engine.connect() as conn:
-        tables_after_reupgrade = await conn.run_sync(
-            lambda sync_conn: inspect(sync_conn).get_table_names()
-        )
+        tables_after_reupgrade = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "users" in tables_after_reupgrade
         assert "posts" in tables_after_reupgrade
 
@@ -125,6 +116,7 @@ async def test_schema_drift_detection_reports_zero_differences() -> None:
     apply_migrations(revision="head")
 
     async with engine.connect() as conn:
+
         def check_drift(sync_conn: Connection) -> list[Any]:
             migration_context = MigrationContext.configure(sync_conn)
             # compare_metadata returns any differences between DB schema and declarative Base.metadata
@@ -151,9 +143,7 @@ async def test_user_model_persistence_and_timestamps() -> None:
 
     async with async_session_factory() as session:
         # Clean up any existing entity with the same email/username
-        existing = await session.scalar(
-            select(UserModel).where(UserModel.email == test_email)
-        )
+        existing = await session.scalar(select(UserModel).where(UserModel.email == test_email))
         if existing:
             await session.delete(existing)
             await session.commit()
@@ -179,9 +169,7 @@ async def test_user_model_persistence_and_timestamps() -> None:
 
     # Retrieve in a distinct session to assert database round-trip fidelity
     async with async_session_factory() as verify_session:
-        retrieved = await verify_session.scalar(
-            select(UserModel).where(UserModel.email == test_email)
-        )
+        retrieved = await verify_session.scalar(select(UserModel).where(UserModel.email == test_email))
         assert retrieved is not None
         assert retrieved.username == test_username
         assert retrieved.full_name == "Alembic Master"

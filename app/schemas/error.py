@@ -5,7 +5,8 @@ Every error response (4xx, 5xx) maps to this predictable envelope.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -32,7 +33,7 @@ class ErrorDetail(BaseModel):
         ...,
         description="Unique UUID correlation trace identifier for diagnostic tracking",
     )
-    details: Optional[list[dict[str, Any]]] = Field(
+    details: list[dict[str, Any]] | None = Field(
         default=None,
         description="Optional list of contextual field-level validation issues or metadata",
     )
@@ -47,7 +48,7 @@ class ErrorResponse(BaseModel):
         ...,
         description="Primary error detail object",
     )
-    detail: Optional[Any] = Field(
+    detail: Any | None = Field(
         default=None,
         description="Backward-compatible detail payload (string message or validation error list) for legacy clients",
     )

@@ -9,9 +9,10 @@ Verifies:
 6. End-to-End API Test: Validates GET /users/autocomplete?q=... via FastAPI TestClient.
 """
 
-from datetime import datetime, timezone
 import string
 import time
+from datetime import UTC, datetime
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -19,7 +20,6 @@ from fastapi.testclient import TestClient
 from app.core.dsa.trie import PrefixTrie, TrieNode
 from app.repositories.user_repository import InMemoryUserRepository, UserEntity
 from app.services.user_service import UserService
-
 
 # ============================================================================
 # 1. Slotted Node Invariant Tests
@@ -244,7 +244,7 @@ async def test_user_service_trie_synchronization() -> None:
     service = UserService(repository=repo, trie=trie)
 
     # Register user
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user = UserEntity(
         id=50,
         email="autocomplete.hero@example.com",

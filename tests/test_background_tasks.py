@@ -1,15 +1,16 @@
 """Tests for FastAPI BackgroundTasks Architecture & Safe Memory Lifecycle."""
 
 import asyncio
-from collections.abc import MutableMapping
-from datetime import datetime, timezone
 import inspect
 import time
+from collections.abc import MutableMapping
+from datetime import UTC, datetime
 from typing import Any
+
+import pytest
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncByteStream, AsyncClient, Request, Response
 from httpx._transports.asgi import ASGIResponseStream
-import pytest
 
 from app.core.dependencies import ScopedTransactionContext
 from app.main import app
@@ -141,9 +142,7 @@ class TestBackgroundTasksArchitecture:
 
             # 1. HTTP 201 response must return immediately (< 35ms) even though background task is 50ms+
             assert response.status_code == 201
-            assert (
-                elapsed_ms < 85.0
-            ), f"Response latency {elapsed_ms:.2f}ms exceeded 85ms threshold"
+            assert elapsed_ms < 85.0, f"Response latency {elapsed_ms:.2f}ms exceeded 85ms threshold"
 
             # 2. Immediately upon response return, the 50ms background task has not completed yet
             notification_logs = get_notification_logs()
@@ -248,7 +247,7 @@ class TestBackgroundTasksArchitecture:
         monkeypatch.setattr(notification_service, "_AUDIT_LOG_STORE", FailingDeque())
 
         try:
-            await record_audit_log("critical_action", 42, datetime.now(timezone.utc))
+            await record_audit_log("critical_action", 42, datetime.now(UTC))
         except Exception as exc:
             pytest.fail(f"record_audit_log leaked unhandled exception: {exc}")
 
@@ -258,7 +257,7 @@ class TestBackgroundTasksArchitecture:
         clear_notification_service()
 
         total_entries = MAX_AUDIT_ENTRIES + 50  # 1050 entries
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for i in range(total_entries):
             await record_audit_log(

@@ -1,10 +1,10 @@
 """Sliding Window Log Algorithm for In-Memory Request Rate Limiting & Zero-Leak Monitoring."""
 
-from collections import deque
 import sys
 import threading
 import time
-from typing import Any, Optional
+from collections import deque
+from typing import Any
 
 
 class SlidingWindowLog:
@@ -35,9 +35,7 @@ class SlidingWindowLog:
         self._last_seen: dict[str, float] = {}
         self._lock: threading.Lock = threading.Lock()
 
-    def record_and_check(
-        self, client_id: str, now: Optional[float] = None
-    ) -> tuple[bool, int, float]:
+    def record_and_check(self, client_id: str, now: float | None = None) -> tuple[bool, int, float]:
         """Record an incoming request timestamp and evaluate rate limit compliance.
 
         Algorithm:
@@ -77,9 +75,7 @@ class SlidingWindowLog:
             self._last_seen[client_id] = current_time
             return True, len(queue), 0.0
 
-    def evict_idle_clients(
-        self, idle_seconds: float, now: Optional[float] = None
-    ) -> int:
+    def evict_idle_clients(self, idle_seconds: float, now: float | None = None) -> int:
         """Purge stale client buckets inactive for longer than idle_seconds.
 
         Prevents unbounded dictionary memory growth under high volumes of unique,
@@ -96,11 +92,7 @@ class SlidingWindowLog:
         stale_threshold = current_time - idle_seconds
 
         with self._lock:
-            stale_keys = [
-                client_id
-                for client_id, last_time in self._last_seen.items()
-                if last_time < stale_threshold
-            ]
+            stale_keys = [client_id for client_id, last_time in self._last_seen.items() if last_time < stale_threshold]
             for client_id in stale_keys:
                 self._store.pop(client_id, None)
                 self._last_seen.pop(client_id, None)
@@ -116,7 +108,7 @@ class SlidingWindowLog:
         with self._lock:
             return sum(len(q) for q in self._store.values())
 
-    def get_client_request_count(self, client_id: str, now: Optional[float] = None) -> int:
+    def get_client_request_count(self, client_id: str, now: float | None = None) -> int:
         """Return the number of active requests in the rolling window for a client."""
         current_time = time.time() if now is None else float(now)
         threshold = current_time - self.window_seconds
@@ -137,9 +129,7 @@ class SlidingWindowLog:
 
             # Memory footprint approximation
             dict_memory = sys.getsizeof(self._store) + sys.getsizeof(self._last_seen)
-            queue_memory = sum(
-                sys.getsizeof(q) + (len(q) * 8) for q in self._store.values()
-            )
+            queue_memory = sum(sys.getsizeof(q) + (len(q) * 8) for q in self._store.values())
             estimated_bytes = dict_memory + queue_memory
 
             return {

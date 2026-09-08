@@ -7,11 +7,11 @@ Provides:
 """
 
 import asyncio
-from dataclasses import dataclass, field
-from enum import IntEnum
 import heapq
 import time
-from typing import Any, Optional
+from dataclasses import dataclass, field
+from enum import IntEnum
+from typing import Any
 
 
 class JobPriority(IntEnum):
@@ -72,13 +72,13 @@ class PriorityJobScheduler:
         """Check if the queue contains zero pending jobs."""
         return len(self._heap) == 0
 
-    def peek_sync(self) -> Optional[PriorityJob]:
+    def peek_sync(self) -> PriorityJob | None:
         """Inspect the highest-priority root job in O(1) time without removing it (sync)."""
         if not self._heap:
             return None
         return self._heap[0]
 
-    async def peek(self) -> Optional[PriorityJob]:
+    async def peek(self) -> PriorityJob | None:
         """Inspect the highest-priority root job in O(1) time under async lock."""
         async with self._lock:
             return self.peek_sync()
@@ -89,7 +89,7 @@ class PriorityJobScheduler:
         payload: dict[str, Any],
         priority: JobPriority = JobPriority.NORMAL,
         delay_seconds: float = 0.0,
-        job_id: Optional[str] = None,
+        job_id: str | None = None,
     ) -> str:
         """Synchronously enqueue a job into the binary min-heap in O(log N) time."""
         now = time.time()
@@ -114,7 +114,7 @@ class PriorityJobScheduler:
         payload: dict[str, Any],
         priority: JobPriority = JobPriority.NORMAL,
         delay_seconds: float = 0.0,
-        job_id: Optional[str] = None,
+        job_id: str | None = None,
     ) -> str:
         """Asynchronously enqueue a job with thread/coroutine coordination."""
         async with self._lock:
@@ -126,7 +126,7 @@ class PriorityJobScheduler:
                 job_id=job_id,
             )
 
-    def pop_due_job_sync(self, now: Optional[float] = None) -> Optional[PriorityJob]:
+    def pop_due_job_sync(self, now: float | None = None) -> PriorityJob | None:
         """Synchronously pop the highest priority job if its execution timestamp has arrived.
 
         Returns:
@@ -140,7 +140,7 @@ class PriorityJobScheduler:
             return heapq.heappop(self._heap)
         return None
 
-    async def pop_due_job(self, now: Optional[float] = None) -> Optional[PriorityJob]:
+    async def pop_due_job(self, now: float | None = None) -> PriorityJob | None:
         """Asynchronously pop the highest priority due job under lock in O(log N) time."""
         async with self._lock:
             return self.pop_due_job_sync(now=now)

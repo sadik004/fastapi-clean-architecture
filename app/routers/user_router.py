@@ -1,7 +1,8 @@
 """User Router handling HTTP endpoints, request/response validation, and status codes."""
 
-from datetime import datetime, timezone
-from typing import Annotated, Optional
+from datetime import UTC, datetime
+from typing import Annotated
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Response, status
 
 from app.core.dependencies import (
@@ -86,7 +87,7 @@ async def create_user(
         record_audit_log,
         "create_user",
         created_user.id,
-        datetime.now(timezone.utc),
+        datetime.now(UTC),
     )
     return UserResponse.model_validate(created_user)
 
@@ -159,10 +160,7 @@ async def get_admin_metrics(
     """Protected endpoint for administrators to view system user metrics."""
     users = await service.list_users(limit=100, offset=0)
     admin_count = sum(
-        1
-        for u in users
-        if (u.role.value if isinstance(u.role, UserRole) else str(u.role))
-        == UserRole.ADMIN.value
+        1 for u in users if (u.role.value if isinstance(u.role, UserRole) else str(u.role)) == UserRole.ADMIN.value
     )
     return {
         "status": "operational",
@@ -326,18 +324,18 @@ async def list_users(
         ge=0,
         description="Zero-based pagination offset",
     ),
-    role: Optional[UserRole] = Query(
+    role: UserRole | None = Query(
         default=None,
         description="Filter users by system role",
     ),
-    search: Optional[str] = Query(
+    search: str | None = Query(
         default=None,
         min_length=2,
         max_length=50,
         pattern=r"^[a-zA-Z0-9_ ]+$",
         description="Search term matching username or full name",
     ),
-    is_active: Optional[bool] = Query(
+    is_active: bool | None = Query(
         default=None,
         description="Filter users by active status",
     ),
@@ -381,7 +379,7 @@ async def update_user(
         record_audit_log,
         "update_user",
         updated_user.id,
-        datetime.now(timezone.utc),
+        datetime.now(UTC),
     )
     return UserResponse.model_validate(updated_user)
 

@@ -1,15 +1,15 @@
 """Pydantic v2 schemas for User domain with custom @field_validator and @model_validator rules."""
 
+import re
 from datetime import datetime
 from enum import Enum
-import re
-from typing import Any, Optional, Pattern, Self
+from re import Pattern
+from typing import Any, Self
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 # Module-level pre-compiled regexes & sets for O(1) lookups and O(k) pattern matching
-RESERVED_USERNAMES: frozenset[str] = frozenset(
-    {"admin", "root", "system", "superuser", "administrator", "operator"}
-)
+RESERVED_USERNAMES: frozenset[str] = frozenset({"admin", "root", "system", "superuser", "administrator", "operator"})
 RE_E164_PHONE: Pattern[str] = re.compile(r"^\+[1-9]\d{1,14}$")
 RE_HTML_TAGS: Pattern[str] = re.compile(r"<[^<]+?>")
 
@@ -21,7 +21,7 @@ def sanitize_username_before(v: Any) -> Any:
     return v
 
 
-def validate_username_after(v: Optional[str]) -> Optional[str]:
+def validate_username_after(v: str | None) -> str | None:
     """Enforce invariants: reject consecutive underscores and reserved system keywords (mode='after')."""
     if v is None:
         return v
@@ -48,12 +48,10 @@ def sanitize_phone_number_before(v: Any) -> Any:
     return v
 
 
-def validate_phone_number_after(v: Optional[str]) -> Optional[str]:
+def validate_phone_number_after(v: str | None) -> str | None:
     """Validate phone conforms to international E.164 format via pre-compiled regex (mode='after')."""
     if v is not None and not RE_E164_PHONE.match(v):
-        raise ValueError(
-            "Phone number must conform to international E.164 format (e.g. +1234567890)."
-        )
+        raise ValueError("Phone number must conform to international E.164 format (e.g. +1234567890).")
     return v
 
 
@@ -95,21 +93,21 @@ class UserBase(BaseModel):
         pattern=r"^[a-zA-Z0-9_]+$",
         description="Unique username containing only alphanumeric characters and underscores",
     )
-    full_name: Optional[str] = Field(
+    full_name: str | None = Field(
         default=None,
         max_length=100,
         description="User's full name, auto-normalized to Title Case",
     )
-    phone_number: Optional[str] = Field(
+    phone_number: str | None = Field(
         default=None,
         description="International phone number conforming to E.164 format",
     )
-    bio: Optional[str] = Field(
+    bio: str | None = Field(
         default=None,
         max_length=500,
         description="User biography with HTML tags automatically stripped",
     )
-    company_name: Optional[str] = Field(
+    company_name: str | None = Field(
         default=None,
         max_length=100,
         description="Organization or company name for enterprise accounts",
@@ -124,7 +122,8 @@ class UserBase(BaseModel):
     @classmethod
     def check_username_invariants(cls, v: str) -> str:
         res = validate_username_after(v)
-        assert res is not None
+        if res is None:
+            raise ValueError("Username cannot be None.")
         return res
 
     @field_validator("full_name", mode="before")
@@ -139,7 +138,7 @@ class UserBase(BaseModel):
 
     @field_validator("phone_number", mode="after")
     @classmethod
-    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+    def validate_phone(cls, v: str | None) -> str | None:
         return validate_phone_number_after(v)
 
     @field_validator("bio", mode="before")
@@ -168,7 +167,7 @@ class UserCreate(UserBase):
         max_length=128,
         description="Password confirmation that must match password identically",
     )
-    age: Optional[int] = Field(
+    age: int | None = Field(
         default=None,
         ge=18,
         le=120,
@@ -191,9 +190,7 @@ class UserCreate(UserBase):
             raise ValueError("Password must not contain the username.")
 
         # Invariant 3: Conditional Role Requirements (Enterprise requires company_name)
-        if self.role == UserRole.ENTERPRISE and (
-            not self.company_name or not self.company_name.strip()
-        ):
+        if self.role == UserRole.ENTERPRISE and (not self.company_name or not self.company_name.strip()):
             raise ValueError("company_name is strictly required when role is 'enterprise'.")
 
         return self
@@ -202,43 +199,43 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """Input payload schema for updating user details."""
 
-    email: Optional[EmailStr] = Field(
+    email: EmailStr | None = Field(
         default=None,
         description="Updated email address",
     )
-    username: Optional[str] = Field(
+    username: str | None = Field(
         default=None,
         min_length=3,
         max_length=50,
         pattern=r"^[a-zA-Z0-9_]+$",
         description="Updated username containing only alphanumeric characters and underscores",
     )
-    full_name: Optional[str] = Field(
+    full_name: str | None = Field(
         default=None,
         max_length=100,
         description="Updated full name, auto-normalized to Title Case",
     )
-    phone_number: Optional[str] = Field(
+    phone_number: str | None = Field(
         default=None,
         description="Updated international phone number conforming to E.164 format",
     )
-    bio: Optional[str] = Field(
+    bio: str | None = Field(
         default=None,
         max_length=500,
         description="Updated user biography with HTML tags automatically stripped",
     )
-    company_name: Optional[str] = Field(
+    company_name: str | None = Field(
         default=None,
         max_length=100,
         description="Updated organization or company name",
     )
-    age: Optional[int] = Field(
+    age: int | None = Field(
         default=None,
         ge=18,
         le=120,
         description="Updated user age (must be between 18 and 120)",
     )
-    role: Optional[UserRole] = Field(
+    role: UserRole | None = Field(
         default=None,
         description="Updated user role",
     )
@@ -250,7 +247,7 @@ class UserUpdate(BaseModel):
 
     @field_validator("username", mode="after")
     @classmethod
-    def check_username_invariants(cls, v: Optional[str]) -> Optional[str]:
+    def check_username_invariants(cls, v: str | None) -> str | None:
         return validate_username_after(v)
 
     @field_validator("full_name", mode="before")
@@ -265,7 +262,7 @@ class UserUpdate(BaseModel):
 
     @field_validator("phone_number", mode="after")
     @classmethod
-    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+    def validate_phone(cls, v: str | None) -> str | None:
         return validate_phone_number_after(v)
 
     @field_validator("bio", mode="before")
@@ -282,33 +279,33 @@ class UserUpdate(BaseModel):
 class UserProfileUpdate(BaseModel):
     """Input payload schema for updating user profile fields."""
 
-    username: Optional[str] = Field(
+    username: str | None = Field(
         default=None,
         min_length=3,
         max_length=50,
         pattern=r"^[a-zA-Z0-9_]+$",
         description="Updated username containing only alphanumeric characters and underscores",
     )
-    full_name: Optional[str] = Field(
+    full_name: str | None = Field(
         default=None,
         max_length=100,
         description="Updated full name, auto-normalized to Title Case",
     )
-    phone_number: Optional[str] = Field(
+    phone_number: str | None = Field(
         default=None,
         description="Updated international phone number conforming to E.164 format",
     )
-    bio: Optional[str] = Field(
+    bio: str | None = Field(
         default=None,
         max_length=500,
         description="Updated user biography with HTML tags automatically stripped",
     )
-    company_name: Optional[str] = Field(
+    company_name: str | None = Field(
         default=None,
         max_length=100,
         description="Updated organization or company name",
     )
-    age: Optional[int] = Field(
+    age: int | None = Field(
         default=None,
         ge=18,
         le=120,
@@ -322,7 +319,7 @@ class UserProfileUpdate(BaseModel):
 
     @field_validator("username", mode="after")
     @classmethod
-    def check_username_invariants(cls, v: Optional[str]) -> Optional[str]:
+    def check_username_invariants(cls, v: str | None) -> str | None:
         return validate_username_after(v)
 
     @field_validator("full_name", mode="before")
@@ -337,7 +334,7 @@ class UserProfileUpdate(BaseModel):
 
     @field_validator("phone_number", mode="after")
     @classmethod
-    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+    def validate_phone(cls, v: str | None) -> str | None:
         return validate_phone_number_after(v)
 
     @field_validator("bio", mode="before")
@@ -359,7 +356,7 @@ class UserResponse(UserBase):
     """
 
     id: int = Field(..., description="Unique identifier of the user")
-    age: Optional[int] = Field(default=None, description="User age")
+    age: int | None = Field(default=None, description="User age")
     role: UserRole = Field(default=UserRole.USER, description="User role")
     is_active: bool = Field(default=True, description="Account active status")
     created_at: datetime = Field(..., description="Timestamp of user creation")
@@ -374,9 +371,7 @@ class UserDashboardResponse(BaseModel):
     activity_logs: list[dict[str, Any]] = Field(
         default_factory=list, description="Recent user activity and transaction logs"
     )
-    stats: dict[str, Any] = Field(
-        default_factory=dict, description="Account metrics and usage statistics"
-    )
+    stats: dict[str, Any] = Field(default_factory=dict, description="Account metrics and usage statistics")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -386,9 +381,7 @@ class UserReportResponse(BaseModel):
 
     user_id: int = Field(..., description="Unique identifier of the user")
     username: str = Field(..., description="Normalized username")
-    report_checksum: str = Field(
-        ..., description="Cryptographic integrity checksum of generated dataset"
-    )
+    report_checksum: str = Field(..., description="Cryptographic integrity checksum of generated dataset")
     records_processed: int = Field(..., description="Total synthetic records analyzed")
     generated_at: datetime = Field(..., description="Timestamp of report completion")
 
@@ -400,8 +393,7 @@ class UserAutocompleteResponse(BaseModel):
 
     id: int = Field(..., description="Unique identifier of the user")
     username: str = Field(..., description="Normalized username")
-    full_name: Optional[str] = Field(default=None, description="User full name")
-    matched_term: Optional[str] = Field(default=None, description="The trie key matching the prefix")
+    full_name: str | None = Field(default=None, description="User full name")
+    matched_term: str | None = Field(default=None, description="The trie key matching the prefix")
 
     model_config = ConfigDict(from_attributes=True)
-

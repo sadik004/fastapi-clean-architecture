@@ -2,9 +2,10 @@
 
 import asyncio
 import time
+
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-import pytest
 
 from app.core.exceptions import UserNotFoundException
 from app.repositories.user_repository import InMemoryUserRepository

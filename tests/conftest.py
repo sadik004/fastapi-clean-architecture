@@ -1,8 +1,11 @@
 """Centralized Pytest configuration and shared test fixtures."""
 
 import sqlite3
-from typing import Any, Generator
+from collections.abc import Generator
+from datetime import UTC
+from typing import Any
 from unittest.mock import AsyncMock
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -30,7 +33,7 @@ def _clean_database() -> None:
 
 
 @pytest.fixture(autouse=True)
-def clean_repo() -> Generator[UserRepositoryProtocol, None, None]:
+def clean_repo() -> Generator[UserRepositoryProtocol]:
     """Autouse fixture ensuring clean, isolated repository, transaction, and background task state."""
     _user_repository.clear()
     _clean_database()
@@ -167,6 +170,7 @@ def enterprise_auth_headers(enterprise_user: dict[str, Any]) -> dict[str, str]:
 # Day 28: Async Mock Fixtures & Test Doubles
 # ==============================================================================
 
+
 class MockNotificationService:
     """Test spy container for asynchronous background notification and audit tasks."""
 
@@ -178,7 +182,8 @@ class MockNotificationService:
 @pytest.fixture
 def mock_user_repository() -> AsyncMock:
     """Reusable AsyncMock strictly adhering to UserRepositoryProtocol."""
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from app.repositories.user_repository import UserEntity
 
     mock = AsyncMock(spec=UserRepositoryProtocol)
@@ -191,7 +196,7 @@ def mock_user_repository() -> AsyncMock:
         username="mocked_user",
         password_hash="mocked_hash",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         age=25,
         role="user",
         full_name="Mocked User",
@@ -202,7 +207,7 @@ def mock_user_repository() -> AsyncMock:
         username="mocked_user_updated",
         password_hash="mocked_hash",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         age=26,
         role="user",
         full_name="Mocked User Updated",
@@ -213,7 +218,7 @@ def mock_user_repository() -> AsyncMock:
 
 
 @pytest.fixture
-def mock_notification_service(monkeypatch: pytest.MonkeyPatch) -> Generator[MockNotificationService, None, None]:
+def mock_notification_service(monkeypatch: pytest.MonkeyPatch) -> Generator[MockNotificationService]:
     """Provide AsyncMock spies for background notification and audit logging tasks."""
     spy = MockNotificationService()
     monkeypatch.setattr("app.routers.user_router.send_welcome_notification", spy.send_welcome_notification)
@@ -232,5 +237,3 @@ def mock_db_session() -> AsyncMock:
     session.rollback = AsyncMock()
     session.close = AsyncMock()
     return session
-
-

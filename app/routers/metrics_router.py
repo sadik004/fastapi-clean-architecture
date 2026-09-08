@@ -1,6 +1,7 @@
 """Metrics and rate limiter telemetry router."""
 
 from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.core.dependencies import (
@@ -41,13 +42,7 @@ async def get_rate_limiter_telemetry(
 @router.get(
     "/rate-limiter/test-protected",
     response_model=RateLimiterTestResponse,
-    dependencies=[
-        Depends(
-            check_sliding_window_rate_limit(
-                window=10.0, limit=5, limiter=_test_endpoint_limiter
-            )
-        )
-    ],
+    dependencies=[Depends(check_sliding_window_rate_limit(window=10.0, limit=5, limiter=_test_endpoint_limiter))],
     summary="Rate-limited test endpoint",
     description="Sample endpoint protected by sliding window rate limiter (5 requests / 10s).",
 )
@@ -55,9 +50,8 @@ async def rate_limited_test_endpoint(
     request: Request,
 ) -> RateLimiterTestResponse:
     """Protected test endpoint that verifies sliding window rate limit enforcement."""
-    client_id = (
-        request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        or (request.client.host if request.client else "127.0.0.1")
+    client_id = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (
+        request.client.host if request.client else "127.0.0.1"
     )
     count = _test_endpoint_limiter.get_client_request_count(client_id)
     return RateLimiterTestResponse(

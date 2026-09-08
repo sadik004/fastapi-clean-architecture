@@ -10,6 +10,7 @@ Verifies:
 
 import asyncio
 from typing import Any
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -23,7 +24,6 @@ from app.core.database import (
     get_db_pool_status,
     get_db_session,
 )
-
 
 # ============================================================================
 # 1. Connection Pool Configuration Tests
@@ -138,9 +138,7 @@ def test_health_db_pool_endpoint_success(client: TestClient) -> None:
     assert isinstance(data["checked_out_connections"], int)
     assert isinstance(data["overflow_connections"], int)
     assert isinstance(data["total_open_connections"], int)
-    assert data["total_open_connections"] == (
-        data["checked_in_connections"] + data["checked_out_connections"]
-    )
+    assert data["total_open_connections"] == (data["checked_in_connections"] + data["checked_out_connections"])
 
 
 # ============================================================================

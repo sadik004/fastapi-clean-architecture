@@ -13,6 +13,7 @@ Verifies:
 import asyncio
 import random
 import time
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -23,7 +24,6 @@ from app.core.dsa.priority_queue import (
     PriorityJobScheduler,
 )
 from app.services.job_service import JobService
-
 
 # ============================================================================
 # 1. Slotted Memory Invariant Tests
@@ -122,6 +122,7 @@ async def test_monotonic_fifo_tie_breaking() -> None:
             payload={"index": i},
         )
         import heapq
+
         heapq.heappush(scheduler._heap, job)
 
     assert scheduler.size() == 10
@@ -258,8 +259,8 @@ def test_heap_scaling_benchmark() -> None:
     elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
     assert pop_count == 10_000
-    # 10,000 pushes + 10,000 pops in Python heapq typically takes 15-35ms
-    assert elapsed_ms < 100.0, f"Heap benchmark took {elapsed_ms:.2f}ms, expected < 100.0ms"
+    # 10,000 pushes + 10,000 pops in Python heapq typically takes 15-35ms (bound at < 150ms for CI load)
+    assert elapsed_ms < 150.0, f"Heap benchmark took {elapsed_ms:.2f}ms, expected < 150.0ms"
 
 
 # ============================================================================

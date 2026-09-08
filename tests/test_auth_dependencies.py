@@ -1,13 +1,13 @@
 """Day 08: Dependency Injection Architecture & Declarative Auth Guards Test Suite."""
 
 from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.core.config import Settings, get_settings
 from app.routers.user_router import get_user_repository
-
 
 # ============================================================================
 # 1. Centralized Configuration & Caching Tests
@@ -26,8 +26,9 @@ class TestConfigurationInjection:
     def test_settings_immutability(self) -> None:
         """Verify settings model is frozen and rejects runtime attribute mutations."""
         settings = get_settings()
+        attr_name = "debug"
         with pytest.raises(ValidationError):
-            setattr(settings, "debug", True)
+            setattr(settings, attr_name, True)
 
     def test_settings_defaults(self) -> None:
         """Verify expected default application configurations."""
@@ -100,6 +101,7 @@ class TestAuthenticationGuards:
     ) -> None:
         """Verify de-activated accounts are denied access with HTTP 403 Forbidden."""
         import asyncio
+
         user_id = int(standard_user["id"])
         repo = get_user_repository()
         user = asyncio.run(repo.get_by_id(user_id))

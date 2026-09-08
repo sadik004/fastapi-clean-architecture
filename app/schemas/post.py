@@ -1,6 +1,7 @@
 """Pydantic schemas for Post entities and atomic multi-entity payloads."""
 
 from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.user import UserCreate, UserResponse

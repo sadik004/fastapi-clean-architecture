@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncGenerator
 from typing import Any
+
 from sqlalchemy.ext.asyncio import (
     AsyncAttrs,
     AsyncEngine,
@@ -66,7 +67,7 @@ async_session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
 )
 
 
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_db_session() -> AsyncGenerator[AsyncSession]:
     """Yield an active asynchronous database session with automatic transaction lifecycle.
 
     Pre-yield: Opens session from async_session_factory in O(1) time.
@@ -117,9 +118,7 @@ def get_db_pool_status() -> dict[str, Any]:
     }
 
 
-def apply_migrations(
-    alembic_ini_path: str = "alembic.ini", revision: str = "head"
-) -> None:
+def apply_migrations(alembic_ini_path: str = "alembic.ini", revision: str = "head") -> None:
     """Programmatically run Alembic migrations up to the specified revision."""
     from alembic import command
     from alembic.config import Config
@@ -129,9 +128,7 @@ def apply_migrations(
     command.upgrade(alembic_cfg, revision)
 
 
-def rollback_migration(
-    alembic_ini_path: str = "alembic.ini", revision: str = "-1"
-) -> None:
+def rollback_migration(alembic_ini_path: str = "alembic.ini", revision: str = "-1") -> None:
     """Programmatically downgrade Alembic migrations to the specified revision."""
     from alembic import command
     from alembic.config import Config
@@ -139,4 +136,3 @@ def rollback_migration(
     alembic_cfg = Config(alembic_ini_path)
     alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
     command.downgrade(alembic_cfg, revision)
-

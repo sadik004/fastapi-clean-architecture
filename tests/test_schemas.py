@@ -1,6 +1,7 @@
 """Unit tests for Pydantic v2 schemas and validation pipelines."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
 
@@ -168,7 +169,7 @@ def test_user_response_excludes_sensitive_fields() -> None:
         username="architect_01",
         password_hash="argon2_secret_hash_value_12345",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         age=32,
         role="user",
         company_name="Tech Corp",

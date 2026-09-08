@@ -1,7 +1,8 @@
 """Unit of Work (UoW) Pattern implementation for atomic ACID transactions across repositories."""
 
 from types import TracebackType
-from typing import Optional, Protocol, Self
+from typing import Protocol, Self
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.database import async_session_factory
@@ -38,9 +39,9 @@ class UnitOfWorkProtocol(Protocol):
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit the transaction boundary, auto-rolling back on error and closing the session."""
         ...
@@ -65,14 +66,12 @@ class SqlAlchemyUnitOfWork:
 
     def __init__(
         self,
-        session_factory: Optional[async_sessionmaker[AsyncSession]] = None,
+        session_factory: async_sessionmaker[AsyncSession] | None = None,
     ) -> None:
-        self._session_factory: async_sessionmaker[AsyncSession] = (
-            session_factory or async_session_factory
-        )
-        self.session: Optional[AsyncSession] = None
-        self._users: Optional[SqlAlchemyUserRepository] = None
-        self._posts: Optional[SqlAlchemyPostRepository] = None
+        self._session_factory: async_sessionmaker[AsyncSession] = session_factory or async_session_factory
+        self.session: AsyncSession | None = None
+        self._users: SqlAlchemyUserRepository | None = None
+        self._posts: SqlAlchemyPostRepository | None = None
 
     @property
     def users(self) -> UserRepositoryProtocol:
@@ -94,9 +93,9 @@ class SqlAlchemyUnitOfWork:
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         try:
             if exc_type is not None:
@@ -126,20 +125,20 @@ class InMemoryUnitOfWork:
 
     def __init__(
         self,
-        user_repo: Optional[InMemoryUserRepository] = None,
-        post_repo: Optional[InMemoryPostRepository] = None,
+        user_repo: InMemoryUserRepository | None = None,
+        post_repo: InMemoryPostRepository | None = None,
     ) -> None:
         self.users: InMemoryUserRepository = user_repo or InMemoryUserRepository()
         self.posts: InMemoryPostRepository = post_repo or InMemoryPostRepository()
 
         # State snapshots for rollback restoration
-        self._user_store_snapshot: Optional[dict[int, UserEntity]] = None
-        self._user_email_snapshot: Optional[dict[str, int]] = None
-        self._user_username_snapshot: Optional[dict[str, int]] = None
-        self._user_id_snapshot: Optional[int] = None
+        self._user_store_snapshot: dict[int, UserEntity] | None = None
+        self._user_email_snapshot: dict[str, int] | None = None
+        self._user_username_snapshot: dict[str, int] | None = None
+        self._user_id_snapshot: int | None = None
 
-        self._post_store_snapshot: Optional[dict[int, PostEntity]] = None
-        self._post_id_snapshot: Optional[int] = None
+        self._post_store_snapshot: dict[int, PostEntity] | None = None
+        self._post_id_snapshot: int | None = None
 
     async def __aenter__(self) -> Self:
         # Snapshot in-memory repositories state
@@ -154,9 +153,9 @@ class InMemoryUnitOfWork:
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         if exc_type is not None:
             await self.rollback()

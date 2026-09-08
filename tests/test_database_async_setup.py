@@ -11,6 +11,7 @@ Verifies:
 """
 
 from collections.abc import AsyncGenerator
+
 import pytest
 import pytest_asyncio
 from fastapi import status
@@ -51,7 +52,7 @@ class SampleTestEntity(Day15TestBase):
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def setup_test_tables() -> AsyncGenerator[None, None]:
+async def setup_test_tables() -> AsyncGenerator[None]:
     """Ensure database tables exist before tests and are cleaned up afterwards."""
     async with engine.begin() as conn:
         await conn.run_sync(Day15TestBase.metadata.create_all)
@@ -162,9 +163,7 @@ async def test_get_db_session_auto_commits_on_clean_exit() -> None:
     # Verify record was committed and is retrievable in a distinct session
     async with async_session_factory() as verification_session:
         result = await verification_session.scalars(
-            select(SampleTestEntity).where(
-                SampleTestEntity.title == "Auto-Commit Title"
-            )
+            select(SampleTestEntity).where(SampleTestEntity.title == "Auto-Commit Title")
         )
         persisted = result.first()
         assert persisted is not None
@@ -191,9 +190,7 @@ async def test_get_db_session_rolls_back_on_exception() -> None:
     # Verify that the rolled back record was NOT persisted
     async with async_session_factory() as verification_session:
         result = await verification_session.scalars(
-            select(SampleTestEntity).where(
-                SampleTestEntity.title == "Rollback Title"
-            )
+            select(SampleTestEntity).where(SampleTestEntity.title == "Rollback Title")
         )
         persisted = result.first()
         assert persisted is None

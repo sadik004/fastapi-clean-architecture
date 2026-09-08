@@ -1,7 +1,8 @@
 """Pydantic schemas for Priority-Based Background Job Scheduling."""
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.dsa.priority_queue import JobPriority
@@ -49,11 +50,7 @@ class JobStatusResponse(BaseModel):
 
     queue_size: int = Field(..., description="Current count of queued jobs in min-heap")
     has_pending_jobs: bool = Field(..., description="True if queue length > 0")
-    next_job_priority: Optional[str] = Field(
-        default=None, description="Priority label of the top-of-heap job"
-    )
-    next_job_scheduled_at: Optional[datetime] = Field(
-        default=None, description="Scheduled time of next pending root job"
-    )
+    next_job_priority: str | None = Field(default=None, description="Priority label of the top-of-heap job")
+    next_job_scheduled_at: datetime | None = Field(default=None, description="Scheduled time of next pending root job")
 
     model_config = ConfigDict(from_attributes=True)

@@ -8,8 +8,8 @@ Demonstrates:
 5. Sub-50ms Benchmark Verification for Mocked Async Operations.
 """
 
-from datetime import datetime, timezone
 import time
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -24,10 +24,10 @@ from app.schemas.user import UserCreate, UserRole
 from app.services.user_service import UserService
 from tests.conftest import MockNotificationService
 
-
 # ==============================================================================
 # 1. Isolated Service Unit Tests (Pure AsyncMock)
 # ==============================================================================
+
 
 @pytest.mark.asyncio
 async def test_user_service_register_user_success(mock_user_repository: AsyncMock) -> None:
@@ -38,7 +38,7 @@ async def test_user_service_register_user_success(mock_user_repository: AsyncMoc
         username="unit_tester",
         password_hash="hashed_secret",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         age=24,
         role="user",
         full_name="Unit Tester",
@@ -81,7 +81,7 @@ async def test_user_service_register_user_duplicate_email_rejection(
         username="other_user",
         password_hash="hash",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     mock_user_repository.get_by_email.return_value = existing_user
 
@@ -110,7 +110,7 @@ async def test_user_service_get_by_id_and_delete(mock_user_repository: AsyncMock
         username="temp_user",
         password_hash="hash",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     mock_user_repository.get_by_id.return_value = user
     mock_user_repository.delete.return_value = True
@@ -140,6 +140,7 @@ async def test_user_service_get_by_id_not_found(mock_user_repository: AsyncMock)
 # ==============================================================================
 # 2. Failure Simulation & Resilience Verification
 # ==============================================================================
+
 
 @pytest.mark.asyncio
 async def test_user_service_database_failure_injection(mock_user_repository: AsyncMock) -> None:
@@ -191,6 +192,7 @@ def test_route_resilience_background_task_smtp_timeout_isolation(
 # 3. Spy & Interaction Verification
 # ==============================================================================
 
+
 def test_notification_service_spies_verified_on_user_creation(
     client: TestClient,
     mock_notification_service: MockNotificationService,
@@ -225,6 +227,7 @@ def test_notification_service_spies_verified_on_user_creation(
 # 4. Route Testing via app.dependency_overrides
 # ==============================================================================
 
+
 def test_route_dependency_override_create_user(
     client: TestClient,
     mock_user_repository: AsyncMock,
@@ -236,7 +239,7 @@ def test_route_dependency_override_create_user(
         username="override_user",
         password_hash="mock_hash",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         age=27,
         role="user",
         full_name="Override Route User",
@@ -277,7 +280,7 @@ def test_route_dependency_override_get_user_by_id(
         username="retrieved_user",
         password_hash="mock_hash",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         age=33,
         role="user",
     )
@@ -299,6 +302,7 @@ def test_route_dependency_override_get_user_by_id(
 # 5. Sub-50ms Benchmark Verification for Mocked Async Operations
 # ==============================================================================
 
+
 @pytest.mark.asyncio
 async def test_mock_batch_execution_sub_50ms_benchmark(mock_user_repository: AsyncMock) -> None:
     """Verify 10 mock-isolated async service operations execute in under 50ms."""
@@ -308,7 +312,7 @@ async def test_mock_batch_execution_sub_50ms_benchmark(mock_user_repository: Asy
         username="bench_user",
         password_hash="hash",
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     service = UserService(repository=mock_user_repository, trie=PrefixTrie())
 

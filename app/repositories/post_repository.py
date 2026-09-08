@@ -1,8 +1,9 @@
 """Post Repository & Entity definitions preventing N+1 queries via joinedload eager loading."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Optional, Protocol
+from datetime import UTC, datetime
+from typing import Protocol
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -20,7 +21,7 @@ class PostEntity:
     content: str
     user_id: int
     created_at: datetime
-    author: Optional[UserEntity] = None
+    author: UserEntity | None = None
 
 
 class PostRepositoryProtocol(Protocol):
@@ -30,11 +31,11 @@ class PostRepositoryProtocol(Protocol):
         """Create and persist a new post."""
         ...
 
-    async def get_by_id(self, post_id: int) -> Optional[PostEntity]:
+    async def get_by_id(self, post_id: int) -> PostEntity | None:
         """Fetch post by ID without author relationship."""
         ...
 
-    async def get_post_with_author(self, post_id: int) -> Optional[PostEntity]:
+    async def get_post_with_author(self, post_id: int) -> PostEntity | None:
         """Fetch post with eagerly loaded author via joinedload (strictly 1 SQL query)."""
         ...
 
@@ -55,9 +56,9 @@ class SqlAlchemyPostRepository:
         """Map PostModel to pure detached domain PostEntity."""
         created_at = model.created_at
         if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
+            created_at = created_at.replace(tzinfo=UTC)
 
-        author_entity: Optional[UserEntity] = None
+        author_entity: UserEntity | None = None
         if include_author and getattr(model, "author", None) is not None:
             from app.repositories.sqlalchemy_user_repository import (
                 SqlAlchemyUserRepository,
@@ -86,24 +87,20 @@ class SqlAlchemyPostRepository:
         await self._session.refresh(model)
         return self._to_entity(model)
 
-    async def get_by_id(self, post_id: int) -> Optional[PostEntity]:
+    async def get_by_id(self, post_id: int) -> PostEntity | None:
         """Fetch post by primary key ID without author."""
         stmt = select(PostModel).where(PostModel.id == post_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model is not None else None
 
-    async def get_post_with_author(self, post_id: int) -> Optional[PostEntity]:
+    async def get_post_with_author(self, post_id: int) -> PostEntity | None:
         """Fetch post with author using joinedload() (strictly 1 SQL query).
 
         LEFT OUTER JOIN eliminates round-trip latency and guarantees scalar parent
         is fetched in a single database round-trip without Cartesian product overhead.
         """
-        stmt = (
-            select(PostModel)
-            .options(joinedload(PostModel.author))
-            .where(PostModel.id == post_id)
-        )
+        stmt = select(PostModel).options(joinedload(PostModel.author)).where(PostModel.id == post_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_entity(model, include_author=True) if model is not None else None
@@ -124,17 +121,17 @@ class InMemoryPostRepository:
             title=title,
             content=content,
             user_id=user_id,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             author=None,
         )
         self._store[self._current_id] = entity
         return entity
 
-    async def get_by_id(self, post_id: int) -> Optional[PostEntity]:
+    async def get_by_id(self, post_id: int) -> PostEntity | None:
         """Fetch post by primary key ID in O(1) time."""
         return self._store.get(post_id)
 
-    async def get_post_with_author(self, post_id: int) -> Optional[PostEntity]:
+    async def get_post_with_author(self, post_id: int) -> PostEntity | None:
         """Fetch post by ID in O(1) time."""
         return self._store.get(post_id)
 

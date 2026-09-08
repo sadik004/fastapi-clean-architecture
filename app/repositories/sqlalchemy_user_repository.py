@@ -9,9 +9,9 @@ Enforces:
    preventing heap memory bloat from in-memory collection slicing.
 """
 
-from datetime import timezone
 import sqlite3
-from typing import Optional
+from datetime import UTC
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -37,7 +37,7 @@ class SqlAlchemyUserRepository:
         """
         created_at = model.created_at
         if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
+            created_at = created_at.replace(tzinfo=UTC)
 
         return UserEntity(
             id=model.id,
@@ -65,7 +65,7 @@ class SqlAlchemyUserRepository:
             for p in model.posts:
                 created_at = p.created_at
                 if created_at.tzinfo is None:
-                    created_at = created_at.replace(tzinfo=timezone.utc)
+                    created_at = created_at.replace(tzinfo=UTC)
                 posts_entities.append(
                     PostEntity(
                         id=p.id,
@@ -98,12 +98,12 @@ class SqlAlchemyUserRepository:
         email: str,
         username: str,
         password_hash: str,
-        age: Optional[int] = None,
+        age: int | None = None,
         role: str = "user",
-        full_name: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        bio: Optional[str] = None,
-        company_name: Optional[str] = None,
+        full_name: str | None = None,
+        phone_number: str | None = None,
+        bio: str | None = None,
+        company_name: str | None = None,
     ) -> UserEntity:
         """Create and persist a new user entity in the database."""
         model = UserModel(
@@ -123,21 +123,21 @@ class SqlAlchemyUserRepository:
         await self._session.refresh(model)
         return self._to_entity(model)
 
-    async def get_by_id(self, user_id: int) -> Optional[UserEntity]:
+    async def get_by_id(self, user_id: int) -> UserEntity | None:
         """Fetch user by primary key ID asynchronously via O(1) clustered index lookup."""
         stmt = select(UserModel).where(UserModel.id == user_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model is not None else None
 
-    async def get_by_email(self, email: str) -> Optional[UserEntity]:
+    async def get_by_email(self, email: str) -> UserEntity | None:
         """Fetch user by unique email asynchronously via O(log N) B-Tree index lookup."""
         stmt = select(UserModel).where(UserModel.email == email)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model is not None else None
 
-    async def get_by_username(self, username: str) -> Optional[UserEntity]:
+    async def get_by_username(self, username: str) -> UserEntity | None:
         """Fetch user by unique username asynchronously via O(log N) B-Tree index lookup."""
         stmt = select(UserModel).where(UserModel.username == username)
         result = await self._session.execute(stmt)
@@ -147,16 +147,16 @@ class SqlAlchemyUserRepository:
     async def update(
         self,
         user_id: int,
-        email: Optional[str] = None,
-        username: Optional[str] = None,
-        age: Optional[int] = None,
-        role: Optional[str] = None,
-        full_name: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        bio: Optional[str] = None,
-        company_name: Optional[str] = None,
-        update_data: Optional[UserUpdate] = None,
-    ) -> Optional[UserEntity]:
+        email: str | None = None,
+        username: str | None = None,
+        age: int | None = None,
+        role: str | None = None,
+        full_name: str | None = None,
+        phone_number: str | None = None,
+        bio: str | None = None,
+        company_name: str | None = None,
+        update_data: UserUpdate | None = None,
+    ) -> UserEntity | None:
         """Update an existing user entity and refresh database attributes."""
         # Support extracting fields from UserUpdate schema if provided directly
         if update_data is not None:
@@ -226,9 +226,9 @@ class SqlAlchemyUserRepository:
         self,
         limit: int = 10,
         offset: int = 0,
-        role: Optional[str] = None,
-        search: Optional[str] = None,
-        is_active: Optional[bool] = None,
+        role: str | None = None,
+        search: str | None = None,
+        is_active: bool | None = None,
     ) -> list[UserEntity]:
         """List user entities with SQL-level pagination and optional filters."""
         stmt = select(UserModel)
@@ -252,13 +252,9 @@ class SqlAlchemyUserRepository:
         models = result.scalars().all()
         return [self._to_entity(m) for m in models]
 
-    async def get_user_with_posts(self, user_id: int) -> Optional[UserWithPostsEntity]:
+    async def get_user_with_posts(self, user_id: int) -> UserWithPostsEntity | None:
         """Fetch user along with their posts using selectinload() (strictly 2 queries)."""
-        stmt = (
-            select(UserModel)
-            .options(selectinload(UserModel.posts))
-            .where(UserModel.id == user_id)
-        )
+        stmt = select(UserModel).options(selectinload(UserModel.posts)).where(UserModel.id == user_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_user_with_posts_entity(model) if model is not None else None
@@ -301,4 +297,3 @@ class SqlAlchemyUserRepository:
                         conn.commit()
                 except sqlite3.OperationalError:
                     pass
-

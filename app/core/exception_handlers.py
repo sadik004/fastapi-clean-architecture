@@ -10,10 +10,11 @@ Key Guarantees:
 3. O(1) Parsing Complexity: Predictable constant-time serialization into the error envelope.
 """
 
-from datetime import datetime, timezone
 import logging
-from typing import Any
 import uuid
+from datetime import UTC, datetime
+from typing import Any
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -68,7 +69,7 @@ async def domain_exception_handler(
         code=exc.code,
         message=exc.message,
         status_code=status_code,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         trace_id=trace_id,
         details=None,
     )
@@ -114,7 +115,7 @@ async def validation_exception_handler(
         code="FIELD_VALIDATION_ERROR",
         message=message,
         status_code=status_code,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         trace_id=trace_id,
         details=parsed_details,
     )
@@ -158,7 +159,7 @@ async def http_exception_handler(
         code=code,
         message=message,
         status_code=status_code,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         trace_id=trace_id,
         details=None,
     )
@@ -207,7 +208,7 @@ async def unhandled_exception_handler(
         code="INTERNAL_SERVER_ERROR",
         message=masked_message,
         status_code=status_code,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         trace_id=trace_id,
         details=None,
     )

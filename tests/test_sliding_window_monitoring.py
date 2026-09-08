@@ -1,8 +1,9 @@
 """Tests for Sliding Window Log Rate Limiting, Zero-Leak Idle Eviction & Telemetry."""
 
 import time
-from fastapi.testclient import TestClient
+
 import pytest
+from fastapi.testclient import TestClient
 
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.routers.metrics_router import get_test_endpoint_limiter
@@ -37,9 +38,7 @@ def test_rate_limit_enforcement_under_quota() -> None:
 
     # First 5 requests within the same second must succeed
     for i in range(1, 6):
-        allowed, count, retry_after = limiter.record_and_check(
-            client_id, now=base_time + (i * 0.05)
-        )
+        allowed, count, retry_after = limiter.record_and_check(client_id, now=base_time + (i * 0.05))
         assert allowed is True
         assert count == i
         assert retry_after == 0.0

@@ -1,11 +1,11 @@
 """Comprehensive test suite for FastAPI Path and Query parameter validation."""
 
 from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.routers.user_router import get_user_repository
-
 
 # ==========================================
 # 1. Path Parameter Validation: user_id
@@ -253,6 +253,7 @@ def test_filter_by_is_active(client: TestClient) -> None:
 
     # Deactivate one user directly in repository
     import asyncio
+
     first_id_val = seeded[0]["id"]
     assert isinstance(first_id_val, int)
     first_id = first_id_val

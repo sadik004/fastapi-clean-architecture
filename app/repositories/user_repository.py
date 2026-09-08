@@ -1,8 +1,8 @@
 """In-memory User Repository strictly enforcing O(1) hash map operations and Protocol decoupling."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol
+from datetime import UTC, datetime
+from typing import Any, Protocol
 
 
 @dataclass(slots=True)
@@ -15,12 +15,12 @@ class UserEntity:
     password_hash: str
     is_active: bool
     created_at: datetime
-    age: Optional[int] = None
+    age: int | None = None
     role: str = "user"
-    full_name: Optional[str] = None
-    phone_number: Optional[str] = None
-    bio: Optional[str] = None
-    company_name: Optional[str] = None
+    full_name: str | None = None
+    phone_number: str | None = None
+    bio: str | None = None
+    company_name: str | None = None
 
 
 @dataclass(slots=True)
@@ -28,7 +28,6 @@ class UserWithPostsEntity(UserEntity):
     """Domain entity representing a user along with their eager-loaded posts, memory-optimized with __slots__."""
 
     posts: list[Any] = field(default_factory=list)
-
 
 
 class UserRepositoryProtocol(Protocol):
@@ -39,41 +38,41 @@ class UserRepositoryProtocol(Protocol):
         email: str,
         username: str,
         password_hash: str,
-        age: Optional[int] = None,
+        age: int | None = None,
         role: str = "user",
-        full_name: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        bio: Optional[str] = None,
-        company_name: Optional[str] = None,
+        full_name: str | None = None,
+        phone_number: str | None = None,
+        bio: str | None = None,
+        company_name: str | None = None,
     ) -> UserEntity:
         """Create and persist a new user entity asynchronously."""
         ...
 
-    async def get_by_id(self, user_id: int) -> Optional[UserEntity]:
+    async def get_by_id(self, user_id: int) -> UserEntity | None:
         """Fetch a user by primary key ID asynchronously in O(1) time."""
         ...
 
-    async def get_by_email(self, email: str) -> Optional[UserEntity]:
+    async def get_by_email(self, email: str) -> UserEntity | None:
         """Fetch a user by email via inverted index asynchronously in O(1) time."""
         ...
 
-    async def get_by_username(self, username: str) -> Optional[UserEntity]:
+    async def get_by_username(self, username: str) -> UserEntity | None:
         """Fetch a user by username via inverted index asynchronously in O(1) time."""
         ...
 
     async def update(
         self,
         user_id: int,
-        email: Optional[str] = None,
-        username: Optional[str] = None,
-        age: Optional[int] = None,
-        role: Optional[str] = None,
-        full_name: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        bio: Optional[str] = None,
-        company_name: Optional[str] = None,
-        update_data: Optional[Any] = None,
-    ) -> Optional[UserEntity]:
+        email: str | None = None,
+        username: str | None = None,
+        age: int | None = None,
+        role: str | None = None,
+        full_name: str | None = None,
+        phone_number: str | None = None,
+        bio: str | None = None,
+        company_name: str | None = None,
+        update_data: Any | None = None,
+    ) -> UserEntity | None:
         """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
         ...
 
@@ -85,9 +84,9 @@ class UserRepositoryProtocol(Protocol):
         self,
         limit: int = 10,
         offset: int = 0,
-        role: Optional[str] = None,
-        search: Optional[str] = None,
-        is_active: Optional[bool] = None,
+        role: str | None = None,
+        search: str | None = None,
+        is_active: bool | None = None,
     ) -> list[UserEntity]:
         """List user entities asynchronously with pagination and optional filters."""
         ...
@@ -126,12 +125,12 @@ class InMemoryUserRepository:
         email: str,
         username: str,
         password_hash: str,
-        age: Optional[int] = None,
+        age: int | None = None,
         role: str = "user",
-        full_name: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        bio: Optional[str] = None,
-        company_name: Optional[str] = None,
+        full_name: str | None = None,
+        phone_number: str | None = None,
+        bio: str | None = None,
+        company_name: str | None = None,
     ) -> UserEntity:
         """Create and store a new user entity with O(1) indexing asynchronously."""
         self._current_id += 1
@@ -141,7 +140,7 @@ class InMemoryUserRepository:
             username=username,
             password_hash=password_hash,
             is_active=True,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             age=age,
             role=role,
             full_name=full_name,
@@ -162,19 +161,21 @@ class InMemoryUserRepository:
     async def update(
         self,
         user_id: int,
-        email: Optional[str] = None,
-        username: Optional[str] = None,
-        age: Optional[int] = None,
-        role: Optional[str] = None,
-        full_name: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        bio: Optional[str] = None,
-        company_name: Optional[str] = None,
-        update_data: Optional[Any] = None,
-    ) -> Optional[UserEntity]:
+        email: str | None = None,
+        username: str | None = None,
+        age: int | None = None,
+        role: str | None = None,
+        full_name: str | None = None,
+        phone_number: str | None = None,
+        bio: str | None = None,
+        company_name: str | None = None,
+        update_data: Any | None = None,
+    ) -> UserEntity | None:
         """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
         if update_data is not None:
-            data = update_data.model_dump(exclude_unset=True) if hasattr(update_data, "model_dump") else dict(update_data)
+            data = (
+                update_data.model_dump(exclude_unset=True) if hasattr(update_data, "model_dump") else dict(update_data)
+            )
             email = data.get("email", email)
             username = data.get("username", username)
             age = data.get("age", age)
@@ -239,18 +240,18 @@ class InMemoryUserRepository:
         del self._store[user_id]
         return True
 
-    async def get_by_id(self, user_id: int) -> Optional[UserEntity]:
+    async def get_by_id(self, user_id: int) -> UserEntity | None:
         """Fetch user by primary key ID asynchronously in O(1) time."""
         return self._store.get(user_id)
 
-    async def get_by_email(self, email: str) -> Optional[UserEntity]:
+    async def get_by_email(self, email: str) -> UserEntity | None:
         """Fetch user by email using hash index asynchronously in O(1) time."""
         user_id = self._email_index.get(email)
         if user_id is None:
             return None
         return self._store.get(user_id)
 
-    async def get_by_username(self, username: str) -> Optional[UserEntity]:
+    async def get_by_username(self, username: str) -> UserEntity | None:
         """Fetch user by username using hash index asynchronously in O(1) time."""
         user_id = self._username_index.get(username)
         if user_id is None:
@@ -261,9 +262,9 @@ class InMemoryUserRepository:
         self,
         limit: int = 10,
         offset: int = 0,
-        role: Optional[str] = None,
-        search: Optional[str] = None,
-        is_active: Optional[bool] = None,
+        role: str | None = None,
+        search: str | None = None,
+        is_active: bool | None = None,
     ) -> list[UserEntity]:
         """List user entities asynchronously with O(k) slice pagination and optional single-pass filtering."""
         # Fast-path when no filters are present: directly slice dictionary values in O(offset + limit)
@@ -308,4 +309,3 @@ __all__ = [
     "UserRepositoryProtocol",
     "UserWithPostsEntity",
 ]
-

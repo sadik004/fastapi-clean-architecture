@@ -1,6 +1,7 @@
 """Unit tests for InMemoryUserRepository and index synchronization mechanics."""
 
 import pytest
+
 from app.repositories.user_repository import InMemoryUserRepository, UserEntity
 
 

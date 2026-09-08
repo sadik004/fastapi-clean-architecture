@@ -11,10 +11,10 @@ storage. It guarantees:
 """
 
 import asyncio
+import logging
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timezone
-import logging
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +44,7 @@ class NotificationDispatchEntry:
 
 # Bounded in-memory queues enforcing strict O(1) insertion and eviction
 _AUDIT_LOG_STORE: deque[AuditLogEntry] = deque(maxlen=MAX_AUDIT_ENTRIES)
-_NOTIFICATION_DISPATCH_STORE: deque[NotificationDispatchEntry] = deque(
-    maxlen=MAX_NOTIFICATION_ENTRIES
-)
+_NOTIFICATION_DISPATCH_STORE: deque[NotificationDispatchEntry] = deque(maxlen=MAX_NOTIFICATION_ENTRIES)
 
 
 async def send_welcome_notification(email: str, username: str) -> None:
@@ -64,7 +62,7 @@ async def send_welcome_notification(email: str, username: str) -> None:
         entry = NotificationDispatchEntry(
             email=email,
             username=username,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             status="dispatched",
         )
         _NOTIFICATION_DISPATCH_STORE.append(entry)

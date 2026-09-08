@@ -2,6 +2,7 @@
 
 import time
 from typing import Any
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -11,7 +12,6 @@ from app.core.dsa.search_algorithms import (
     two_pointer_pair_search,
 )
 from app.main import app
-
 
 # ---------------------------------------------------------------------------
 # 1. Unit Tests: Boundary Correctness

@@ -9,8 +9,8 @@ Verifies:
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+
 import pytest
 
 from app.core.dsa.memory_profiler import measure_memory_footprint
@@ -31,12 +31,12 @@ class UnslottedUserEntity:
     password_hash: str
     is_active: bool
     created_at: datetime
-    age: Optional[int] = None
+    age: int | None = None
     role: str = "user"
-    full_name: Optional[str] = None
-    phone_number: Optional[str] = None
-    bio: Optional[str] = None
-    company_name: Optional[str] = None
+    full_name: str | None = None
+    phone_number: str | None = None
+    bio: str | None = None
+    company_name: str | None = None
 
 
 # ============================================================================
@@ -46,7 +46,7 @@ class UnslottedUserEntity:
 
 def test_no_dict_invariant_on_slotted_entities() -> None:
     """Verify that domain entities do not carry a dynamic __dict__ attribute."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user = UserEntity(
         id=1,
@@ -94,7 +94,7 @@ def test_no_dict_invariant_on_slotted_entities() -> None:
 
 def test_typo_and_dynamic_attribute_restriction() -> None:
     """Verify that attempting to assign an undeclared attribute raises AttributeError."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user = UserEntity(
         id=1,
@@ -132,7 +132,7 @@ def test_typo_and_dynamic_attribute_restriction() -> None:
 
 def test_subclass_inheritance_preserves_slotted_optimization() -> None:
     """Verify that UserWithPostsEntity inherits UserEntity fields without re-introducing __dict__."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user_with_posts = UserWithPostsEntity(
         id=42,
@@ -159,7 +159,7 @@ def test_subclass_inheritance_preserves_slotted_optimization() -> None:
 
 def test_mathematical_memory_reduction_benchmark() -> None:
     """Benchmark memory footprint for 10,000 entities, asserting >= 60% memory reduction."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     def unslotted_factory() -> UnslottedUserEntity:
         return UnslottedUserEntity(
@@ -207,9 +207,7 @@ def test_mathematical_memory_reduction_benchmark() -> None:
     assert metrics["slotted_instance_bytes"] < metrics["unslotted_instance_bytes"]
 
     # Net heap allocation savings across 10,000 instances (saving ~470+ KB)
-    assert metrics["heap_savings_pct"] >= 20.0, (
-        f"Expected >= 20% heap savings, got {metrics['heap_savings_pct']}%"
-    )
+    assert metrics["heap_savings_pct"] >= 20.0, f"Expected >= 20% heap savings, got {metrics['heap_savings_pct']}%"
     assert metrics["slotted_heap_kb"] < metrics["unslotted_heap_kb"]
 
 
@@ -220,7 +218,7 @@ def test_mathematical_memory_reduction_benchmark() -> None:
 
 def test_pydantic_serialization_and_fastapi_compatibility() -> None:
     """Verify that slotted entities integrate seamlessly with Pydantic response models."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user = UserEntity(
         id=7,

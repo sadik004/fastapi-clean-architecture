@@ -15,7 +15,7 @@ Demonstrates:
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 K = TypeVar("K")
 V = TypeVar("V")
@@ -84,7 +84,7 @@ class CompactHashMap(Generic[K, V]):
         """Current ratio of entries to capacity."""
         return len(self._entries) / self._capacity
 
-    def _lookup(self, key: K, hash_val: int) -> tuple[int, int, Optional[int]]:
+    def _lookup(self, key: K, hash_val: int) -> tuple[int, int, int | None]:
         """Probe for a key using CPython's open-addressing perturbation algorithm.
 
         Returns:
@@ -96,7 +96,7 @@ class CompactHashMap(Generic[K, V]):
         mask = self._capacity - 1
         i = hash_val & mask
         perturb = hash_val
-        first_dummy: Optional[int] = None
+        first_dummy: int | None = None
         probe_depth = 0
 
         while True:
@@ -205,7 +205,7 @@ class CompactHashMap(Generic[K, V]):
             if entry.is_active:
                 yield entry.key
 
-    def get(self, key: K, default: Optional[V] = None) -> Optional[V]:
+    def get(self, key: K, default: V | None = None) -> V | None:
         """Retrieve value for key or return default fallback."""
         try:
             return self[key]

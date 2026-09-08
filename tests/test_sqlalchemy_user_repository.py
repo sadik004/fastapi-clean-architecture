@@ -11,9 +11,10 @@ Verifies:
 
 from collections.abc import AsyncGenerator
 from datetime import datetime
-from fastapi.testclient import TestClient
+
 import pytest
 import pytest_asyncio
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
@@ -24,7 +25,7 @@ from app.schemas.user import UserUpdate
 
 
 @pytest_asyncio.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session() -> AsyncGenerator[AsyncSession]:
     """Provide an isolated async database session with automatic transaction rollback."""
     async with async_session_factory() as session:
         try:

@@ -12,8 +12,9 @@ Verifies:
 """
 
 from typing import Any
-from fastapi.testclient import TestClient
+
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.core.database import async_session_factory
@@ -28,7 +29,6 @@ from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.repositories.user_repository import InMemoryUserRepository
 from app.schemas.user import UserCreate, UserRole
 from app.services.user_service import UserService
-
 
 # ============================================================================
 # 1. SqlAlchemyUnitOfWork Core ACID Atomicity Tests
@@ -69,16 +69,12 @@ async def test_uow_atomic_commit_persists_user_and_post() -> None:
 
     # Verify persistence using a separate, independent session
     async with async_session_factory() as verify_session:
-        user_res = await verify_session.execute(
-            select(UserModel).where(UserModel.email == email)
-        )
+        user_res = await verify_session.execute(select(UserModel).where(UserModel.email == email))
         persisted_user = user_res.scalar_one_or_none()
         assert persisted_user is not None
         assert persisted_user.username == username
 
-        post_res = await verify_session.execute(
-            select(PostModel).where(PostModel.user_id == persisted_user.id)
-        )
+        post_res = await verify_session.execute(select(PostModel).where(PostModel.user_id == persisted_user.id))
         persisted_post = post_res.scalar_one_or_none()
         assert persisted_post is not None
         assert persisted_post.title == post_title
@@ -110,14 +106,10 @@ async def test_uow_rollback_on_exception_leaves_zero_orphaned_records() -> None:
     # Invariant check: The transaction MUST have been rolled back by __aexit__
     # Absolutely NO user record or post record should exist in the database
     async with async_session_factory() as verify_session:
-        user_res = await verify_session.execute(
-            select(UserModel).where(UserModel.email == email)
-        )
+        user_res = await verify_session.execute(select(UserModel).where(UserModel.email == email))
         assert user_res.scalar_one_or_none() is None
 
-        post_res = await verify_session.execute(
-            select(PostModel).where(PostModel.title == "Orphaned Post")
-        )
+        post_res = await verify_session.execute(select(PostModel).where(PostModel.title == "Orphaned Post"))
         assert post_res.scalar_one_or_none() is None
 
 
@@ -147,9 +139,7 @@ async def test_uow_explicit_rollback_discards_staged_changes() -> None:
 
     # Verify database has zero trace of the discarded entities
     async with async_session_factory() as verify_session:
-        user_res = await verify_session.execute(
-            select(UserModel).where(UserModel.email == email)
-        )
+        user_res = await verify_session.execute(select(UserModel).where(UserModel.email == email))
         assert user_res.scalar_one_or_none() is None
 
 
@@ -374,4 +364,6 @@ def test_endpoint_create_user_with_initial_post_duplicate_returns_409(
     second_res = client.post("/users/with-initial-post", json=request_payload)
     assert second_res.status_code == 409
     error_body = second_res.json()
-    assert "already registered" in error_body.get("error", {}).get("message", "") or "already registered" in error_body.get("detail", "")
+    assert "already registered" in error_body.get("error", {}).get(
+        "message", ""
+    ) or "already registered" in error_body.get("detail", "")

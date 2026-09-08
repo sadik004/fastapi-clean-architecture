@@ -4,4 +4,3 @@ from app.models.post import PostModel
 from app.models.user import UserModel
 
 __all__ = ["PostModel", "UserModel"]
-

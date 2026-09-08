@@ -3,11 +3,9 @@ import time
 import uuid
 from collections.abc import Generator, Sequence
 from enum import Enum
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
+
 from fastapi import Depends, Header, HTTPException, Path, Request, status
-
-from app.core.dsa.sliding_window import SlidingWindowLog
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -15,6 +13,7 @@ from app.core.database import apply_migrations as apply_migrations
 from app.core.database import get_db_pool_status as get_db_pool_status
 from app.core.database import get_db_session as get_db_session
 from app.core.database import rollback_migration as rollback_migration
+from app.core.dsa.sliding_window import SlidingWindowLog
 from app.core.exceptions import UserNotFoundException
 from app.core.unit_of_work import SqlAlchemyUnitOfWork, UnitOfWorkProtocol
 from app.repositories.user_repository import (
@@ -31,7 +30,7 @@ _user_repository = InMemoryUserRepository()
 
 
 def get_user_repository(
-    session: Annotated[Optional[AsyncSession], Depends(get_db_session)] = None,
+    session: Annotated[AsyncSession | None, Depends(get_db_session)] = None,
 ) -> UserRepositoryProtocol:
     """Dependency provider for UserRepositoryProtocol.
 
@@ -52,7 +51,7 @@ def get_uow() -> UnitOfWorkProtocol:
 
 def get_user_service(
     repo: Annotated[UserRepositoryProtocol, Depends(get_user_repository)],
-    uow: Annotated[Optional[UnitOfWorkProtocol], Depends(get_uow)] = None,
+    uow: Annotated[UnitOfWorkProtocol | None, Depends(get_uow)] = None,
 ) -> UserService:
     """Dependency provider for UserService."""
     return UserService(repository=repo, uow=uow)
@@ -61,7 +60,7 @@ def get_user_service(
 async def get_current_user(
     service: Annotated[UserService, Depends(get_user_service)],
     settings: Annotated[Settings, Depends(get_settings)],
-    x_api_key: Optional[str] = Header(
+    x_api_key: str | None = Header(
         default=None,
         alias="X-API-Key",
         description="API key authentication header",
@@ -80,7 +79,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "ApiKey"},
         )
 
-    target_username: Optional[str] = None
+    target_username: str | None = None
     if secrets.compare_digest(x_api_key, settings.admin_api_key):
         target_username = settings.admin_username
     elif secrets.compare_digest(x_api_key, settings.user_api_key):
@@ -136,11 +135,7 @@ class RoleChecker:
         self,
         current_user: Annotated[UserEntity, Depends(get_current_user)],
     ) -> UserEntity:
-        user_role_str = (
-            current_user.role.value
-            if isinstance(current_user.role, UserRole)
-            else str(current_user.role)
-        )
+        user_role_str = current_user.role.value if isinstance(current_user.role, UserRole) else str(current_user.role)
         if user_role_str not in self.allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -173,11 +168,7 @@ async def require_user_ownership(
     Grants access only if the authenticated user's ID matches the path user_id
     or if the authenticated user has administrative privileges.
     """
-    user_role_str = (
-        current_user.role.value
-        if isinstance(current_user.role, UserRole)
-        else str(current_user.role)
-    )
+    user_role_str = current_user.role.value if isinstance(current_user.role, UserRole) else str(current_user.role)
     is_owner = current_user.id == user_id
     is_admin = user_role_str == UserRole.ADMIN.value
 
@@ -187,7 +178,6 @@ async def require_user_ownership(
             detail="Access forbidden: you cannot modify another user's profile",
         )
     return current_user
-
 
 
 # ============================================================================
@@ -275,7 +265,7 @@ class TransactionManager:
 transaction_manager = TransactionManager()
 
 
-def get_transaction_context() -> Generator[ScopedTransactionContext, None, None]:
+def get_transaction_context() -> Generator[ScopedTransactionContext]:
     """Two-phase generator dependency providing transactional context with automated teardown.
 
     - Pre-yield (Phase 1): Begins an isolated transaction with O(1) tracking.
@@ -314,7 +304,7 @@ class RequestLifecycleContext:
         self.is_completed = True
 
 
-def track_request_lifecycle() -> Generator[RequestLifecycleContext, None, None]:
+def track_request_lifecycle() -> Generator[RequestLifecycleContext]:
     """Generator dependency for audit tracking and request latency measurement."""
     trace_id = uuid.uuid4().hex[:16]
     ctx = RequestLifecycleContext(trace_id=trace_id)
@@ -340,7 +330,7 @@ class SlidingWindowRateLimiterDependency:
         self,
         window: float = 60.0,
         limit: int = 100,
-        limiter: Optional[SlidingWindowLog] = None,
+        limiter: SlidingWindowLog | None = None,
     ) -> None:
         self.window = window
         self.limit = limit
@@ -375,9 +365,7 @@ class SlidingWindowRateLimiterDependency:
 def check_sliding_window_rate_limit(
     window: float = 60.0,
     limit: int = 100,
-    limiter: Optional[SlidingWindowLog] = None,
+    limiter: SlidingWindowLog | None = None,
 ) -> SlidingWindowRateLimiterDependency:
     """Factory creating a reusable SlidingWindowRateLimiter dependency."""
     return SlidingWindowRateLimiterDependency(window=window, limit=limit, limiter=limiter)
-
-

@@ -1,6 +1,7 @@
 """Integration test suite verifying full User CRUD lifecycle and FastAPI Dependency Injection."""
 
 from typing import Any
+
 from fastapi.testclient import TestClient
 
 

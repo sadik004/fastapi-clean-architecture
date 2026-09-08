@@ -12,15 +12,16 @@ Verifies:
 from collections.abc import AsyncGenerator, Generator
 from contextlib import contextmanager
 from typing import Any
+
 import pytest
 import pytest_asyncio
-from alembic.autogenerate import compare_metadata
-from alembic.migration import MigrationContext
 from sqlalchemy import event, inspect, select
 from sqlalchemy.engine import Connection, ExecutionContext
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext
 from app.core.database import (
     Base,
     apply_migrations,
@@ -34,14 +35,13 @@ from app.repositories.post_repository import PostEntity, SqlAlchemyPostRepositor
 from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.repositories.user_repository import UserWithPostsEntity
 
-
 # ============================================================================
 # Query Counting Context Manager
 # ============================================================================
 
 
 @contextmanager
-def capture_queries() -> Generator[list[str], None, None]:
+def capture_queries() -> Generator[list[str]]:
     """Capture raw SQL statements executed by the underlying database engine."""
     queries: list[str] = []
 
@@ -68,7 +68,7 @@ def capture_queries() -> Generator[list[str], None, None]:
 
 
 @pytest_asyncio.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session() -> AsyncGenerator[AsyncSession]:
     """Provide an isolated async database session with automatic transaction commit/rollback."""
     async with async_session_factory() as session:
         try:
@@ -145,9 +145,7 @@ async def test_selectinload_defeats_n_plus_one_with_exact_two_queries(
             )
 
         # Filter captured queries to SELECT statements only
-        select_queries = [
-            q for q in captured if q.upper().startswith("SELECT")
-        ]
+        select_queries = [q for q in captured if q.upper().startswith("SELECT")]
 
         # 1. Verify entity cardinality and child relationship correctness
         assert len(results) == 10, f"Expected 10 users, got {len(results)}"
@@ -205,9 +203,7 @@ async def test_joinedload_scalar_executes_single_query(
         with capture_queries() as captured:
             result = await fresh_post_repo.get_post_with_author(post.id)
 
-        select_queries = [
-            q for q in captured if q.upper().startswith("SELECT")
-        ]
+        select_queries = [q for q in captured if q.upper().startswith("SELECT")]
 
         # 1. Assert result integrity and Zero ORM Leakage
         assert result is not None
@@ -309,16 +305,12 @@ async def test_posts_table_schema_migration_lifecycle() -> None:
     # 3. Test reversibility: downgrade by 1 revision (drops posts table)
     rollback_migration(revision="-1")
     async with engine.connect() as conn:
-        tables_after_rollback = await conn.run_sync(
-            lambda sync_conn: inspect(sync_conn).get_table_names()
-        )
+        tables_after_rollback = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "posts" not in tables_after_rollback
         assert "users" in tables_after_rollback
 
     # 4. Re-apply to head
     apply_migrations(revision="head")
     async with engine.connect() as conn:
-        tables_restored = await conn.run_sync(
-            lambda sync_conn: inspect(sync_conn).get_table_names()
-        )
+        tables_restored = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "posts" in tables_restored

@@ -1,9 +1,10 @@
 """User Service containing pure business logic, domain rules, and async task orchestration."""
 
 import asyncio
-from datetime import datetime, timezone
 import hashlib
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from app.core.dsa.search_algorithms import binary_search_range, two_pointer_pair_search
 from app.core.dsa.trie import PrefixTrie
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
@@ -27,8 +28,8 @@ class UserService:
     def __init__(
         self,
         repository: UserRepositoryProtocol,
-        uow: Optional[UnitOfWorkProtocol] = None,
-        trie: Optional[PrefixTrie] = None,
+        uow: UnitOfWorkProtocol | None = None,
+        trie: PrefixTrie | None = None,
     ) -> None:
         self._repo = repository
         self._uow = uow
@@ -91,16 +92,12 @@ class UserService:
         if payload.email is not None and payload.email != user.email:
             existing_email_user = await self._repo.get_by_email(payload.email)
             if existing_email_user is not None and existing_email_user.id != user_id:
-                raise UserAlreadyExistsException(
-                    f"Email '{payload.email}' is already registered."
-                )
+                raise UserAlreadyExistsException(f"Email '{payload.email}' is already registered.")
 
         if payload.username is not None and payload.username != user.username:
             existing_user = await self._repo.get_by_username(payload.username)
             if existing_user is not None and existing_user.id != user_id:
-                raise UserAlreadyExistsException(
-                    f"Username '{payload.username}' is already taken."
-                )
+                raise UserAlreadyExistsException(f"Username '{payload.username}' is already taken.")
 
         role_val = payload.role.value if payload.role is not None else None
 
@@ -183,9 +180,9 @@ class UserService:
         self,
         limit: int = 10,
         offset: int = 0,
-        role: Optional[UserRole] = None,
-        search: Optional[str] = None,
-        is_active: Optional[bool] = None,
+        role: UserRole | None = None,
+        search: str | None = None,
+        is_active: bool | None = None,
     ) -> list[UserEntity]:
         """Fetch registered users with pagination and optional filters asynchronously."""
         role_val = role.value if role else None
@@ -253,7 +250,7 @@ class UserService:
         self,
         username: str,
         password: str,
-    ) -> Optional[UserEntity]:
+    ) -> UserEntity | None:
         """Authenticate a user using constant-time hash verification offloaded to worker thread."""
         user = await self._repo.get_by_username(username)
         if user is None:
@@ -269,28 +266,26 @@ class UserService:
         hasher = hashlib.sha256()
         records_count = 50_000
         for i in range(records_count):
-            hasher.update(f"{user_id}:{username}:{i}".encode("utf-8"))
+            hasher.update(f"{user_id}:{username}:{i}".encode())
         return {
             "user_id": user_id,
             "username": username,
             "report_checksum": hasher.hexdigest(),
             "records_processed": records_count,
-            "generated_at": datetime.now(timezone.utc),
+            "generated_at": datetime.now(UTC),
         }
 
     async def generate_user_report(self, user_id: int) -> dict[str, Any]:
         """Generate an analytics report by offloading CPU-bound computation to worker thread."""
         user = await self.get_user_by_id(user_id)
-        return await asyncio.to_thread(
-            self._sync_compute_heavy_report, user.id, user.username
-        )
+        return await asyncio.to_thread(self._sync_compute_heavy_report, user.id, user.username)
 
     async def create_user_with_initial_post(
         self,
         user_create: UserCreate,
         post_title: str,
         post_content: str,
-        uow: Optional[UnitOfWorkProtocol] = None,
+        uow: UnitOfWorkProtocol | None = None,
     ) -> tuple[UserEntity, PostEntity]:
         """Atomically register a new user and create their initial post within a Unit of Work.
 
@@ -364,12 +359,14 @@ class UserService:
                     uid = p["id"]
                     if uid not in seen_ids:
                         seen_ids.add(uid)
-                        results.append({
-                            "id": p["id"],
-                            "username": p["username"],
-                            "full_name": p.get("full_name"),
-                            "matched_term": matched_term,
-                        })
+                        results.append(
+                            {
+                                "id": p["id"],
+                                "username": p["username"],
+                                "full_name": p.get("full_name"),
+                                "matched_term": matched_term,
+                            }
+                        )
                         if len(results) >= limit:
                             return results
         return results
@@ -407,7 +404,7 @@ class UserService:
     async def find_user_pair_by_age_sum(
         self,
         target_sum: int,
-    ) -> Optional[tuple[UserEntity, UserEntity]]:
+    ) -> tuple[UserEntity, UserEntity] | None:
         """Find a pair of users whose ages sum to target_sum in O(N) time and O(1) space.
 
         Uses the converging two-pointer technique to eliminate O(N^2) nested loop checks.
@@ -421,6 +418,3 @@ class UserService:
             target=float(target_sum),
             key_func=lambda u: float(u.age if u.age is not None else 0),
         )
-
-
-

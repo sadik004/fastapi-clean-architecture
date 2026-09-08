@@ -1,0 +1,54 @@
+[project]
+name = "fastapi-clean-architecture"
+version = "0.1.0"
+description = "High-Performance Clean Architecture FastAPI Microservice"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort import ordering
+    "UP",   # pyupgrade modern syntax
+    "B",    # flake8-bugbear
+    "S",    # flake8-bandit security
+    "T201", # flake8-print (disallow print in production code)
+]
+ignore = [
+    "B008", # Do not perform function call `Depends`/`Query` in argument defaults (standard FastAPI paradigm)
+    "E501", # Line length gracefully bounded at 120
+    "UP046", # Preserve Generic[T] compatibility for Python >=3.11
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101", # Allow assert in pytest test suites
+    "S105", # Allow test fixture passwords
+    "S106", # Allow test passwords in keyword arguments
+    "S107", # Allow test passwords in defaults
+    "S311", # Allow pseudo-random generators in performance benchmarks
+]
+"alembic/*" = [
+    "I001", # Allow migration-specific import ordering
+]

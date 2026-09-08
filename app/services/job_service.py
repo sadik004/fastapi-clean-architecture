@@ -1,9 +1,9 @@
 """Job Service orchestrating Priority-Based Background Job Scheduling and Execution."""
 
-from datetime import datetime, timezone
 import logging
 import time
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from app.core.dsa.priority_queue import (
     JobPriority,
@@ -26,11 +26,9 @@ class JobService:
 
     def __init__(
         self,
-        scheduler: Optional[PriorityJobScheduler] = None,
+        scheduler: PriorityJobScheduler | None = None,
     ) -> None:
-        self._scheduler: PriorityJobScheduler = (
-            scheduler if scheduler is not None else get_priority_job_scheduler()
-        )
+        self._scheduler: PriorityJobScheduler = scheduler if scheduler is not None else get_priority_job_scheduler()
         self._processed_history: list[dict[str, Any]] = []
 
     @property
@@ -44,7 +42,7 @@ class JobService:
         payload: dict[str, Any],
         priority: JobPriority = JobPriority.NORMAL,
         delay_seconds: float = 0.0,
-        job_id: Optional[str] = None,
+        job_id: str | None = None,
     ) -> dict[str, Any]:
         """Schedule a job and return structured response metadata."""
         now = time.time()
@@ -63,23 +61,21 @@ class JobService:
             "job_id": jid,
             "task_type": task_type,
             "priority": priority_name,
-            "scheduled_at": datetime.fromtimestamp(scheduled_at, tz=timezone.utc),
+            "scheduled_at": datetime.fromtimestamp(scheduled_at, tz=UTC),
             "status": "scheduled",
         }
 
     async def get_telemetry(self) -> dict[str, Any]:
         """Return O(1) queue status and inspection of top root job."""
         size = self._scheduler.size()
-        next_job: Optional[PriorityJob] = await self._scheduler.peek()
+        next_job: PriorityJob | None = await self._scheduler.peek()
 
-        next_priority: Optional[str] = None
-        next_scheduled: Optional[datetime] = None
+        next_priority: str | None = None
+        next_scheduled: datetime | None = None
 
         if next_job is not None:
             next_priority = JobPriority(next_job.priority).name
-            next_scheduled = datetime.fromtimestamp(
-                next_job.scheduled_at, tz=timezone.utc
-            )
+            next_scheduled = datetime.fromtimestamp(next_job.scheduled_at, tz=UTC)
 
         return {
             "queue_size": size,
@@ -108,7 +104,7 @@ class JobService:
                 "job_id": job.job_id,
                 "task_type": job.task_type,
                 "priority": JobPriority(job.priority).name,
-                "executed_at": datetime.now(timezone.utc),
+                "executed_at": datetime.now(UTC),
                 "payload": job.payload,
             }
             executed.append(result)

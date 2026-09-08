@@ -1,6 +1,7 @@
 """Job Router handling background job scheduling and priority queue telemetry."""
 
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, status
 
 from app.schemas.job import (

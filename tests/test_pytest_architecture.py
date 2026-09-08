@@ -5,9 +5,9 @@ verifying HTTP transport boundaries, schema contracts, header assertions, and st
 """
 
 from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
-
 
 # ============================================================================
 # 1. Registration Test Suite (Class-based & Parametrized)

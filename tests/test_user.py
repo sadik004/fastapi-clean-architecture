@@ -1,6 +1,7 @@
 """Comprehensive integration and endpoint test suite for User domain."""
 
 from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -96,9 +97,7 @@ def test_create_user_duplicate_username(client: TestClient) -> None:
         ("age", 130),  # Overage (>120)
     ],
 )
-def test_create_user_validation_failures(
-    client: TestClient, field: str, invalid_val: object
-) -> None:
+def test_create_user_validation_failures(client: TestClient, field: str, invalid_val: object) -> None:
     """Verify Pydantic validation violations return 422 Unprocessable Entity."""
     payload = {
         "email": "valid@example.com",
@@ -299,9 +298,7 @@ def test_create_user_with_sanitized_inputs(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("reserved_name", ["admin", "root", "  SYSTEM  ", "superuser"])
-def test_create_user_rejects_reserved_username(
-    client: TestClient, reserved_name: str
-) -> None:
+def test_create_user_rejects_reserved_username(client: TestClient, reserved_name: str) -> None:
     """Verify POST /users/ rejects reserved system usernames with HTTP 422."""
     payload = {
         "email": "reserved@example.com",

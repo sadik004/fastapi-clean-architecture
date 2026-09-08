@@ -1,7 +1,8 @@
 """SQLAlchemy 2.0 Declarative ORM Entity for Users."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,12 +21,12 @@ class UserModel(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    full_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    phone_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    age: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     role: Mapped[str] = mapped_column(String(20), default="user", nullable=False)
-    company_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    company_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -48,4 +49,3 @@ class UserModel(Base):
         cascade="all, delete-orphan",
         lazy="raise",
     )
-

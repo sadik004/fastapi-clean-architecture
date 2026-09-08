@@ -6,7 +6,7 @@ Provides:
 """
 
 from collections import deque
-from typing import Any, Optional
+from typing import Any
 
 
 class TrieNode:
@@ -73,7 +73,7 @@ class PrefixTrie:
 
         curr.frequency += max(score, 1)
 
-    def search(self, key: str) -> Optional[list[Any]]:
+    def search(self, key: str) -> list[Any] | None:
         """Perform exact match lookup in O(k) time.
 
         Returns:
@@ -135,7 +135,7 @@ class PrefixTrie:
 
         return [(word, payloads) for word, payloads, _ in results[:limit]]
 
-    def delete(self, key: str, payload: Optional[Any] = None) -> bool:
+    def delete(self, key: str, payload: Any | None = None) -> bool:
         """Delete a key and recursively prune orphan nodes to prevent memory leaks.
 
         Args:
