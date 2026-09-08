@@ -30,7 +30,7 @@ Tracking Legend:
 ---
 
 ## Phase 2: Async Engine, Advanced Validation & Testing Rigor (Days 16–30)
-- [ ] **Day 16**: Python Async/Await Event Loop & Non-Blocking I/O Internals
+- [x] **Day 16**: Database Connection Pooling Architecture (pool_size, max_overflow & Stale Connection Eviction via pool_pre_ping)
 - [ ] **Day 17**: Concurrent Task Execution with `asyncio.gather`
 - [ ] **Day 18**: Background Tasks in FastAPI (`BackgroundTasks`)
 - [ ] **Day 19**: Custom Validation with Pydantic `@field_validator` & `@model_validator`

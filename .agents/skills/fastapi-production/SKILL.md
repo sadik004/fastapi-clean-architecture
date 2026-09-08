@@ -135,6 +135,10 @@ All algorithms, data transformations, and data structures must be optimized for 
 49. **Clean Lifespan Socket Disposal (`await engine.dispose()`)**: Always use FastAPI's `@asynccontextmanager async def lifespan(app: FastAPI)` to run schema initialization (`Base.metadata.create_all`) on startup and `await engine.dispose()` on shutdown, cleanly draining all connection pool sockets and preventing connection leaks.
 50. **Transactional Async Session Generator Dependency**: Implement database session dependencies (`get_db_session() -> AsyncGenerator[AsyncSession, None]`) with two-phase lifecycle: `try: yield session; await session.commit() except Exception: await session.rollback(); raise finally: await session.close()`.
 51. **Pytest-Asyncio Strict Mode Fixture Decorator (`@pytest_asyncio.fixture`)**: In pytest-asyncio strict mode, always use `@pytest_asyncio.fixture` for asynchronous generator fixtures (`async def`) to guarantee proper async context initialization and teardown.
+52. **Optimistic Stale Connection Eviction via `pool_pre_ping=True`**: Always configure `pool_pre_ping=True` on relational database engines. Pre-pinging on checkout (`SELECT 1`) transparently detects severed, dropped, or timed-out sockets, discards the dead connection, and re-establishes a fresh connection without raising HTTP 500 errors to clients.
+53. **Bounded Connection Pool Sizing (`pool_size` + `max_overflow`)**: Set explicit upper bounds on database connection pools (`pool_size=20`, `max_overflow=10`, `pool_timeout=30.0`, `pool_recycle=1800`) to prevent backend services from exhausting database server connection limits during traffic spikes.
+54. **Guaranteed Connection Return in `finally:`**: Always check in database connections and sessions inside `finally:` blocks (such as in `get_db_session()`), ensuring `checked_out_connections` strictly returns to 0 under all normal and error completion paths.
+55. **Dialect-Safe Engine Pool Initialization**: Dynamically condition queue pooling arguments (`pool_size`, `max_overflow`, `pool_timeout`) to dialects supporting queue pools, avoiding invalid argument exceptions on `StaticPool` or memory databases.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -181,6 +185,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 42. **Omitting `engine.dispose()` on Application Shutdown**: Terminating the FastAPI app without disposing the async engine, leaving orphaned socket connections open on the database server.
 43. **Instantiating Engines or Sessions Manually Inside Router Bodies**: Calling `create_async_engine()` or creating ad-hoc `AsyncSession()` directly inside endpoints or service methods instead of injecting sessions via `Depends(get_db_session)`.
 44. **Using Standard `@pytest.fixture` on Async Fixtures in Strict Mode**: Decorating `async def` fixtures with `@pytest.fixture` in pytest-asyncio strict mode, resulting in unexecuted fixture setups and missing table errors.
+45. **Omitting `pool_pre_ping=True` in Production**: Deploying database engines without pre-ping checkout validation, causing sporadic `OperationalError: server closed the connection unexpectedly` or stale socket 500 errors after idle periods or network blips.
+46. **Unbounded Connection Pools**: Allowing arbitrary connection creation without limits or excessive `max_overflow`, crashing the database server with `FATAL: remaining connection slots are reserved` under surge traffic.
+47. **Leaking Connection Handles Outside Context Managers**: Acquiring connections or sessions manually without `async with` or `finally: await session.close()`, causing gradual connection pool exhaustion and application deadlocks.
 
 ---
 

@@ -10,7 +10,12 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import Base, engine, get_db_session
+from app.core.database import (
+    Base,
+    engine,
+    get_db_pool_status,
+    get_db_session,
+)
 from app.core.exception_handlers import register_exception_handlers
 from app.routers.user_router import router as user_router
 
@@ -71,6 +76,16 @@ async def db_health_check(
         "latency_ms": latency_ms,
         "scalar_result": result,
     }
+
+
+@app.get("/health/db/pool", tags=["Health"])
+async def db_pool_health_check() -> dict[str, Any]:
+    """Database connection pool telemetry probe for observability and alerting.
+
+    Returns pool utilization metrics including pool size, active checked-out connections,
+    idle checked-in connections, and overflow capacity.
+    """
+    return get_db_pool_status()
 
 
 @app.get("/test/raise-unhandled-500", include_in_schema=False)
