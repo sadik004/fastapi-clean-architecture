@@ -103,7 +103,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 17. **Dependency Injection via `Depends`**: Utilize FastAPI's `Depends` for providing abstract repository protocols and service instances into router endpoints.
 18. **Declarative Parameter Validation (`Path()`, `Query()`)**: Enforce all endpoint path and query parameters declaratively using FastAPI's `Path(...)` and `Query(...)` with explicit bounds (`ge`, `le`, `min_length`, `max_length`), regex constraints (`pattern=r"..."`), and documentation metadata.
 19. **Single-Pass Bounded Filtering & Fast-Path Pagination**: Execute repository filtering over stored entities in a single linear pass ($\mathcal{O}(n)$) with fast-path slice optimization when no filters are applied, avoiding intermediary list allocations and memory bloat.
-20. **Comprehensive Testing**: Every endpoint, repository method, and schema must have corresponding unit and integration tests under `tests/`.
+20. **Polymorphic Domain Exceptions**: Design domain-level exceptions to accept multiple lookup identifiers (e.g., ID or username) cleanly with exact type hints to prevent transport-layer type mismatches in strict mypy.
+21. **OpenAPI 3.1 Nullable Awareness**: Account for `anyOf: [schema, {"type": "null"}]` when testing or introspecting optional/nullable parameter contracts in OpenAPI 3.1.0.
+22. **Comprehensive Testing**: Every endpoint, repository method, and schema must have corresponding unit and integration tests under `tests/`.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
