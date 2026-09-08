@@ -19,5 +19,17 @@ class UserAlreadyExistsException(DomainException):
 class UserNotFoundException(DomainException):
     """Raised when a requested user does not exist."""
 
-    def __init__(self, user_id: int) -> None:
-        super().__init__(f"User with ID {user_id} was not found.")
+    def __init__(
+        self,
+        identifier: int | str | None = None,
+        *,
+        user_id: int | None = None,
+    ) -> None:
+        target = user_id if user_id is not None else identifier
+        if isinstance(target, int):
+            message = f"User with ID {target} was not found."
+        elif isinstance(target, str):
+            message = f"User with username '{target}' was not found."
+        else:
+            message = "User was not found."
+        super().__init__(message)

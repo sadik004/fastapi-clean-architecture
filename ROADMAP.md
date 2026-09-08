@@ -16,7 +16,7 @@ Tracking Legend:
 - [x] **Day 03**: Complete CRUD Lifecycle, O(1) In-Memory Repository & FastAPI Dependency Injection
 - [x] **Day 04**: Pydantic v2 Advanced Validation (Custom @field_validator, Field Normalization & Business Cleaning)
 - [x] **Day 05**: Pydantic v2 Model-Level Validation (Cross-Field Invariants with @model_validator(mode='after'))
-- [ ] **Day 06**: Set-Based Deduplication and O(1) Membership Testing
+- [x] **Day 06**: FastAPI Path & Query Validation (Path(), Query(), and Custom Regex Constraints)
 - [ ] **Day 07**: Refactoring In-Memory Repositories with Abstract Base Classes (Interfaces)
 - [ ] **Day 08**: Testing with Pytest & HTTPX AsyncClient
 - [ ] **Day 09**: Dependency Injection Primer in FastAPI (`Depends`)

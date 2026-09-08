@@ -1,8 +1,9 @@
 """User Service containing pure business logic and domain rules."""
 
+from typing import Optional
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.repositories.user_repository import UserEntity, UserRepositoryProtocol
-from app.schemas.user import UserCreate, UserProfileUpdate, UserUpdate
+from app.schemas.user import UserCreate, UserProfileUpdate, UserRole, UserUpdate
 
 
 class UserService:
@@ -119,6 +120,31 @@ class UserService:
             raise UserNotFoundException(user_id=user_id)
         return user
 
-    def list_users(self, limit: int = 10, offset: int = 0) -> list[UserEntity]:
-        """Fetch registered users with pagination."""
-        return self._repo.list_all(limit=limit, offset=offset)
+    def get_user_by_username(self, username: str) -> UserEntity:
+        """Fetch user by unique username with O(1) hash index lookup.
+
+        Raises:
+            UserNotFoundException: If user with given username does not exist.
+        """
+        user = self._repo.get_by_username(username)
+        if user is None:
+            raise UserNotFoundException(identifier=username)
+        return user
+
+    def list_users(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        role: Optional[UserRole] = None,
+        search: Optional[str] = None,
+        is_active: Optional[bool] = None,
+    ) -> list[UserEntity]:
+        """Fetch registered users with pagination and optional filters."""
+        role_val = role.value if role else None
+        return self._repo.list_all(
+            limit=limit,
+            offset=offset,
+            role=role_val,
+            search=search,
+            is_active=is_active,
+        )

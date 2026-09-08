@@ -72,8 +72,15 @@ class UserRepositoryProtocol(Protocol):
         """Delete an existing user and purge secondary indexes in O(1) time."""
         ...
 
-    def list_all(self, limit: int = 10, offset: int = 0) -> list[UserEntity]:
-        """List user entities with pagination."""
+    def list_all(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        role: Optional[str] = None,
+        search: Optional[str] = None,
+        is_active: Optional[bool] = None,
+    ) -> list[UserEntity]:
+        """List user entities with pagination and optional filters."""
         ...
 
     def clear(self) -> None:
@@ -91,7 +98,7 @@ class InMemoryUserRepository:
     - get_by_username: O(1)
     - update: O(1) amortized
     - delete: O(1) amortized
-    - list_all: O(k) where k is pagination slice limit
+    - list_all: O(offset + limit) or O(n) filtered
     """
 
     def __init__(self) -> None:
@@ -224,9 +231,36 @@ class InMemoryUserRepository:
             return None
         return self._store.get(user_id)
 
-    def list_all(self, limit: int = 10, offset: int = 0) -> list[UserEntity]:
-        """List user entities with O(k) slice pagination."""
-        return list(self._store.values())[offset : offset + limit]
+    def list_all(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        role: Optional[str] = None,
+        search: Optional[str] = None,
+        is_active: Optional[bool] = None,
+    ) -> list[UserEntity]:
+        """List user entities with O(k) slice pagination and optional single-pass filtering."""
+        # Fast-path when no filters are present: directly slice dictionary values in O(offset + limit)
+        if role is None and search is None and is_active is None:
+            return list(self._store.values())[offset : offset + limit]
+
+        # Single-pass bounded O(n) filter
+        search_term = search.lower() if search else None
+        filtered: list[UserEntity] = []
+        for user in self._store.values():
+            if role is not None and user.role != role:
+                continue
+            if is_active is not None and user.is_active != is_active:
+                continue
+            if search_term is not None:
+                username_match = search_term in user.username.lower()
+                email_match = search_term in user.email.lower()
+                name_match = user.full_name is not None and search_term in user.full_name.lower()
+                if not (username_match or email_match or name_match):
+                    continue
+            filtered.append(user)
+
+        return filtered[offset : offset + limit]
 
     def clear(self) -> None:
         """Reset the repository state and purge all secondary indexes."""
