@@ -2,6 +2,19 @@
 
 ---
 
+### 📌 ব্যবহৃত DSA-এর নাম (Exact Data Structure & Algorithm Name)
+- **Fixed-Offset C-Level Pointer Descriptors (`__slots__`) eliminating Dynamic Hash Table (`__dict__`)**: পাইথন ৩.১০+ স্লটেড ডেটাক্লাস (`@dataclass(slots=True)`).
+
+### 🚀 প্রোডাকশনে ঠিক কখন ব্যবহার করব? (When to use in Production)
+- মেমরিতে লাখ লাখ ডোমেন অবজেক্ট প্রসেসিং (ETL পাইপলাইন, ব্যাচ অ্যানালিটিক্স, ইন-মেমোরি ট্রাই নোড, রিয়েল-টাইম ক্যাশ লেয়ার)।
+
+### 🎯 কী কারণে বা কোন পরিস্থিতিতে ব্যবহার করব? (Why to use / Technical Triggers)
+- **র‍্যাম অপচয় ও OOM (Out Of Memory) ক্র্যাশ রোধ**: প্রতি অবজেক্টে ডাইনামিক `__dict__` তৈরি হওয়ার কারণে ৪০–৬২% মেমরি অপচয় হয়; স্লটেড ক্লাস এই অপচয় সম্পূর্ণ নির্মূল করে।
+- **গারবেজ কালেকশন (GC) পজ ও লেটেন্সি স্পাইক কমানো**: লাখ লাখ ডিকশনারি অবজেক্ট স্ক্যান করতে গিয়ে জিসি স্টপ-দ্য-ওয়ার্ল্ড পজ বৃদ্ধি পায়।
+- **টাইপো বাগ তাৎক্ষণিক ধরা (Fail-Fast)**: ভুল করে `user.emai = "..."` লিখলে সাধারণ ক্লাসে সাইলেন্টলি নতুন ফিল্ড তৈরি হয়ে মারাত্মক বাগ হয়; স্লটেড ক্লাসে সাথে সাথে `AttributeError` উঠে বাগ প্রতিরোধ করে।
+
+---
+
 ## ১. আমরা কী বানিয়েছি? (What Did We Build?)
 
 আজ আমরা আমাদের সব domain entity (`UserEntity`, `PostEntity`, `UserWithPostsEntity`) কে Python 3.10+ `@dataclass(slots=True)` দিয়ে upgrade করেছি এবং একটি পূর্ণাঙ্গ memory profiling module (`app/core/dsa/memory_profiler.py`) বানিয়েছি যেটি:
