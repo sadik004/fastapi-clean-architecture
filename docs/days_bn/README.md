@@ -6,7 +6,7 @@
 
 ---
 
-## দিন ০১ থেকে ১৫: মাস্টার ইনডেক্স টেবিল (Master Index)
+## দিন ০১ থেকে ২৫: মাস্টার ইনডেক্স টেবিল (Master Index)
 
 | দিন (Day) | মূল বিষয়বস্তু (Topic) | বাস্তব জীবনের উপমা (Real-World Analogy) | মূল টেকনিক্যাল লজিক (Core Logic) | বিস্তারিত গাইড লিঙ্ক |
 | :--- | :--- | :--- | :--- | :--- |
@@ -30,6 +30,11 @@
 | **Day 18** | **রিপোজিটরি প্যাটার্ন ও Zero ORM Leakage** (Repository Pattern & Domain Entity Decoupling) | গ্রন্থাগারিক বই ধাতব তাক থেকে এনে সাধারণ ব্যাগে দেন — তাকটি গ্রন্থাগারের বাইরে যায় না | `_to_entity()` boundary: `UserModel` → `UserEntity`; Repository `flush()` করে, `commit()` নয়; DB-level `LIMIT/OFFSET` pagination → O(limit) memory; Dual-mode DI → test InMemory, prod SQLAlchemy। | [Day 18 বিস্তারিত গাইড](day-18.md) |
 | **Day 19** | **N+1 Query নির্মূল** (`selectinload`, `joinedload` & `lazy="raise"`) | চালাক ওয়েটার: ১০ টেবিলের সব অর্ডার একসাথে আনেন — ১০ বার কিচেনে যান না | `selectinload` → EXACTLY 2 queries (1-to-Many); `joinedload` → EXACTLY 1 query (Many-to-1); `lazy="raise"` → development-এই implicit loading catch; N=1000-এ 99.8% query reduction। | [Day 19 বিস্তারিত গাইড](day-19.md) |
 | **Day 20** | **Unit of Work প্যাটার্ন** (ACID Atomic Transactions Across Multiple Repositories) | ব্যাংকের লেনদেন ম্যানেজার: উভয় ধাপ সফল হলে ledger চূড়ান্ত, যেকোনো একটি ব্যর্থ হলে উভয়ই বাতিল | Same session → উভয় repository atomic; `__aexit__` `try...finally` → Zero connection leak; Protocol `@property` → Mypy-compliant read-only members; `InMemoryUoW` snapshot → test-time ACID rollback simulation। | [Day 20 বিস্তারিত গাইড](day-20.md) |
+| **Day 21** | **পাইথন ডিকশনারি ইন্টারনালস ও কমপ্যাক্ট হ্যাশ ম্যাপ** (Compact Hash Map & Perturbation Probing) | টেলিফোন ডিরেক্টরির সূচিপত্র ও মূল খাতা: ছোট ইনডেক্স পাতা ও ক্রমানুসারে সাজানো রেকর্ড | Sparse `_indices` + Dense `_entries` → insertion order ও CPU cache locality; `((5i + 1 + perturb) & mask)` → Hash DoS resilience ও full-period traversal; 2/3 load factor দ্বিগুণিকরণ; `DUMMY = -2` tombstone। | [Day 21 বিস্তারিত গাইড](day-21.md) |
+| **Day 22** | **`__slots__` ও স্লটেড ডেটাক্লাসের গভীর মেমোরি অপ্টিমাইজেশন** (Deep Memory Optimization with __slots__) | অপ্রয়োজনীয় ব্যাকপ্যাক ফেলে শার্টের সেলাই করা নির্দিষ্ট পকেটে জিনিস বহন | `@dataclass(slots=True)` → per-instance dynamic `__dict__` নির্মূল; ৪০–৬২% RAM সাশ্রয়; টাইপো মিউটেশনে তাৎক্ষণিক `AttributeError` (fail-fast); Pydantic v2 `from_attributes=True` শতভাগ কম্প্যাটিবল। | [Day 22 বিস্তারিত গাইড](day-22.md) |
+| **Day 23** | **প্রিফিক্স ট্রাই (Trie) দিয়ে O(k) অটোকমপ্লিট সার্চ** (Prefix Trie for Sub-Millisecond Autocomplete) | ইংরেজি অভিধানের অক্ষরের শাখা: প্রতিটি অক্ষর একটি নতুন পাতা | SQL `LIKE '%term%'` O(N) ফুল টেবিল স্ক্যান বনাম Trie $\mathcal{O}(k)$ সাব-মিলিসেকেন্ড অ্যাক্সেস; Slotted `TrieNode`; বটম-আপ রিকার্সিভ প্রুনিংয়ে জিরো মেমোরি লিক; লিটারাল পাথ প্রিসিডেন্স। | [Day 23 বিস্তারিত গাইড](day-23.md) |
+| **Day 24** | **প্রায়রিটি কিউ (heapq) দিয়ে ব্যাকগ্রাউন্ড জব শিডিউলিং** (Priority Queue with Binary Min-Heap) | হাসপাতালের ইমার্জেন্সি রুমের ট্রায়াজ: আশঙ্কাজনক রোগী আগে দেখা | Python `heapq` দিয়ে $\mathcal{O}(\log N)$ পুশ/পপ; Sorted list-এর $\mathcal{O}(N)$ শিফটিং দূর; `field(compare=False)` দিয়ে `dict` টাইপ এরর নির্মূল; `sequence` দিয়ে স্টেবল FIFO টাই-ব্রেকিং; অ্যাডাপ্টিভ নন-বিজি স্লিপ। | [Day 24 বিস্তারিত গাইড](day-24.md) |
+| **Day 25** | **স্লাইডিং উইন্ডো লগ অ্যালগরিদম — রেট লিমিটিং ও সুইপিং** (Sliding Window Log & Zero-Leak Monitoring) | সিনেমা হলের দরজায় দারোয়ানের চলমান ৬০ সেকেন্ডের স্টপওয়াচ বনাম স্থির দেয়ালঘড়ি | ফিক্সড উইন্ডোর ২০০% বাউন্ডারি স্পাইক ডিফেক্ট নির্মূল; Slotted `collections.deque` দিয়ে অমর্টাইজড $\mathcal{O}(1)$ এভিকশন; ক্ষণস্থায়ী আইপির জন্য `evict_idle_clients()` মেমোরি সুইপার; RFC 6585 `Retry-After` হেডার। | [Day 25 বিস্তারিত গাইড](day-25.md) |
 
 ---
 
