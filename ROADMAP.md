@@ -31,7 +31,7 @@ Tracking Legend:
 
 ## Phase 2: Async Engine, Advanced Validation & Testing Rigor (Days 16–30)
 - [x] **Day 16**: Database Connection Pooling Architecture (pool_size, max_overflow & Stale Connection Eviction via pool_pre_ping)
-- [ ] **Day 17**: Concurrent Task Execution with `asyncio.gather`
+- [x] **Day 17**: Automatic Async Database Schema Migration with Alembic & SQLAlchemy 2.0 Models
 - [ ] **Day 18**: Background Tasks in FastAPI (`BackgroundTasks`)
 - [ ] **Day 19**: Custom Validation with Pydantic `@field_validator` & `@model_validator`
 - [ ] **Day 20**: Nested Schema Serialization & Recursive Models

@@ -18,14 +18,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.exc import MissingGreenlet
 from sqlalchemy.ext.asyncio import (
+    AsyncAttrs,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.core.database import (
-    Base,
     async_session_factory,
     engine,
     get_db_session,
@@ -33,8 +33,14 @@ from app.core.database import (
 from app.main import app, lifespan
 
 
+class Day15TestBase(AsyncAttrs, DeclarativeBase):
+    """Isolated test declarative base to prevent test models from polluting production Base.metadata."""
+
+    pass
+
+
 # Test declarative entity for verifying database persistence & attribute access
-class SampleTestEntity(Base):
+class SampleTestEntity(Day15TestBase):
     """Test model to verify persistence and post-commit attribute retention."""
 
     __tablename__ = "day15_sample_test_entities"
@@ -48,10 +54,10 @@ class SampleTestEntity(Base):
 async def setup_test_tables() -> AsyncGenerator[None, None]:
     """Ensure database tables exist before tests and are cleaned up afterwards."""
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Day15TestBase.metadata.create_all)
     yield
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Day15TestBase.metadata.drop_all)
 
 
 # ============================================================================
@@ -106,7 +112,7 @@ async def test_expire_on_commit_true_demonstrates_missing_greenlet() -> None:
         connect_args={"check_same_thread": False},
     )
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Day15TestBase.metadata.create_all)
 
     # Intentionally misconfigured sessionmaker with expire_on_commit=True
     bad_session_factory = async_sessionmaker(

@@ -23,6 +23,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 13** | [Dependency Lifetime & Bounded Memory](day-13_background_tasks_dependency_lifetime_and_bounded_memory.md) | Enforced strict primitive invariant for `BackgroundTasks` arguments; bounded in-memory queues using `deque(maxlen=1000)` to eliminate OOM leaks. |
 | **Day 14** | [Domain Hierarchy & Safe 500 Masking](day-14_global_exception_handling_and_safe_500_masking.md) | Decoupled domain services from `HTTPException` via `BaseDomainException` hierarchy; masked 500 errors with UUID `trace_id` preventing information leakage. |
 | **Day 15** | [Async Fixture Strict Mode & MissingGreenlet](day-15_pytest_asyncio_strict_fixture_and_missing_greenlet_invariant.md) | Enforced `@pytest_asyncio.fixture` in strict mode; enforced `expire_on_commit=False` on `async_sessionmaker` to prevent `MissingGreenlet` crashes; disposed pool sockets via `lifespan`. |
+| **Day 17** | [Alembic Schema Drift & Metadata Namespace Pollution](day-17_alembic_schema_drift_and_metadata_namespace_pollution.md) | Isolated test entities to dedicated `TestBase` declarative bases to prevent test pollution in `Base.metadata`; simplified `downgrade()` to eliminate SQLite batch table drop errors. |
 
 ---
 

@@ -139,6 +139,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 53. **Bounded Connection Pool Sizing (`pool_size` + `max_overflow`)**: Set explicit upper bounds on database connection pools (`pool_size=20`, `max_overflow=10`, `pool_timeout=30.0`, `pool_recycle=1800`) to prevent backend services from exhausting database server connection limits during traffic spikes.
 54. **Guaranteed Connection Return in `finally:`**: Always check in database connections and sessions inside `finally:` blocks (such as in `get_db_session()`), ensuring `checked_out_connections` strictly returns to 0 under all normal and error completion paths.
 55. **Dialect-Safe Engine Pool Initialization**: Dynamically condition queue pooling arguments (`pool_size`, `max_overflow`, `pool_timeout`) to dialects supporting queue pools, avoiding invalid argument exceptions on `StaticPool` or memory databases.
+56. **Isolated TestBase for Test-Only Entities**: Always define dedicated declarative bases (e.g., `class TestBase(AsyncAttrs, DeclarativeBase): pass`) for temporary or test-only ORM models. Never inherit from production `Base`, which pollutes `Base.metadata` and causes Alembic `compare_metadata` schema drift assertions to fail with phantom tables.
+57. **Async Alembic Migrations with Dynamic Config Binding**: Always bind `target_metadata = Base.metadata` and resolve database connection strings dynamically from `get_settings().database_url` in `alembic/env.py`. Enable `render_as_batch=True` on migration contexts for cross-dialect compatibility with SQLite table alterations.
+58. **Automated Schema Drift Testing via `compare_metadata`**: Include automated integration tests running `alembic.autogenerate.compare_metadata(migration_context, Base.metadata)` against upgraded test databases to guarantee 100% synchronization between SQLAlchemy declarative models and Alembic revision scripts.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -188,6 +191,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 45. **Omitting `pool_pre_ping=True` in Production**: Deploying database engines without pre-ping checkout validation, causing sporadic `OperationalError: server closed the connection unexpectedly` or stale socket 500 errors after idle periods or network blips.
 46. **Unbounded Connection Pools**: Allowing arbitrary connection creation without limits or excessive `max_overflow`, crashing the database server with `FATAL: remaining connection slots are reserved` under surge traffic.
 47. **Leaking Connection Handles Outside Context Managers**: Acquiring connections or sessions manually without `async with` or `finally: await session.close()`, causing gradual connection pool exhaustion and application deadlocks.
+48. **Subclassing Production `Base` for Test-Only ORM Models**: Defining temporary test entities that inherit from production `Base`, polluting global `Base.metadata.tables` across test sessions and breaking schema drift assertions.
+49. **Relying on `Base.metadata.create_all()` in Production Lifespan**: Using `create_all()` on production startup instead of version-controlled migrations (`alembic upgrade head`), which leaves production environments incapable of rolling back, tracking DDL history, or altering existing columns.
+50. **Hardcoding Database URLs in `alembic.ini`**: Storing plaintext database credentials or static connection strings in `alembic.ini` instead of dynamically sourcing configuration from Pydantic `get_settings().database_url` inside `env.py`.
 
 ---
 

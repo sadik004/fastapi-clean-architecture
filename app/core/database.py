@@ -115,3 +115,28 @@ def get_db_pool_status() -> dict[str, Any]:
         "overflow_connections": overflow_conns,
         "total_open_connections": checked_in + checked_out,
     }
+
+
+def apply_migrations(
+    alembic_ini_path: str = "alembic.ini", revision: str = "head"
+) -> None:
+    """Programmatically run Alembic migrations up to the specified revision."""
+    from alembic import command
+    from alembic.config import Config
+
+    alembic_cfg = Config(alembic_ini_path)
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    command.upgrade(alembic_cfg, revision)
+
+
+def rollback_migration(
+    alembic_ini_path: str = "alembic.ini", revision: str = "-1"
+) -> None:
+    """Programmatically downgrade Alembic migrations to the specified revision."""
+    from alembic import command
+    from alembic.config import Config
+
+    alembic_cfg = Config(alembic_ini_path)
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    command.downgrade(alembic_cfg, revision)
+

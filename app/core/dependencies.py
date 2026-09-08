@@ -7,8 +7,10 @@ from typing import Annotated, Any, Optional
 from fastapi import Depends, Header, HTTPException, Path, status
 
 from app.core.config import Settings, get_settings
+from app.core.database import apply_migrations as apply_migrations
 from app.core.database import get_db_pool_status as get_db_pool_status
 from app.core.database import get_db_session as get_db_session
+from app.core.database import rollback_migration as rollback_migration
 from app.core.exceptions import UserNotFoundException
 from app.repositories.user_repository import (
     InMemoryUserRepository,

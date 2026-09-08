@@ -11,7 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import (
-    Base,
     engine,
     get_db_pool_status,
     get_db_session,
@@ -25,12 +24,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager for application startup and shutdown events.
 
     Startup:
-      - Initializes database tables via Base.metadata.create_all.
+      - Verifies database connectivity using non-blocking ping query (SELECT 1).
+      - In production, DDL schema management is strictly delegated to version-controlled
+        Alembic migrations rather than un-versioned Base.metadata.create_all().
     Shutdown:
       - Closes and disposes the async database engine to release all pooled socket connections.
     """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async with engine.connect() as conn:
+        await conn.scalar(select(1))
     yield
     await engine.dispose()
 
