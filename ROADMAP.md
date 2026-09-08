@@ -35,7 +35,7 @@ Tracking Legend:
 - [x] **Day 18**: The Repository Pattern (SQLAlchemy 2.0 Async Repository & Domain Entity Decoupling)
 - [x] **Day 19**: Preventing the N+1 Query Problem with selectinload, joinedload & Defensive lazy="raise"
 - [x] **Day 20**: The Unit of Work (UoW) Pattern (Atomic ACID Transactions Across Multiple Repositories)
-- [ ] **Day 21**: Query Parameters, Path Parameters & Header Constraints
+- [x] **Day 21**: Python Dictionary Internals (Hash Table Collisions, Open Addressing & Compact Memory Layout)
 - [ ] **Day 22**: File Uploads & Stream Handling with Memory Bounds
 - [ ] **Day 23**: Unit Testing Services with Mock Repositories
 - [ ] **Day 24**: Integration Testing Endpoints with Transient Test DB
