@@ -33,6 +33,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 24** | [Dataclass Comparator Dict Crash & Latency Jitter](day-24_heapq_dataclass_comparator_dict_crash_and_latency_jitter.md) | Excluded unorderable fields via `field(compare=False)` in slotted priority job dataclass; provided monotonic FIFO tie-breakers; calibrated test latency tolerance. |
 | **Day 25** | [Boundary Burst Defect & Idle Memory Leaks](day-25_sliding_window_boundary_burst_and_idle_memory_leak.md) | Prevented 2x boundary spikes via Sliding Window Log continuous rolling horizon; implemented active zero-leak memory sweeps for ephemeral client IDs. |
 | **Day 26** | [Binary Search Bounds & Route Shadowing](day-26_binary_search_range_boundary_invariants_and_route_shadowing.md) | Enforced required DTO transient fields in test registration payloads; resolved heterogeneous dictionary typing in strict mypy; guaranteed literal route precedence for `/filter/by-age`. |
+| **Day 27** | [Perimeter Middleware & Trace ID Desync](day-27_custom_asgi_middleware_and_security_headers.md) | Enforced monotonic `time.perf_counter()` latency tracking; eliminated trace ID desynchronization between error bodies and response headers; injected 5 OWASP defensive headers across all status codes. |
 
 ---
 

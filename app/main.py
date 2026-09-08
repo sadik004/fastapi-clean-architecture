@@ -16,6 +16,7 @@ from app.core.database import (
     get_db_session,
 )
 from app.core.exception_handlers import register_exception_handlers
+from app.core.middleware import CustomSecurityAndObservabilityMiddleware
 from app.routers.job_router import router as job_router
 from app.routers.metrics_router import router as metrics_router
 from app.routers.user_router import router as user_router
@@ -47,6 +48,9 @@ app = FastAPI(
 
 # Register centralized exception handlers
 register_exception_handlers(app)
+
+# Register global custom security and observability middleware
+app.add_middleware(CustomSecurityAndObservabilityMiddleware)
 
 # Mount feature routers
 app.include_router(user_router)

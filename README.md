@@ -47,7 +47,7 @@ Tracked in detail within [`ROADMAP.md`](ROADMAP.md).
 - **Day 11–13**: Asynchronous concurrency (`asyncio.gather`, `asyncio.to_thread`), event loop health isolation, and memory-bounded background tasks.
 - **Day 14–15**: Centralized enterprise error envelopes (`ErrorResponse`), safe 500 traceback masking, and modern SQLAlchemy 2.0 async engine setup.
 
-### Phase 2: Async Engine, Advanced Validation & Testing Rigor (Days 16–30) — In Progress `[11/15]`
+### Phase 2: Async Engine, Advanced Validation & Testing Rigor (Days 16–30) — In Progress `[12/15]`
 - **Day 16**: Connection pooling (`pool_size`, `max_overflow`, `pool_pre_ping=True`).
 - **Day 17**: Version-controlled migrations with Async Alembic & declarative models.
 - **Day 18**: The Repository Pattern (`SqlAlchemyUserRepository` & domain entity decoupling).
@@ -59,6 +59,7 @@ Tracked in detail within [`ROADMAP.md`](ROADMAP.md).
 - **Day 24**: Binary Min-Heap Priority Queue (`heapq`) for priority-based background job scheduling ($\mathcal{O}(\log N)$).
 - **Day 25**: Rolling Horizon Sliding Window Log algorithm for rate limiting & zero-leak active memory sweeping.
 - **Day 26**: Binary Search ($\mathcal{O}(\log N)$) bounds & converging Two-Pointer ($\mathcal{O}(N)$ time, $\mathcal{O}(1)$ space) range filtering.
+- **Day 27**: Custom ASGI Middleware (monotonic latency tracking via `time.perf_counter()`, correlation IDs, and 5 OWASP defensive headers).
 
 ---
 
@@ -67,7 +68,7 @@ Tracked in detail within [`ROADMAP.md`](ROADMAP.md).
 All commits must satisfy 100% compliance with quality gates:
 
 ```bash
-# 1. Run complete automated test suite (334 passed)
+# 1. Run complete automated test suite (340 passed)
 pytest tests -v
 
 # 2. Strict type checking across all modules

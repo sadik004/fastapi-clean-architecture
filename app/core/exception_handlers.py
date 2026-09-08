@@ -62,7 +62,7 @@ async def domain_exception_handler(
 ) -> JSONResponse:
     """Translate decoupled domain exceptions into standardized ErrorResponse envelopes."""
     status_code = _resolve_domain_status_code(exc)
-    trace_id = str(uuid.uuid4())
+    trace_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
 
     error_detail = ErrorDetail(
         code=exc.code,
@@ -97,7 +97,7 @@ async def validation_exception_handler(
 ) -> JSONResponse:
     """Standardize Pydantic / FastAPI request validation failures into unified details."""
     status_code = 422
-    trace_id = str(uuid.uuid4())
+    trace_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
 
     parsed_details: list[dict[str, Any]] = [
         {
@@ -150,7 +150,7 @@ async def http_exception_handler(
 ) -> JSONResponse:
     """Normalize Starlette / FastAPI HTTPExceptions while preserving response headers."""
     status_code = exc.status_code
-    trace_id = str(uuid.uuid4())
+    trace_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
     code = _HTTP_STATUS_CODE_MAP.get(status_code, f"HTTP_{status_code}")
     message = str(exc.detail) if exc.detail else "An HTTP error occurred."
 
@@ -189,7 +189,7 @@ async def unhandled_exception_handler(
     exc: Exception,
 ) -> JSONResponse:
     """Mask unexpected 500 server crashes to prevent leaking tracebacks or internals."""
-    trace_id = str(uuid.uuid4())
+    trace_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
     status_code = 500
 
     # Log full traceback and internal error details securely to internal monitoring
