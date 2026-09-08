@@ -107,3 +107,46 @@ class SqlAlchemyPostRepository:
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_entity(model, include_author=True) if model is not None else None
+
+
+class InMemoryPostRepository:
+    """In-memory implementation of PostRepositoryProtocol for fast, isolated testing."""
+
+    def __init__(self) -> None:
+        self._store: dict[int, PostEntity] = {}
+        self._current_id: int = 0
+
+    async def create(self, title: str, content: str, user_id: int) -> PostEntity:
+        """Create and persist a new post entity in memory in O(1) time."""
+        self._current_id += 1
+        entity = PostEntity(
+            id=self._current_id,
+            title=title,
+            content=content,
+            user_id=user_id,
+            created_at=datetime.now(timezone.utc),
+            author=None,
+        )
+        self._store[self._current_id] = entity
+        return entity
+
+    async def get_by_id(self, post_id: int) -> Optional[PostEntity]:
+        """Fetch post by primary key ID in O(1) time."""
+        return self._store.get(post_id)
+
+    async def get_post_with_author(self, post_id: int) -> Optional[PostEntity]:
+        """Fetch post by ID in O(1) time."""
+        return self._store.get(post_id)
+
+    def clear(self) -> None:
+        """Reset internal in-memory post storage."""
+        self._store.clear()
+        self._current_id = 0
+
+
+__all__ = [
+    "InMemoryPostRepository",
+    "PostEntity",
+    "PostRepositoryProtocol",
+    "SqlAlchemyPostRepository",
+]

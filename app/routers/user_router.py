@@ -11,6 +11,7 @@ from app.core.dependencies import (
     get_current_active_admin,
     get_current_user,
     get_transaction_context,
+    get_uow,
     get_user_repository,
     get_user_service,
     require_user_ownership,
@@ -19,6 +20,11 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.repositories.user_repository import UserEntity
+from app.schemas.post import (
+    PostResponse,
+    UserWithInitialPostCreate,
+    UserWithInitialPostResponse,
+)
 from app.schemas.user import (
     UserCreate,
     UserDashboardResponse,
@@ -43,6 +49,7 @@ __all__ = [
     "get_current_active_admin",
     "get_current_user",
     "get_transaction_context",
+    "get_uow",
     "get_user_repository",
     "get_user_service",
     "require_user_ownership",
@@ -81,6 +88,28 @@ async def create_user(
         datetime.now(timezone.utc),
     )
     return UserResponse.model_validate(created_user)
+
+
+@router.post(
+    "/with-initial-post",
+    response_model=UserWithInitialPostResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Atomically register a new user and create their initial post",
+)
+async def create_user_with_initial_post(
+    payload: UserWithInitialPostCreate,
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> UserWithInitialPostResponse:
+    """Register a new user and persist an initial post within an atomic Unit of Work transaction."""
+    user, post = await service.create_user_with_initial_post(
+        user_create=payload.user,
+        post_title=payload.post_title,
+        post_content=payload.post_content,
+    )
+    return UserWithInitialPostResponse(
+        user=UserResponse.model_validate(user),
+        post=PostResponse.model_validate(post),
+    )
 
 
 @router.get(

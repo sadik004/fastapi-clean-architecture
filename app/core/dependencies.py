@@ -14,6 +14,7 @@ from app.core.database import get_db_pool_status as get_db_pool_status
 from app.core.database import get_db_session as get_db_session
 from app.core.database import rollback_migration as rollback_migration
 from app.core.exceptions import UserNotFoundException
+from app.core.unit_of_work import SqlAlchemyUnitOfWork, UnitOfWorkProtocol
 from app.repositories.user_repository import (
     InMemoryUserRepository,
     SqlAlchemyUserRepository,
@@ -42,12 +43,17 @@ def get_user_repository(
     return _user_repository
 
 
+def get_uow() -> UnitOfWorkProtocol:
+    """Dependency provider for UnitOfWorkProtocol."""
+    return SqlAlchemyUnitOfWork()
+
 
 def get_user_service(
     repo: Annotated[UserRepositoryProtocol, Depends(get_user_repository)],
+    uow: Annotated[Optional[UnitOfWorkProtocol], Depends(get_uow)] = None,
 ) -> UserService:
     """Dependency provider for UserService."""
-    return UserService(repository=repo)
+    return UserService(repository=repo, uow=uow)
 
 
 async def get_current_user(

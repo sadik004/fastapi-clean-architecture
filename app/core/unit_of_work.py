@@ -1,0 +1,198 @@
+"""Unit of Work (UoW) Pattern implementation for atomic ACID transactions across repositories."""
+
+from types import TracebackType
+from typing import Optional, Protocol, Self
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from app.core.database import async_session_factory
+from app.repositories.post_repository import (
+    InMemoryPostRepository,
+    PostEntity,
+    PostRepositoryProtocol,
+    SqlAlchemyPostRepository,
+)
+from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
+from app.repositories.user_repository import (
+    InMemoryUserRepository,
+    UserEntity,
+    UserRepositoryProtocol,
+)
+
+
+class UnitOfWorkProtocol(Protocol):
+    """Abstract protocol defining the Unit of Work interface."""
+
+    @property
+    def users(self) -> UserRepositoryProtocol:
+        """User repository operating on the shared transaction."""
+        ...
+
+    @property
+    def posts(self) -> PostRepositoryProtocol:
+        """Post repository operating on the shared transaction."""
+        ...
+
+    async def __aenter__(self) -> Self:
+        """Open the transaction boundary and initialize repositories with the shared session."""
+        ...
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        """Exit the transaction boundary, auto-rolling back on error and closing the session."""
+        ...
+
+    async def commit(self) -> None:
+        """Explicitly commit all staged operations across all registered repositories."""
+        ...
+
+    async def rollback(self) -> None:
+        """Explicitly roll back all staged operations across all registered repositories."""
+        ...
+
+
+class SqlAlchemyUnitOfWork:
+    """Production asynchronous Unit of Work backed by SQLAlchemy 2.0.
+
+    Guarantees:
+    - Atomicity: All repository operations execute on the exact same underlying AsyncSession.
+    - Automatic Rollback: Any unhandled exception during the context block triggers await self.rollback().
+    - Zero Resource Leaks: The session is unconditionally closed in a finally block upon exit.
+    """
+
+    def __init__(
+        self,
+        session_factory: Optional[async_sessionmaker[AsyncSession]] = None,
+    ) -> None:
+        self._session_factory: async_sessionmaker[AsyncSession] = (
+            session_factory or async_session_factory
+        )
+        self.session: Optional[AsyncSession] = None
+        self._users: Optional[SqlAlchemyUserRepository] = None
+        self._posts: Optional[SqlAlchemyPostRepository] = None
+
+    @property
+    def users(self) -> UserRepositoryProtocol:
+        if self._users is None:
+            raise RuntimeError("UnitOfWork is not open. Access repositories within 'async with uow:' block.")
+        return self._users
+
+    @property
+    def posts(self) -> PostRepositoryProtocol:
+        if self._posts is None:
+            raise RuntimeError("UnitOfWork is not open. Access repositories within 'async with uow:' block.")
+        return self._posts
+
+    async def __aenter__(self) -> Self:
+        self.session = self._session_factory()
+        self._users = SqlAlchemyUserRepository(session=self.session)
+        self._posts = SqlAlchemyPostRepository(session=self.session)
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        try:
+            if exc_type is not None:
+                await self.rollback()
+        finally:
+            if self.session is not None:
+                await self.session.close()
+                self.session = None
+                self._users = None
+                self._posts = None
+
+    async def commit(self) -> None:
+        """Commit all pending operations in the active session."""
+        if self.session is None:
+            raise RuntimeError("UnitOfWork is not open. Call within 'async with uow:' block.")
+        await self.session.commit()
+
+    async def rollback(self) -> None:
+        """Roll back all pending operations in the active session."""
+        if self.session is None:
+            raise RuntimeError("UnitOfWork is not open. Call within 'async with uow:' block.")
+        await self.session.rollback()
+
+
+class InMemoryUnitOfWork:
+    """In-memory implementation of UnitOfWorkProtocol with snapshot-based rollback simulation."""
+
+    def __init__(
+        self,
+        user_repo: Optional[InMemoryUserRepository] = None,
+        post_repo: Optional[InMemoryPostRepository] = None,
+    ) -> None:
+        self.users: InMemoryUserRepository = user_repo or InMemoryUserRepository()
+        self.posts: InMemoryPostRepository = post_repo or InMemoryPostRepository()
+
+        # State snapshots for rollback restoration
+        self._user_store_snapshot: Optional[dict[int, UserEntity]] = None
+        self._user_email_snapshot: Optional[dict[str, int]] = None
+        self._user_username_snapshot: Optional[dict[str, int]] = None
+        self._user_id_snapshot: Optional[int] = None
+
+        self._post_store_snapshot: Optional[dict[int, PostEntity]] = None
+        self._post_id_snapshot: Optional[int] = None
+
+    async def __aenter__(self) -> Self:
+        # Snapshot in-memory repositories state
+        self._user_store_snapshot = dict(self.users._store)
+        self._user_email_snapshot = dict(self.users._email_index)
+        self._user_username_snapshot = dict(self.users._username_index)
+        self._user_id_snapshot = self.users._current_id
+
+        self._post_store_snapshot = dict(self.posts._store)
+        self._post_id_snapshot = self.posts._current_id
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        if exc_type is not None:
+            await self.rollback()
+        self._clear_snapshots()
+
+    def _clear_snapshots(self) -> None:
+        self._user_store_snapshot = None
+        self._user_email_snapshot = None
+        self._user_username_snapshot = None
+        self._user_id_snapshot = None
+        self._post_store_snapshot = None
+        self._post_id_snapshot = None
+
+    async def commit(self) -> None:
+        """Commit in-memory changes by discarding rollback snapshots."""
+        self._clear_snapshots()
+
+    async def rollback(self) -> None:
+        """Roll back in-memory changes by restoring from entry snapshots."""
+        if self._user_store_snapshot is not None:
+            self.users._store = dict(self._user_store_snapshot)
+        if self._user_email_snapshot is not None:
+            self.users._email_index = dict(self._user_email_snapshot)
+        if self._user_username_snapshot is not None:
+            self.users._username_index = dict(self._user_username_snapshot)
+        if self._user_id_snapshot is not None:
+            self.users._current_id = self._user_id_snapshot
+
+        if self._post_store_snapshot is not None:
+            self.posts._store = dict(self._post_store_snapshot)
+        if self._post_id_snapshot is not None:
+            self.posts._current_id = self._post_id_snapshot
+
+
+__all__ = [
+    "InMemoryUnitOfWork",
+    "SqlAlchemyUnitOfWork",
+    "UnitOfWorkProtocol",
+]

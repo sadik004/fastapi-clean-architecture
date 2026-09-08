@@ -6,6 +6,8 @@ import hashlib
 from typing import Any, Optional
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.core.security import get_password_hash, verify_password
+from app.core.unit_of_work import UnitOfWorkProtocol
+from app.repositories.post_repository import PostEntity
 from app.repositories.user_repository import UserEntity, UserRepositoryProtocol
 from app.schemas.user import UserCreate, UserProfileUpdate, UserRole, UserUpdate
 
@@ -13,8 +15,13 @@ from app.schemas.user import UserCreate, UserProfileUpdate, UserRole, UserUpdate
 class UserService:
     """Service handling User business logic and concurrent task orchestration."""
 
-    def __init__(self, repository: UserRepositoryProtocol) -> None:
+    def __init__(
+        self,
+        repository: UserRepositoryProtocol,
+        uow: Optional[UnitOfWorkProtocol] = None,
+    ) -> None:
         self._repo = repository
+        self._uow = uow
 
     async def register_user(self, payload: UserCreate) -> UserEntity:
         """Register a new user with O(1) uniqueness validation asynchronously.
@@ -240,5 +247,58 @@ class UserService:
         return await asyncio.to_thread(
             self._sync_compute_heavy_report, user.id, user.username
         )
+
+    async def create_user_with_initial_post(
+        self,
+        user_create: UserCreate,
+        post_title: str,
+        post_content: str,
+        uow: Optional[UnitOfWorkProtocol] = None,
+    ) -> tuple[UserEntity, PostEntity]:
+        """Atomically register a new user and create their initial post within a Unit of Work.
+
+        Guarantees ACID atomicity: if post creation or commit fails, the user registration
+        is completely rolled back, leaving zero orphaned records in the database.
+        """
+        active_uow = uow or self._uow
+        if active_uow is None:
+            raise RuntimeError("UnitOfWork is required for atomic multi-entity operations.")
+
+        async with active_uow:
+            # Domain uniqueness validation across the shared transaction boundary
+            if await active_uow.users.get_by_email(user_create.email) is not None:
+                raise UserAlreadyExistsException(f"Email '{user_create.email}' is already registered.")
+
+            if await active_uow.users.get_by_username(user_create.username) is not None:
+                raise UserAlreadyExistsException(f"Username '{user_create.username}' is already taken.")
+
+            # CPU-bound password hashing
+            password_hash = await get_password_hash(user_create.password)
+
+            # 1. Create user entity via shared transaction
+            user = await active_uow.users.create(
+                email=user_create.email,
+                username=user_create.username,
+                password_hash=password_hash,
+                age=user_create.age,
+                role=user_create.role.value,
+                full_name=user_create.full_name,
+                phone_number=user_create.phone_number,
+                bio=user_create.bio,
+                company_name=user_create.company_name,
+            )
+
+            # 2. Create initial post referencing the newly flushed user.id
+            post = await active_uow.posts.create(
+                title=post_title,
+                content=post_content,
+                user_id=user.id,
+            )
+
+            # 3. Atomically commit both repository operations together
+            await active_uow.commit()
+
+            return user, post
+
 
 

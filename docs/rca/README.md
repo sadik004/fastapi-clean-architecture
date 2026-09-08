@@ -25,6 +25,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 15** | [Async Fixture Strict Mode & MissingGreenlet](day-15_pytest_asyncio_strict_fixture_and_missing_greenlet_invariant.md) | Enforced `@pytest_asyncio.fixture` in strict mode; enforced `expire_on_commit=False` on `async_sessionmaker` to prevent `MissingGreenlet` crashes; disposed pool sockets via `lifespan`. |
 | **Day 17** | [Alembic Schema Drift & Metadata Namespace Pollution](day-17_alembic_schema_drift_and_metadata_namespace_pollution.md) | Isolated test entities to dedicated `TestBase` declarative bases to prevent test pollution in `Base.metadata`; simplified `downgrade()` to eliminate SQLite batch table drop errors. |
 | **Day 18** | [Repository Swapping & Test Isolation Regression](day-18_repository_swapping_and_test_isolation_regression.md) | Implemented dual-mode optional session in repository dependency; established synchronous test database purging and dependency override isolation. |
+| **Day 20** | [Protocol Read-Only Members & Error Envelope Assertion](day-20_unit_of_work_protocol_property_and_error_envelope_assertion.md) | Enforced `@property` on protocol members for getter-only implementations; asserted against standardized `ErrorResponse` envelope in API tests. |
 
 ---
 
