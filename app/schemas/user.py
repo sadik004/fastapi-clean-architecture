@@ -50,6 +50,32 @@ class UserCreate(UserBase):
     )
 
 
+class UserUpdate(BaseModel):
+    """Input payload schema for updating user details."""
+
+    email: Optional[EmailStr] = Field(
+        default=None,
+        description="Updated email address",
+    )
+    username: Optional[str] = Field(
+        default=None,
+        min_length=3,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9_]+$",
+        description="Updated username containing only alphanumeric characters and underscores",
+    )
+    age: Optional[int] = Field(
+        default=None,
+        ge=18,
+        le=120,
+        description="Updated user age (must be between 18 and 120)",
+    )
+    role: Optional[UserRole] = Field(
+        default=None,
+        description="Updated user role",
+    )
+
+
 class UserProfileUpdate(BaseModel):
     """Input payload schema for updating user profile fields."""
 

@@ -1,8 +1,8 @@
-"""In-memory User Repository strictly enforcing O(1) hash map operations."""
+"""In-memory User Repository strictly enforcing O(1) hash map operations and Protocol decoupling."""
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Protocol
 
 
 @dataclass
@@ -19,16 +19,67 @@ class UserEntity:
     role: str = "user"
 
 
+class UserRepositoryProtocol(Protocol):
+    """Abstract protocol for user persistence operations."""
+
+    def create(
+        self,
+        email: str,
+        username: str,
+        password_hash: str,
+        age: Optional[int] = None,
+        role: str = "user",
+    ) -> UserEntity:
+        """Create and persist a new user entity."""
+        ...
+
+    def get_by_id(self, user_id: int) -> Optional[UserEntity]:
+        """Fetch a user by primary key ID in O(1) time."""
+        ...
+
+    def get_by_email(self, email: str) -> Optional[UserEntity]:
+        """Fetch a user by email via inverted index in O(1) time."""
+        ...
+
+    def get_by_username(self, username: str) -> Optional[UserEntity]:
+        """Fetch a user by username via inverted index in O(1) time."""
+        ...
+
+    def update(
+        self,
+        user_id: int,
+        email: Optional[str] = None,
+        username: Optional[str] = None,
+        age: Optional[int] = None,
+        role: Optional[str] = None,
+    ) -> Optional[UserEntity]:
+        """Update an existing user entity and synchronize indexes in O(1) time."""
+        ...
+
+    def delete(self, user_id: int) -> bool:
+        """Delete an existing user and purge secondary indexes in O(1) time."""
+        ...
+
+    def list_all(self, limit: int = 10, offset: int = 0) -> list[UserEntity]:
+        """List user entities with pagination."""
+        ...
+
+    def clear(self) -> None:
+        """Reset repository storage and all secondary indexes."""
+        ...
+
+
 class InMemoryUserRepository:
     """In-memory repository for User persistence.
 
     Time Complexity:
-    - save: O(1) amortized
+    - create: O(1) amortized
     - get_by_id: O(1)
     - get_by_email: O(1)
     - get_by_username: O(1)
-    - update: O(1)
-    - list_all: O(n) where n is total users
+    - update: O(1) amortized
+    - delete: O(1) amortized
+    - list_all: O(k) where k is pagination slice limit
     """
 
     def __init__(self) -> None:
@@ -75,16 +126,24 @@ class InMemoryUserRepository:
     def update(
         self,
         user_id: int,
+        email: Optional[str] = None,
         username: Optional[str] = None,
         age: Optional[int] = None,
+        role: Optional[str] = None,
     ) -> Optional[UserEntity]:
-        """Update an existing user entity in O(1) time."""
+        """Update an existing user entity and synchronize indexes in O(1) time."""
         user = self._store.get(user_id)
         if user is None:
             return None
 
+        if email is not None and email != user.email:
+            # Synchronize inverted email index in O(1)
+            self._email_index.pop(user.email, None)
+            self._email_index[email] = user.id
+            user.email = email
+
         if username is not None and username != user.username:
-            # Re-index inverted index in O(1)
+            # Synchronize inverted username index in O(1)
             self._username_index.pop(user.username, None)
             self._username_index[username] = user.id
             user.username = username
@@ -92,7 +151,24 @@ class InMemoryUserRepository:
         if age is not None:
             user.age = age
 
+        if role is not None:
+            user.role = role
+
         return user
+
+    def delete(self, user_id: int) -> bool:
+        """Delete an existing user and purge secondary indexes in O(1) time."""
+        user = self._store.get(user_id)
+        if user is None:
+            return False
+
+        # Strictly purge secondary inverted indexes to prevent dangling keys
+        self._email_index.pop(user.email, None)
+        self._username_index.pop(user.username, None)
+
+        # Remove from primary storage
+        del self._store[user_id]
+        return True
 
     def get_by_id(self, user_id: int) -> Optional[UserEntity]:
         """Fetch user by primary key ID in O(1) time."""
@@ -112,12 +188,12 @@ class InMemoryUserRepository:
             return None
         return self._store.get(user_id)
 
-    def list_all(self) -> list[UserEntity]:
-        """List all user entities."""
-        return list(self._store.values())
+    def list_all(self, limit: int = 10, offset: int = 0) -> list[UserEntity]:
+        """List user entities with O(k) slice pagination."""
+        return list(self._store.values())[offset : offset + limit]
 
     def clear(self) -> None:
-        """Reset the repository state (useful for test isolation)."""
+        """Reset the repository state and purge all secondary indexes."""
         self._store.clear()
         self._email_index.clear()
         self._username_index.clear()

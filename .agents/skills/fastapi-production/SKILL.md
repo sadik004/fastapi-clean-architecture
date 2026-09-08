@@ -86,25 +86,28 @@ All algorithms, data transformations, and data structures must be optimized for 
 ### Good Patterns (Mine - Mandated by Lead Architect)
 1. **Single Evolving Codebase**: Keeping all business logic and routes unified in `app/`, continuous refactoring.
 2. **Layer Separation**: Clear boundaries across `routers -> services -> repositories`.
-3. **Inverted Index Hash Maps**: Maintaining secondary `dict[field, pk]` indexes in repositories to guarantee $\mathcal{O}(1)$ uniqueness validation without linear scans.
-4. **Strict Typing**: Full type annotations on all function signatures, parameters, and return types (`mypy --strict` compliant; pytest fixtures with `yield` typed as `Generator[None, None, None]`).
-5. **Pydantic Schemas & DTO Separation**: Separate schemas for creation (`UserCreate`), response projection (`UserResponse`), and partial mutations (`UserProfileUpdate`). Internal entity fields (e.g. `password_hash`) must never be declared on response models.
-6. **Pydantic v2 Field Constraints**: Enforce length boundaries (`min_length`, `max_length`), regex patterns (`pattern`), numeric ranges (`ge`, `le`), and strict typing (`EmailStr`, `Enum`) directly in `Field()` to leverage C/Rust-speed validation in `pydantic-core`.
-7. **Entity Hydration with ConfigDict**: Use `model_config = ConfigDict(from_attributes=True)` on response DTOs for safe serialization from domain models/entities without leaking non-schema fields.
-8. **Immutable Defaults & `default_factory`**: Never use mutable objects (`list`, `dict`) as default values in schemas or functions; always use `Field(default_factory=...)` to prevent reference leaks.
-9. **Dependency Injection**: Utilize FastAPI's `Depends` for providing repositories and services into router endpoints.
-10. **Comprehensive Testing**: Every endpoint and schema must have corresponding unit and integration tests under `tests/`.
+3. **Protocol-Based Repository Abstraction**: Define `typing.Protocol` interfaces for repositories to decouple business logic from storage implementations and ease test swapping.
+4. **Inverted Index Hash Maps with Strict Synchronization**: Maintaining secondary `dict[field, pk]` indexes in repositories to guarantee $\mathcal{O}(1)$ uniqueness validation; rigorously update index mappings whenever indexed fields change.
+5. **Secondary Index Purging on Deletion**: In-memory deletions must purge both primary storage and all secondary index entries (`_email_index.pop()`, `_username_index.pop()`) to eliminate memory leaks and avoid false collision bugs upon re-registration.
+6. **Strict Typing**: Full type annotations on all function signatures, parameters, and return types (`mypy --strict` compliant; pytest fixtures with `yield` typed as `Generator[None, None, None]`).
+7. **Pydantic Schemas & DTO Separation**: Separate schemas for creation (`UserCreate`), response projection (`UserResponse`), and partial mutations (`UserProfileUpdate`, `UserUpdate`). Internal entity fields (e.g. `password_hash`) must never be declared on response models.
+8. **Pydantic v2 Field Constraints**: Enforce length boundaries (`min_length`, `max_length`), regex patterns (`pattern`), numeric ranges (`ge`, `le`), and strict typing (`EmailStr`, `Enum`) directly in `Field()` to leverage C/Rust-speed validation in `pydantic-core`.
+9. **Entity Hydration with ConfigDict**: Use `model_config = ConfigDict(from_attributes=True)` on response DTOs for safe serialization from domain models/entities without leaking non-schema fields.
+10. **Immutable Defaults & `default_factory`**: Never use mutable objects (`list`, `dict`) as default values in schemas or functions; always use `Field(default_factory=...)` to prevent reference leaks.
+11. **Dependency Injection via `Depends`**: Utilize FastAPI's `Depends` for providing abstract repository protocols and service instances into router endpoints.
+12. **Comprehensive Testing**: Every endpoint, repository method, and schema must have corresponding unit and integration tests under `tests/`.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
 2. **Monolithic Spaghetti**: Putting router logic, DB queries, and schemas inside a single file or endpoint handler.
 3. **Manual Validation Inside Routers**: Parsing raw dicts, performing ad-hoc validation loops, or checking lengths/types manually inside router functions instead of relying on Pydantic DTOs.
 4. **Exposing Internal Entities**: Returning ORM models, domain entities (`UserEntity`), or raw database records directly to the client instead of mapping to strict response DTOs.
-5. **Mutable Default Arguments**: Defining `def fn(items=[])` or `items: list = []` in Pydantic models or function signatures.
-6. **Unindexed Searches**: Scanning lists linearly when searching by unique identifier or key.
-7. **Direct DB in Routers**: Calling `db.query()`, `session.execute()`, or repository methods directly inside router handlers.
-8. **Untyped / `Any` shortcuts**: Using `Any` or omitting return types to bypass type checking.
-9. **Swallowing Exceptions**: Bare `except:` clauses without logging and proper error propagation.
+5. **Memory Leaks from Dangling Indexes**: Deleting or updating entities in repositories without purging or synchronizing secondary inverted index maps.
+6. **$\mathcal{O}(n)$ Scans Over Storage**: Scanning lists or iterating over `_store.values()` when searching by unique identifier, email, or username.
+7. **Mutable Default Arguments**: Defining `def fn(items=[])` or `items: list = []` in Pydantic models or function signatures.
+8. **Direct DB in Routers**: Calling `db.query()`, `session.execute()`, or repository methods directly inside router handlers.
+9. **Untyped / `Any` shortcuts**: Using `Any` or omitting return types to bypass type checking.
+10. **Swallowing Exceptions**: Bare `except:` clauses without logging and proper error propagation.
 
 ---
 
