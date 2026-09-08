@@ -36,7 +36,11 @@ def test_complete_crud_lifecycle(
         "age": 25,
         "role": "admin",
     }
-    update_resp = client.put(f"/users/{user_id}", json=update_payload)
+    update_resp = client.put(
+        f"/users/{user_id}",
+        json=update_payload,
+        headers={"X-API-Key": "userkey_lifecycle_user"},
+    )
     assert update_resp.status_code == 200
     updated_data = update_resp.json()
     assert updated_data["email"] == "updated_email@example.com"
@@ -93,6 +97,7 @@ def test_put_user_conflict_scenarios(client: TestClient) -> None:
     conflict_email_resp = client.put(
         f"/users/{user2['id']}",
         json={"email": "user1@example.com"},
+        headers={"X-API-Key": "userkey_handle_two"},
     )
     assert conflict_email_resp.status_code == 409
     assert "already registered" in conflict_email_resp.json()["detail"]
@@ -101,14 +106,23 @@ def test_put_user_conflict_scenarios(client: TestClient) -> None:
     conflict_username_resp = client.put(
         f"/users/{user2['id']}",
         json={"username": "handle_one"},
+        headers={"X-API-Key": "userkey_handle_two"},
     )
     assert conflict_username_resp.status_code == 409
     assert "already taken" in conflict_username_resp.json()["detail"]
 
 
-def test_put_user_not_found(client: TestClient) -> None:
+def test_put_user_not_found(
+    client: TestClient,
+    admin_user: dict[str, Any],
+    admin_auth_headers: dict[str, str],
+) -> None:
     """Verify PUT on non-existent ID returns 404 Not Found."""
-    response = client.put("/users/9999", json={"username": "does_not_exist"})
+    response = client.put(
+        "/users/9999",
+        json={"username": "does_not_exist"},
+        headers=admin_auth_headers,
+    )
     assert response.status_code == 404
     assert "not found" in response.json()["detail"]
 

@@ -112,6 +112,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 26. **Constant-Time Cryptographic Comparison (`secrets.compare_digest`)**: Always compare API keys, tokens, and cryptographic secrets with `secrets.compare_digest(a, b)` instead of the standard `==` equality operator to eliminate side-channel timing attack vulnerabilities.
 27. **Declarative Security Guards via `Depends()`**: Enforce authentication and role-based access control (RBAC) declaratively on route functions using reusable dependency providers (`get_current_user`, `get_current_active_admin`).
 28. **Literal Path Route Precedence Over Path Parameters**: Always declare specific literal sub-paths (e.g., `GET /users/me`) strictly before parametrized paths (`GET /users/{user_id}`) in FastAPI routers to prevent routing ambiguity and accidental 422 Unprocessable Entity errors.
+29. **Parameterized Callable Class Dependencies**: Implement complex authorization guards as callable classes (`__init__` storing immutable state and `__call__` resolving dependencies via `Depends()`), enabling flexible, reusable decorators like `Depends(RoleChecker([UserRole.ADMIN, UserRole.ENTERPRISE]))` with $\mathcal{O}(1)$ `frozenset` membership checking.
+30. **Chained Hierarchical Sub-Dependencies for IDOR Prevention**: Structure authorization guards as chained dependencies that resolve both path parameters (`user_id: Path(...)`) and authenticated user context (`current_user: Depends(get_current_user)`), enforcing ownership boundaries declaratively before endpoint logic executes.
+31. **Request-Scoped DAG Memoization (`use_cache=True`)**: Leverage FastAPI's built-in dependency memoization to share sub-dependency evaluations (e.g. `get_current_user`) across multiple branches of the request dependency graph without redundant queries or computation.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -138,6 +141,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 22. **Standard Equality (`==`) for Secret Verification**: Verifying authentication tokens or API keys using `token == expected_secret`, exposing the application to character-by-character timing attacks.
 23. **Reading Environment Variables Inside Request Handlers**: Invoking `os.getenv(...)` or re-instantiating config models inside endpoint functions on every request.
 24. **Placing Literal Path Routes Below Parameter Endpoints**: Registering routes like `/users/me` after `/users/{user_id}`, causing the router to evaluate the literal string `"me"` against the path parameter validator (e.g. integer or UUID) and fail with HTTP 422.
+25. **Imperative Authorization Logic Inside Router Bodies**: Writing manual role or ownership checks (e.g. `if current_user.id != user_id: raise HTTPException(403)`) inside endpoint handler functions instead of enforcing them declaratively via `Depends()`.
+26. **Copy-Pasting Role Matrices Across Endpoints**: Hardcoding lists of allowed roles or permissions repeatedly inside individual route definitions instead of utilizing parameterized callable dependencies (`RoleChecker`).
+27. **Self-Referential Dependency Overrides**: Assigning a mock or spy in `app.dependency_overrides` that declares a dependency on the exact function being overridden, causing infinite recursion (`RecursionError`) during dependency resolution.
 
 ---
 

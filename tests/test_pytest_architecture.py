@@ -347,12 +347,21 @@ class TestUserLifecycle:
         assert read_resp.json()["email"] == email
 
         # 3. UPDATE via PUT (update full_name)
-        put_resp = client.put(f"/users/{user_id}", json={"full_name": "Updated Architect Name"})
+        user_headers = {"X-API-Key": f"userkey_{username}"}
+        put_resp = client.put(
+            f"/users/{user_id}",
+            json={"full_name": "Updated Architect Name"},
+            headers=user_headers,
+        )
         assert put_resp.status_code == 200
         assert put_resp.json()["full_name"] == "Updated Architect Name"
 
         # 4. PARTIAL UPDATE via PATCH (update bio)
-        patch_resp = client.patch(f"/users/{user_id}", json={"bio": "Architectural leader."})
+        patch_resp = client.patch(
+            f"/users/{user_id}",
+            json={"bio": "Architectural leader."},
+            headers=user_headers,
+        )
         assert patch_resp.status_code == 200
         assert patch_resp.json()["bio"] == "Architectural leader."
 

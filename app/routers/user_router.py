@@ -4,10 +4,12 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 
 from app.core.dependencies import (
+    RoleChecker,
     get_current_active_admin,
     get_current_user,
     get_user_repository,
     get_user_service,
+    require_user_ownership,
 )
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.repositories.user_repository import UserEntity
@@ -23,7 +25,15 @@ from app.services.user_service import UserService
 router = APIRouter(prefix="/users", tags=["Users"])
 
 # Re-export for backwards compatibility with existing test suites
-__all__ = ["get_user_repository", "get_user_service", "router"]
+__all__ = [
+    "RoleChecker",
+    "get_current_active_admin",
+    "get_current_user",
+    "get_user_repository",
+    "get_user_service",
+    "require_user_ownership",
+    "router",
+]
 
 
 @router.post(
@@ -85,6 +95,30 @@ def get_current_user_profile(
 ) -> UserResponse:
     """Endpoint to fetch the authenticated user profile."""
     return UserResponse.model_validate(current_user)
+
+
+@router.get(
+    "/admin/metrics",
+    status_code=status.HTTP_200_OK,
+    summary="Get administrative system metrics",
+)
+def get_admin_metrics(
+    current_admin: Annotated[UserEntity, Depends(RoleChecker([UserRole.ADMIN]))],
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> dict[str, int | str]:
+    """Protected endpoint for administrators to view system user metrics."""
+    users = service.list_users(limit=100, offset=0)
+    admin_count = sum(
+        1
+        for u in users
+        if (u.role.value if isinstance(u.role, UserRole) else str(u.role))
+        == UserRole.ADMIN.value
+    )
+    return {
+        "status": "operational",
+        "total_users": len(users),
+        "admin_count": admin_count,
+    }
 
 
 @router.get(
@@ -173,6 +207,7 @@ def update_user(
         le=2_147_483_647,
         description="The unique positive integer ID of the user",
     ),
+    authorized_user: Annotated[UserEntity, Depends(require_user_ownership)] = None,  # type: ignore[assignment]
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to update user attributes."""
@@ -205,6 +240,7 @@ def update_user_profile(
         le=2_147_483_647,
         description="The unique positive integer ID of the user",
     ),
+    authorized_user: Annotated[UserEntity, Depends(require_user_ownership)] = None,  # type: ignore[assignment]
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
 ) -> UserResponse:
     """Endpoint to partially update user profile attributes."""

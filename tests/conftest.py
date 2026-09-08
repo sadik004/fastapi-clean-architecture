@@ -118,3 +118,21 @@ def created_user(client: TestClient, sample_user_payload: dict[str, Any]) -> dic
     user_data: dict[str, Any] = response.json()
     return user_data
 
+
+@pytest.fixture
+def enterprise_user(
+    client: TestClient,
+    enterprise_user_payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Seed an enterprise user and return their entity data."""
+    response = client.post("/users/", json=enterprise_user_payload)
+    assert response.status_code == 201
+    user_data: dict[str, Any] = response.json()
+    return user_data
+
+
+@pytest.fixture
+def enterprise_auth_headers(enterprise_user: dict[str, Any]) -> dict[str, str]:
+    """Provide authentication headers for the seeded enterprise user."""
+    return {"X-API-Key": f"userkey_{enterprise_user['username']}"}
+

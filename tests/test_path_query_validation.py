@@ -33,10 +33,18 @@ def test_path_user_id_bounds_all_endpoints(
     invalid_id: object,
 ) -> None:
     """Verify PUT, PATCH, and DELETE endpoints enforce the same Path(ge=1, le=2_147_483_647) constraints."""
-    put_resp = client.put(f"/users/{invalid_id}", json={"full_name": "New Name"})
+    put_resp = client.put(
+        f"/users/{invalid_id}",
+        json={"full_name": "New Name"},
+        headers=admin_auth_headers,
+    )
     assert put_resp.status_code == 422
 
-    patch_resp = client.patch(f"/users/{invalid_id}", json={"full_name": "New Name"})
+    patch_resp = client.patch(
+        f"/users/{invalid_id}",
+        json={"full_name": "New Name"},
+        headers=admin_auth_headers,
+    )
     assert patch_resp.status_code == 422
 
     delete_resp = client.delete(f"/users/{invalid_id}", headers=admin_auth_headers)

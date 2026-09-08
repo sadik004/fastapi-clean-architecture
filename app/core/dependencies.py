@@ -1,8 +1,9 @@
 """Declarative Dependency Injection providers for Configuration, Repositories, and Auth Guards."""
 
 import secrets
+from collections.abc import Sequence
 from typing import Annotated, Optional
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Path, status
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import UserNotFoundException
@@ -85,13 +86,74 @@ def get_current_user(
     return user
 
 
-def get_current_active_admin(
+class RoleChecker:
+    """Parameterized callable class dependency for Role-Based Access Control (RBAC).
+
+    Enforces O(1) membership checking using an immutable frozenset of allowed roles.
+    """
+
+    def __init__(
+        self,
+        allowed_roles: Sequence[UserRole | str] | set[UserRole | str],
+        detail: str = "Insufficient role permissions",
+    ) -> None:
+        self.allowed_roles: frozenset[str] = frozenset(
+            r.value if isinstance(r, UserRole) else str(r) for r in allowed_roles
+        )
+        self.detail: str = detail
+
+    def __call__(
+        self,
+        current_user: Annotated[UserEntity, Depends(get_current_user)],
+    ) -> UserEntity:
+        user_role_str = (
+            current_user.role.value
+            if isinstance(current_user.role, UserRole)
+            else str(current_user.role)
+        )
+        if user_role_str not in self.allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=self.detail,
+            )
+        return current_user
+
+
+# Reusable parameterized guard verifying active administrator privileges
+get_current_active_admin = RoleChecker(
+    [UserRole.ADMIN],
+    detail="Administrative privileges required",
+)
+
+
+def require_user_ownership(
+    user_id: Annotated[
+        int,
+        Path(
+            ...,
+            ge=1,
+            le=2_147_483_647,
+            description="The unique positive integer ID of the user",
+        ),
+    ],
     current_user: Annotated[UserEntity, Depends(get_current_user)],
 ) -> UserEntity:
-    """Declarative authorization sub-dependency verifying active administrator privileges."""
-    if current_user.role != UserRole.ADMIN.value and current_user.role != "admin":
+    """Hierarchical authorization guard mitigating IDOR vulnerabilities.
+
+    Grants access only if the authenticated user's ID matches the path user_id
+    or if the authenticated user has administrative privileges.
+    """
+    user_role_str = (
+        current_user.role.value
+        if isinstance(current_user.role, UserRole)
+        else str(current_user.role)
+    )
+    is_owner = current_user.id == user_id
+    is_admin = user_role_str == UserRole.ADMIN.value
+
+    if not (is_owner or is_admin):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrative privileges required",
+            detail="Access forbidden: you cannot modify another user's profile",
         )
     return current_user

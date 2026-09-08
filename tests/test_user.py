@@ -1,5 +1,6 @@
 """Comprehensive integration and endpoint test suite for User domain."""
 
+from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
@@ -159,6 +160,7 @@ def test_patch_user_profile_success(client: TestClient) -> None:
     patch_resp = client.patch(
         f"/users/{user_id}",
         json={"username": "updated_name", "age": 22},
+        headers={"X-API-Key": "userkey_original_name"},
     )
     assert patch_resp.status_code == 200
     data = patch_resp.json()
@@ -182,7 +184,11 @@ def test_patch_user_profile_validation_error(client: TestClient) -> None:
     )
     user_id = create_resp.json()["id"]
 
-    patch_resp = client.patch(f"/users/{user_id}", json={"age": 16})
+    patch_resp = client.patch(
+        f"/users/{user_id}",
+        json={"age": 16},
+        headers={"X-API-Key": "userkey_profile_val"},
+    )
     assert patch_resp.status_code == 422
 
 
@@ -210,14 +216,23 @@ def test_patch_user_profile_duplicate_username(client: TestClient) -> None:
     patch_resp = client.patch(
         f"/users/{second_user['id']}",
         json={"username": "taken_handle"},
+        headers={"X-API-Key": "userkey_second_handle"},
     )
     assert patch_resp.status_code == 409
     assert "already taken" in patch_resp.json()["detail"]
 
 
-def test_patch_user_profile_not_found(client: TestClient) -> None:
+def test_patch_user_profile_not_found(
+    client: TestClient,
+    admin_user: dict[str, Any],
+    admin_auth_headers: dict[str, str],
+) -> None:
     """Verify updating a non-existent user returns 404 Not Found."""
-    patch_resp = client.patch("/users/9999", json={"age": 30})
+    patch_resp = client.patch(
+        "/users/9999",
+        json={"age": 30},
+        headers=admin_auth_headers,
+    )
     assert patch_resp.status_code == 404
 
 
