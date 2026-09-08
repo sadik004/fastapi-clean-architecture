@@ -29,9 +29,10 @@ FastApi1/
 │   └── main.py                   # Lifespan management, middleware & exception handlers
 ├── alembic/                      # Version-controlled async database migrations
 ├── docs/
-│   ├── days/                     # Structured daily engineering logs (Days 1–22)
-│   └── rca/                      # Root Cause Analysis (RCA) incident records
-└── tests/                        # Comprehensive test suite (298+ tests)
+│   ├── days/                     # Structured daily engineering logs (Days 1–26)
+│   ├── days_bn/                  # Complete Bengali Master Pedagogical Handbook (Days 1–26)
+│   └── rca/                      # Root Cause Analysis (RCA) incident records (Days 1–26)
+└── tests/                        # Comprehensive test suite (334 passed tests)
 ```
 
 ---
@@ -46,7 +47,7 @@ Tracked in detail within [`ROADMAP.md`](ROADMAP.md).
 - **Day 11–13**: Asynchronous concurrency (`asyncio.gather`, `asyncio.to_thread`), event loop health isolation, and memory-bounded background tasks.
 - **Day 14–15**: Centralized enterprise error envelopes (`ErrorResponse`), safe 500 traceback masking, and modern SQLAlchemy 2.0 async engine setup.
 
-### Phase 2: Async Engine, Advanced Validation & Testing Rigor (Days 16–30) — In Progress `[7/15]`
+### Phase 2: Async Engine, Advanced Validation & Testing Rigor (Days 16–30) — In Progress `[11/15]`
 - **Day 16**: Connection pooling (`pool_size`, `max_overflow`, `pool_pre_ping=True`).
 - **Day 17**: Version-controlled migrations with Async Alembic & declarative models.
 - **Day 18**: The Repository Pattern (`SqlAlchemyUserRepository` & domain entity decoupling).
@@ -54,6 +55,10 @@ Tracked in detail within [`ROADMAP.md`](ROADMAP.md).
 - **Day 20**: The Unit of Work (UoW) Pattern for atomic multi-repository ACID transactions.
 - **Day 21**: CPython dictionary internals (compact hash table, perturbation probing, tombstones).
 - **Day 22**: Deep memory optimization with `__slots__` and `@dataclass(slots=True)` (> 40–62% RAM reduction).
+- **Day 23**: Slotted Prefix Trie for sub-millisecond $\mathcal{O}(k)$ autocomplete search with bottom-up pruning.
+- **Day 24**: Binary Min-Heap Priority Queue (`heapq`) for priority-based background job scheduling ($\mathcal{O}(\log N)$).
+- **Day 25**: Rolling Horizon Sliding Window Log algorithm for rate limiting & zero-leak active memory sweeping.
+- **Day 26**: Binary Search ($\mathcal{O}(\log N)$) bounds & converging Two-Pointer ($\mathcal{O}(N)$ time, $\mathcal{O}(1)$ space) range filtering.
 
 ---
 
@@ -62,7 +67,7 @@ Tracked in detail within [`ROADMAP.md`](ROADMAP.md).
 All commits must satisfy 100% compliance with quality gates:
 
 ```bash
-# 1. Run complete automated test suite (298 passed)
+# 1. Run complete automated test suite (334 passed)
 pytest tests -v
 
 # 2. Strict type checking across all modules
@@ -77,6 +82,7 @@ ruff check app tests alembic
 ## 📚 Documentation & RCA Knowledge Base
 
 - **Curriculum Roadmap**: [`ROADMAP.md`](ROADMAP.md)
+- **Bengali Master Pedagogical Handbook**: [`docs/days_bn/README.md`](docs/days_bn/README.md)
 - **Daily Engineering Logs**: [`docs/days/`](docs/days/)
 - **Root Cause Analysis (RCA) Catalog**: [`docs/rca/README.md`](docs/rca/README.md)
 - **Production Engineering Directive**: [`.agents/skills/fastapi-production/SKILL.md`](.agents/skills/fastapi-production/SKILL.md)
