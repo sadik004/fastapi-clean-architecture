@@ -279,10 +279,10 @@ class TestSubDependencyRequestScopedCaching:
 
         original_get_by_username = UserService.get_user_by_username
 
-        def spy_get_by_username(svc_self: UserService, username: str) -> UserEntity:
+        async def spy_get_by_username(svc_self: UserService, username: str) -> UserEntity:
             nonlocal call_count
             call_count += 1
-            return original_get_by_username(svc_self, username=username)
+            return await original_get_by_username(svc_self, username=username)
 
         monkeypatch.setattr(UserService, "get_user_by_username", spy_get_by_username)
 

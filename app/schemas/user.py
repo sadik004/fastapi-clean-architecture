@@ -365,3 +365,17 @@ class UserResponse(UserBase):
     created_at: datetime = Field(..., description="Timestamp of user creation")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserDashboardResponse(BaseModel):
+    """Aggregated dashboard projection fetched concurrently across multiple I/O sources."""
+
+    profile: UserResponse = Field(..., description="User profile details")
+    activity_logs: list[dict[str, Any]] = Field(
+        default_factory=list, description="Recent user activity and transaction logs"
+    )
+    stats: dict[str, Any] = Field(
+        default_factory=dict, description="Account metrics and usage statistics"
+    )
+
+    model_config = ConfigDict(from_attributes=True)

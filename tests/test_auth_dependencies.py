@@ -99,9 +99,10 @@ class TestAuthenticationGuards:
         auth_headers: dict[str, str],
     ) -> None:
         """Verify de-activated accounts are denied access with HTTP 403 Forbidden."""
+        import asyncio
         user_id = int(standard_user["id"])
         repo = get_user_repository()
-        user = repo.get_by_id(user_id)
+        user = asyncio.run(repo.get_by_id(user_id))
         assert user is not None
         user.is_active = False
 

@@ -1,19 +1,20 @@
-"""User Service containing pure business logic and domain rules."""
+"""User Service containing pure business logic, domain rules, and async task orchestration."""
 
-from typing import Optional
+import asyncio
+from typing import Any, Optional
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.repositories.user_repository import UserEntity, UserRepositoryProtocol
 from app.schemas.user import UserCreate, UserProfileUpdate, UserRole, UserUpdate
 
 
 class UserService:
-    """Service handling User business logic and domain validation."""
+    """Service handling User business logic and concurrent task orchestration."""
 
     def __init__(self, repository: UserRepositoryProtocol) -> None:
         self._repo = repository
 
-    def register_user(self, payload: UserCreate) -> UserEntity:
-        """Register a new user with O(1) uniqueness validation.
+    async def register_user(self, payload: UserCreate) -> UserEntity:
+        """Register a new user with O(1) uniqueness validation asynchronously.
 
         Incoming payload fields are already normalized, sanitized, and invariant-verified
         by Pydantic v2 schemas at the application boundary. Transient fields (like
@@ -23,16 +24,16 @@ class UserService:
             UserAlreadyExistsException: If email or username is already taken.
         """
         # O(1) duplicate checks using repository inverted hash indexes
-        if self._repo.get_by_email(payload.email) is not None:
+        if await self._repo.get_by_email(payload.email) is not None:
             raise UserAlreadyExistsException(f"Email '{payload.email}' is already registered.")
 
-        if self._repo.get_by_username(payload.username) is not None:
+        if await self._repo.get_by_username(payload.username) is not None:
             raise UserAlreadyExistsException(f"Username '{payload.username}' is already taken.")
 
         # Simulate secure hash generation before persistence
         password_hash = f"argon2_hash_{payload.password}"
 
-        return self._repo.create(
+        return await self._repo.create(
             email=payload.email,
             username=payload.username,
             password_hash=password_hash,
@@ -44,24 +45,24 @@ class UserService:
             company_name=payload.company_name,
         )
 
-    def update_user(self, user_id: int, payload: UserUpdate) -> UserEntity:
-        """Update user attributes with O(1) domain uniqueness verification.
+    async def update_user(self, user_id: int, payload: UserUpdate) -> UserEntity:
+        """Update user attributes with O(1) domain uniqueness verification asynchronously.
 
         Raises:
             UserNotFoundException: If user does not exist.
             UserAlreadyExistsException: If updated email or username is taken by another user.
         """
-        user = self.get_user_by_id(user_id)
+        user = await self.get_user_by_id(user_id)
 
         if payload.email is not None and payload.email != user.email:
-            existing_email_user = self._repo.get_by_email(payload.email)
+            existing_email_user = await self._repo.get_by_email(payload.email)
             if existing_email_user is not None and existing_email_user.id != user_id:
                 raise UserAlreadyExistsException(
                     f"Email '{payload.email}' is already registered."
                 )
 
         if payload.username is not None and payload.username != user.username:
-            existing_user = self._repo.get_by_username(payload.username)
+            existing_user = await self._repo.get_by_username(payload.username)
             if existing_user is not None and existing_user.id != user_id:
                 raise UserAlreadyExistsException(
                     f"Username '{payload.username}' is already taken."
@@ -69,7 +70,7 @@ class UserService:
 
         role_val = payload.role.value if payload.role is not None else None
 
-        updated_user = self._repo.update(
+        updated_user = await self._repo.update(
             user_id=user_id,
             email=payload.email,
             username=payload.username,
@@ -85,9 +86,9 @@ class UserService:
 
         return updated_user
 
-    def update_profile(self, user_id: int, payload: UserProfileUpdate) -> UserEntity:
+    async def update_profile(self, user_id: int, payload: UserProfileUpdate) -> UserEntity:
         """Update user profile fields (backward compatible helper)."""
-        return self.update_user(
+        return await self.update_user(
             user_id=user_id,
             payload=UserUpdate(
                 username=payload.username,
@@ -99,39 +100,39 @@ class UserService:
             ),
         )
 
-    def delete_user(self, user_id: int) -> None:
-        """Delete a user by primary ID.
+    async def delete_user(self, user_id: int) -> None:
+        """Delete a user by primary ID asynchronously.
 
         Raises:
             UserNotFoundException: If user does not exist.
         """
-        deleted = self._repo.delete(user_id)
+        deleted = await self._repo.delete(user_id)
         if not deleted:
             raise UserNotFoundException(user_id=user_id)
 
-    def get_user_by_id(self, user_id: int) -> UserEntity:
-        """Fetch user by ID with validation.
+    async def get_user_by_id(self, user_id: int) -> UserEntity:
+        """Fetch user by ID with validation asynchronously.
 
         Raises:
             UserNotFoundException: If user does not exist.
         """
-        user = self._repo.get_by_id(user_id)
+        user = await self._repo.get_by_id(user_id)
         if user is None:
             raise UserNotFoundException(user_id=user_id)
         return user
 
-    def get_user_by_username(self, username: str) -> UserEntity:
-        """Fetch user by unique username with O(1) hash index lookup.
+    async def get_user_by_username(self, username: str) -> UserEntity:
+        """Fetch user by unique username with O(1) hash index lookup asynchronously.
 
         Raises:
             UserNotFoundException: If user with given username does not exist.
         """
-        user = self._repo.get_by_username(username)
+        user = await self._repo.get_by_username(username)
         if user is None:
             raise UserNotFoundException(identifier=username)
         return user
 
-    def list_users(
+    async def list_users(
         self,
         limit: int = 10,
         offset: int = 0,
@@ -139,12 +140,65 @@ class UserService:
         search: Optional[str] = None,
         is_active: Optional[bool] = None,
     ) -> list[UserEntity]:
-        """Fetch registered users with pagination and optional filters."""
+        """Fetch registered users with pagination and optional filters asynchronously."""
         role_val = role.value if role else None
-        return self._repo.list_all(
+        return await self._repo.list_all(
             limit=limit,
             offset=offset,
             role=role_val,
             search=search,
             is_active=is_active,
         )
+
+    async def _fetch_activity_logs(self, user_id: int) -> list[dict[str, Any]]:
+        """Simulate non-blocking async network/database I/O to fetch user activity logs."""
+        await asyncio.sleep(0.05)
+        return [
+            {"event": "login", "timestamp": "2026-09-08T10:00:00Z", "ip": "127.0.0.1"},
+            {"event": "profile_view", "timestamp": "2026-09-08T10:05:00Z", "user_id": user_id},
+        ]
+
+    async def _fetch_account_stats(self, user_id: int) -> dict[str, Any]:
+        """Simulate non-blocking async cache/metrics I/O to fetch account statistics."""
+        await asyncio.sleep(0.05)
+        return {
+            "user_id": user_id,
+            "total_logins": 42,
+            "account_health": "good",
+            "storage_used_mb": 128.5,
+        }
+
+    async def get_user_dashboard(self, user_id: int) -> dict[str, Any]:
+        """Concurrently aggregate profile, activity, and stats using asyncio.gather.
+
+        Executes 3 independent I/O operations concurrently in O(max(t_i)) time instead
+        of sequential O(sum(t_i)) time. Ensures clean exception propagation and cancellation
+        of sibling tasks if any concurrent branch fails.
+
+        Raises:
+            UserNotFoundException: If user profile does not exist.
+        """
+        tasks: list[asyncio.Task[Any]] = [
+            asyncio.create_task(self.get_user_by_id(user_id)),
+            asyncio.create_task(self._fetch_activity_logs(user_id)),
+            asyncio.create_task(self._fetch_account_stats(user_id)),
+        ]
+
+        try:
+            results = await asyncio.gather(*tasks)
+            profile: UserEntity = results[0]
+            activity_logs: list[dict[str, Any]] = results[1]
+            stats: dict[str, Any] = results[2]
+
+            return {
+                "profile": profile,
+                "activity_logs": activity_logs,
+                "stats": stats,
+            }
+        except Exception:
+            # Clean exception propagation: cancel any lingering sibling tasks
+            for t in tasks:
+                if not t.done():
+                    t.cancel()
+            raise
+

@@ -117,6 +117,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 31. **Request-Scoped DAG Memoization (`use_cache=True`)**: Leverage FastAPI's built-in dependency memoization to share sub-dependency evaluations (e.g. `get_current_user`) across multiple branches of the request dependency graph without redundant queries or computation.
 32. **Two-Phase Generator Dependencies with `yield`**: Structure resource lifecycle dependencies (transactions, database sessions, audit contexts) as generator functions with `yield`, performing acquisition in Phase 1 (pre-yield) and guaranteed teardown in Phase 2 (post-yield).
 33. **Exception-Safe Transactional Cleanup via `try...except...finally`**: In generator dependencies, always wrap `yield` in `try...except...finally:`: commit on normal execution, roll back on exception and re-raise, and unconditionally release sessions/locks in `finally:` to guarantee zero leaked resources under any HTTP status code.
+34. **Asynchronous Repository Protocol Contracts**: Declare all I/O-bound data access methods in `typing.Protocol` interfaces as `async def` coroutines, guaranteeing non-blocking cooperative execution across all persistence implementations.
+35. **Concurrent I/O Task Orchestration with `asyncio.gather`**: Orchestrate independent I/O tasks (e.g. user profile lookup, activity logs, and account metrics) concurrently using `asyncio.gather(*tasks)` in the Service layer, achieving $\mathcal{O}(\max(t_i))$ response latency instead of serial $\mathcal{O}(\sum t_i)$.
+36. **Clean Task Cancellation on Concurrency Failures**: Wrap `asyncio.gather` task collections with exception-handling logic to explicitly cancel pending sibling tasks if any concurrent branch raises an error, eliminating orphaned background tasks and resource leaks.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -148,6 +151,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 27. **Self-Referential Dependency Overrides**: Assigning a mock or spy in `app.dependency_overrides` that declares a dependency on the exact function being overridden, causing infinite recursion (`RecursionError`) during dependency resolution.
 28. **Omitting `finally:` in Generator Dependencies**: Placing cleanup code after `yield` without a `finally:` block, causing resource leaks (dangling database connections, uncommitted locks, orphaned sessions) whenever an endpoint or validation raises an `HTTPException`.
 29. **Manual Resource Teardown in Router Endpoints**: Imperatively managing session commits, rollbacks, or lock releases (`session.commit()`, `db.rollback()`) inside individual endpoint handlers instead of delegating lifecycle management to declarative `yield` dependencies.
+30. **Blocking the Event Loop with Synchronous Sleep / I/O in Coroutines**: Calling `time.sleep()`, synchronous socket operations, or blocking disk I/O inside `async def` functions, freezing the single-threaded event loop and stalling all concurrent requests. Always use `await asyncio.sleep()`.
+31. **Sequential `await` Loops for Independent I/O Operations**: Awaiting multiple independent network or database operations sequentially in loops (`await f1(); await f2()`), degrading latency to $\mathcal{O}(\sum t_i)$ instead of parallel cooperative execution via `asyncio.gather` ($\mathcal{O}(\max(t_i))$).
+32. **Unawaited Coroutines and Orphaned Background Tasks**: Invoking `async def` methods without `await` or `asyncio.run()`, returning raw coroutine objects and triggering `RuntimeWarning: coroutine was never awaited`, or failing to cancel lingering tasks when a concurrent batch fails.
 
 ---
 

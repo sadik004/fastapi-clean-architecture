@@ -21,7 +21,7 @@ Tracking Legend:
 - [x] **Day 08**: FastAPI Dependency Injection Architecture (Cached AppConfig & Declarative Auth Guard)
 - [x] **Day 09**: Dependency Chaining, Sub-Dependencies & Parameterized Class Guards
 - [x] **Day 10**: Dependency Lifecycle Cleanup (The yield Mechanism, Two-Phase Context & Transactional Teardown)
-- [ ] **Day 11**: Global Error Handling & Consistent JSON Error Schemas
+- [x] **Day 11**: Python Asyncio Fundamentals (Event Loop Mechanics, Coroutines & Concurrent Task Orchestration)
 - [ ] **Day 12**: Pydantic Settings & Environment Configurations (`.env`)
 - [ ] **Day 13**: Request ID Middleware & Correlation Tracing
 - [ ] **Day 14**: In-Memory Sorting & Binary Search Application

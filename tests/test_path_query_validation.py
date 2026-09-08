@@ -252,11 +252,12 @@ def test_filter_by_is_active(client: TestClient) -> None:
     seeded = _seed_sample_users(client)
 
     # Deactivate one user directly in repository
+    import asyncio
     first_id_val = seeded[0]["id"]
     assert isinstance(first_id_val, int)
     first_id = first_id_val
     repo = get_user_repository()
-    user = repo.get_by_id(first_id)
+    user = asyncio.run(repo.get_by_id(first_id))
     assert user is not None
     user.is_active = False
 

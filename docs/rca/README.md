@@ -18,6 +18,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 08** | [Route Order Precedence & Timing Attacks](day-08_route_order_precedence_and_constant_time_auth.md) | Placed literal sub-paths before dynamic path parameters; eliminated timing attacks using `secrets.compare_digest`. |
 | **Day 09** | [Override Recursion & IDOR Ownership](day-09_dependency_override_recursion_and_idor_protection.md) | Eliminated self-referential override cycles in DAG; enforced `require_user_ownership` to eliminate IDOR profile tampering. |
 | **Day 10** | [Unseeded Auth Fixture & Yield Teardown](day-10_unseeded_auth_fixture_and_yield_teardown.md) | Enforced coupled entity/header fixtures; wrapped `yield` in `try...except...finally` for guaranteed rollback and zero resource leaks. |
+| **Day 11** | [Unawaited Coroutines & Gather Cancellation](day-11_async_unawaited_coroutine_and_concurrency_error_propagation.md) | Safely resolved async repo methods in sync callers via `asyncio.run()`; prevented orphaned background tasks on `asyncio.gather` failure by cancelling pending siblings. |
 
 ---
 

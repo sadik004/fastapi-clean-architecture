@@ -32,7 +32,7 @@ def get_user_service(
     return UserService(repository=repo)
 
 
-def get_current_user(
+async def get_current_user(
     service: Annotated[UserService, Depends(get_user_service)],
     settings: Annotated[Settings, Depends(get_settings)],
     x_api_key: Optional[str] = Header(
@@ -45,7 +45,7 @@ def get_current_user(
 
     Extracts API key from header, performs constant-time string comparison using
     secrets.compare_digest to eliminate timing attacks, and retrieves the associated
-    user in O(1) time via the user service.
+    user in O(1) time via the user service asynchronously.
     """
     if x_api_key is None:
         raise HTTPException(
@@ -71,7 +71,7 @@ def get_current_user(
         )
 
     try:
-        user = service.get_user_by_username(username=target_username)
+        user = await service.get_user_by_username(username=target_username)
     except UserNotFoundException as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -103,7 +103,7 @@ class RoleChecker:
         )
         self.detail: str = detail
 
-    def __call__(
+    async def __call__(
         self,
         current_user: Annotated[UserEntity, Depends(get_current_user)],
     ) -> UserEntity:
@@ -127,7 +127,7 @@ get_current_active_admin = RoleChecker(
 )
 
 
-def require_user_ownership(
+async def require_user_ownership(
     user_id: Annotated[
         int,
         Path(
@@ -158,6 +158,7 @@ def require_user_ownership(
             detail="Access forbidden: you cannot modify another user's profile",
         )
     return current_user
+
 
 
 # ============================================================================

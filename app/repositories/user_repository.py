@@ -24,9 +24,9 @@ class UserEntity:
 
 
 class UserRepositoryProtocol(Protocol):
-    """Abstract protocol for user persistence operations."""
+    """Abstract protocol for asynchronous user persistence operations."""
 
-    def create(
+    async def create(
         self,
         email: str,
         username: str,
@@ -38,22 +38,22 @@ class UserRepositoryProtocol(Protocol):
         bio: Optional[str] = None,
         company_name: Optional[str] = None,
     ) -> UserEntity:
-        """Create and persist a new user entity."""
+        """Create and persist a new user entity asynchronously."""
         ...
 
-    def get_by_id(self, user_id: int) -> Optional[UserEntity]:
-        """Fetch a user by primary key ID in O(1) time."""
+    async def get_by_id(self, user_id: int) -> Optional[UserEntity]:
+        """Fetch a user by primary key ID asynchronously in O(1) time."""
         ...
 
-    def get_by_email(self, email: str) -> Optional[UserEntity]:
-        """Fetch a user by email via inverted index in O(1) time."""
+    async def get_by_email(self, email: str) -> Optional[UserEntity]:
+        """Fetch a user by email via inverted index asynchronously in O(1) time."""
         ...
 
-    def get_by_username(self, username: str) -> Optional[UserEntity]:
-        """Fetch a user by username via inverted index in O(1) time."""
+    async def get_by_username(self, username: str) -> Optional[UserEntity]:
+        """Fetch a user by username via inverted index asynchronously in O(1) time."""
         ...
 
-    def update(
+    async def update(
         self,
         user_id: int,
         email: Optional[str] = None,
@@ -65,14 +65,14 @@ class UserRepositoryProtocol(Protocol):
         bio: Optional[str] = None,
         company_name: Optional[str] = None,
     ) -> Optional[UserEntity]:
-        """Update an existing user entity and synchronize indexes in O(1) time."""
+        """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
         ...
 
-    def delete(self, user_id: int) -> bool:
-        """Delete an existing user and purge secondary indexes in O(1) time."""
+    async def delete(self, user_id: int) -> bool:
+        """Delete an existing user and purge secondary indexes asynchronously in O(1) time."""
         ...
 
-    def list_all(
+    async def list_all(
         self,
         limit: int = 10,
         offset: int = 0,
@@ -80,16 +80,16 @@ class UserRepositoryProtocol(Protocol):
         search: Optional[str] = None,
         is_active: Optional[bool] = None,
     ) -> list[UserEntity]:
-        """List user entities with pagination and optional filters."""
+        """List user entities asynchronously with pagination and optional filters."""
         ...
 
     def clear(self) -> None:
-        """Reset repository storage and all secondary indexes."""
+        """Reset repository storage and all secondary indexes synchronously."""
         ...
 
 
 class InMemoryUserRepository:
-    """In-memory repository for User persistence.
+    """In-memory repository for User persistence with async contracts.
 
     Time Complexity:
     - create: O(1) amortized
@@ -112,7 +112,7 @@ class InMemoryUserRepository:
         # Auto-incrementing primary key counter
         self._current_id: int = 0
 
-    def create(
+    async def create(
         self,
         email: str,
         username: str,
@@ -124,7 +124,7 @@ class InMemoryUserRepository:
         bio: Optional[str] = None,
         company_name: Optional[str] = None,
     ) -> UserEntity:
-        """Create and store a new user entity with O(1) indexing."""
+        """Create and store a new user entity with O(1) indexing asynchronously."""
         self._current_id += 1
         new_user = UserEntity(
             id=self._current_id,
@@ -150,7 +150,7 @@ class InMemoryUserRepository:
 
         return new_user
 
-    def update(
+    async def update(
         self,
         user_id: int,
         email: Optional[str] = None,
@@ -162,7 +162,7 @@ class InMemoryUserRepository:
         bio: Optional[str] = None,
         company_name: Optional[str] = None,
     ) -> Optional[UserEntity]:
-        """Update an existing user entity and synchronize indexes in O(1) time."""
+        """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
         user = self._store.get(user_id)
         if user is None:
             return None
@@ -199,8 +199,8 @@ class InMemoryUserRepository:
 
         return user
 
-    def delete(self, user_id: int) -> bool:
-        """Delete an existing user and purge secondary indexes in O(1) time."""
+    async def delete(self, user_id: int) -> bool:
+        """Delete an existing user and purge secondary indexes asynchronously in O(1) time."""
         user = self._store.get(user_id)
         if user is None:
             return False
@@ -213,25 +213,25 @@ class InMemoryUserRepository:
         del self._store[user_id]
         return True
 
-    def get_by_id(self, user_id: int) -> Optional[UserEntity]:
-        """Fetch user by primary key ID in O(1) time."""
+    async def get_by_id(self, user_id: int) -> Optional[UserEntity]:
+        """Fetch user by primary key ID asynchronously in O(1) time."""
         return self._store.get(user_id)
 
-    def get_by_email(self, email: str) -> Optional[UserEntity]:
-        """Fetch user by email using hash index in O(1) time."""
+    async def get_by_email(self, email: str) -> Optional[UserEntity]:
+        """Fetch user by email using hash index asynchronously in O(1) time."""
         user_id = self._email_index.get(email)
         if user_id is None:
             return None
         return self._store.get(user_id)
 
-    def get_by_username(self, username: str) -> Optional[UserEntity]:
-        """Fetch user by username using hash index in O(1) time."""
+    async def get_by_username(self, username: str) -> Optional[UserEntity]:
+        """Fetch user by username using hash index asynchronously in O(1) time."""
         user_id = self._username_index.get(username)
         if user_id is None:
             return None
         return self._store.get(user_id)
 
-    def list_all(
+    async def list_all(
         self,
         limit: int = 10,
         offset: int = 0,
@@ -239,7 +239,7 @@ class InMemoryUserRepository:
         search: Optional[str] = None,
         is_active: Optional[bool] = None,
     ) -> list[UserEntity]:
-        """List user entities with O(k) slice pagination and optional single-pass filtering."""
+        """List user entities asynchronously with O(k) slice pagination and optional single-pass filtering."""
         # Fast-path when no filters are present: directly slice dictionary values in O(offset + limit)
         if role is None and search is None and is_active is None:
             return list(self._store.values())[offset : offset + limit]

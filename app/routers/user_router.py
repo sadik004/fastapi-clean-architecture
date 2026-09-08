@@ -20,6 +20,7 @@ from app.core.exceptions import UserAlreadyExistsException, UserNotFoundExceptio
 from app.repositories.user_repository import UserEntity
 from app.schemas.user import (
     UserCreate,
+    UserDashboardResponse,
     UserProfileUpdate,
     UserResponse,
     UserRole,
@@ -52,7 +53,7 @@ __all__ = [
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
 )
-def create_user(
+async def create_user(
     payload: UserCreate,
     service: Annotated[UserService, Depends(get_user_service)],
     tx: Annotated[ScopedTransactionContext, Depends(get_transaction_context)] = None,  # type: ignore[assignment]
@@ -61,7 +62,7 @@ def create_user(
     if tx is not None:
         tx.stage(f"create_user:{payload.username}")
     try:
-        created_user = service.register_user(payload=payload)
+        created_user = await service.register_user(payload=payload)
         return UserResponse.model_validate(created_user)
     except UserAlreadyExistsException as exc:
         raise HTTPException(
@@ -76,7 +77,7 @@ def create_user(
     status_code=status.HTTP_200_OK,
     summary="Get user by username",
 )
-def get_user_by_username(
+async def get_user_by_username(
     username: str = Path(
         ...,
         min_length=3,
@@ -88,7 +89,7 @@ def get_user_by_username(
 ) -> UserResponse:
     """Endpoint to fetch a user by normalized username."""
     try:
-        user = service.get_user_by_username(username=username)
+        user = await service.get_user_by_username(username=username)
         return UserResponse.model_validate(user)
     except UserNotFoundException as exc:
         raise HTTPException(
@@ -103,7 +104,7 @@ def get_user_by_username(
     status_code=status.HTTP_200_OK,
     summary="Get currently authenticated user profile",
 )
-def get_current_user_profile(
+async def get_current_user_profile(
     current_user: Annotated[UserEntity, Depends(get_current_user)],
 ) -> UserResponse:
     """Endpoint to fetch the authenticated user profile."""
@@ -115,12 +116,12 @@ def get_current_user_profile(
     status_code=status.HTTP_200_OK,
     summary="Get administrative system metrics",
 )
-def get_admin_metrics(
+async def get_admin_metrics(
     current_admin: Annotated[UserEntity, Depends(RoleChecker([UserRole.ADMIN]))],
     service: Annotated[UserService, Depends(get_user_service)],
 ) -> dict[str, int | str]:
     """Protected endpoint for administrators to view system user metrics."""
-    users = service.list_users(limit=100, offset=0)
+    users = await service.list_users(limit=100, offset=0)
     admin_count = sum(
         1
         for u in users
@@ -140,7 +141,7 @@ def get_admin_metrics(
     status_code=status.HTTP_200_OK,
     summary="Get user by ID",
 )
-def get_user_by_id(
+async def get_user_by_id(
     user_id: int = Path(
         ...,
         ge=1,
@@ -151,8 +152,38 @@ def get_user_by_id(
 ) -> UserResponse:
     """Endpoint to fetch a user by ID."""
     try:
-        user = service.get_user_by_id(user_id=user_id)
+        user = await service.get_user_by_id(user_id=user_id)
         return UserResponse.model_validate(user)
+    except UserNotFoundException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        ) from exc
+
+
+@router.get(
+    "/{user_id}/dashboard",
+    response_model=UserDashboardResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get user dashboard with concurrent data aggregation",
+)
+async def get_user_dashboard(
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the user",
+    ),
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> UserDashboardResponse:
+    """Endpoint to aggregate user profile, activity logs, and account metrics concurrently."""
+    try:
+        dashboard_data = await service.get_user_dashboard(user_id=user_id)
+        return UserDashboardResponse(
+            profile=UserResponse.model_validate(dashboard_data["profile"]),
+            activity_logs=dashboard_data["activity_logs"],
+            stats=dashboard_data["stats"],
+        )
     except UserNotFoundException as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -166,7 +197,7 @@ def get_user_by_id(
     status_code=status.HTTP_200_OK,
     summary="List all users with pagination and filtering",
 )
-def list_users(
+async def list_users(
     service: Annotated[UserService, Depends(get_user_service)],
     limit: int = Query(
         default=10,
@@ -196,7 +227,7 @@ def list_users(
     ),
 ) -> list[UserResponse]:
     """Endpoint to retrieve users with limit-offset pagination and filtering."""
-    users = service.list_users(
+    users = await service.list_users(
         limit=limit,
         offset=offset,
         role=role,
@@ -212,7 +243,7 @@ def list_users(
     status_code=status.HTTP_200_OK,
     summary="Update an existing user",
 )
-def update_user(
+async def update_user(
     payload: UserUpdate,
     user_id: int = Path(
         ...,
@@ -228,7 +259,7 @@ def update_user(
     if tx is not None:
         tx.stage(f"update_user:{user_id}")
     try:
-        updated_user = service.update_user(user_id=user_id, payload=payload)
+        updated_user = await service.update_user(user_id=user_id, payload=payload)
         return UserResponse.model_validate(updated_user)
     except UserNotFoundException as exc:
         raise HTTPException(
@@ -248,7 +279,7 @@ def update_user(
     status_code=status.HTTP_200_OK,
     summary="Update a user profile",
 )
-def update_user_profile(
+async def update_user_profile(
     payload: UserProfileUpdate,
     user_id: int = Path(
         ...,
@@ -264,7 +295,7 @@ def update_user_profile(
     if tx is not None:
         tx.stage(f"patch_user:{user_id}")
     try:
-        updated_user = service.update_profile(user_id=user_id, payload=payload)
+        updated_user = await service.update_profile(user_id=user_id, payload=payload)
         return UserResponse.model_validate(updated_user)
     except UserNotFoundException as exc:
         raise HTTPException(
@@ -283,7 +314,7 @@ def update_user_profile(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a user",
 )
-def delete_user(
+async def delete_user(
     user_id: int = Path(
         ...,
         ge=1,
@@ -298,10 +329,11 @@ def delete_user(
     if tx is not None:
         tx.stage(f"delete_user:{user_id}")
     try:
-        service.delete_user(user_id=user_id)
+        await service.delete_user(user_id=user_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except UserNotFoundException as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=exc.message,
         ) from exc
+
