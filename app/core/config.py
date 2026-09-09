@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     jwt_private_key: str | None = None
     jwt_public_key: str | None = None
 
+    # CORS Policy Configuration (Zero-Wildcard with Credentials)
+    allowed_cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "https://myapp.com",
+    ]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

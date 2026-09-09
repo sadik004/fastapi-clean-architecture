@@ -63,6 +63,39 @@ class BusinessRuleViolationException(BaseDomainException):
         super().__init__(message=message, code=code)
 
 
+class SecurityViolationException(BaseDomainException):
+    """Raised when an operation violates security firewalls or sanitization policies (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Security policy violation detected.",
+        code: str = "SECURITY_VIOLATION",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+class SSRFSecurityException(SecurityViolationException):
+    """Raised when an outbound URL targets private, loopback, or cloud-metadata IP ranges."""
+
+    def __init__(
+        self,
+        message: str = "SSRF security violation: Destination address resolves to forbidden IP network.",
+        code: str = "SSRF_FORBIDDEN_DESTINATION",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+class PathTraversalException(SecurityViolationException):
+    """Raised when a filename or path contains directory traversal or injection sequences."""
+
+    def __init__(
+        self,
+        message: str = "Path traversal violation: Input contains prohibited path manipulation characters.",
+        code: str = "PATH_TRAVERSAL_DETECTED",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
 class UserAlreadyExistsException(EntityConflictException):
     """Raised when attempting to create a user with duplicate email or username."""
 

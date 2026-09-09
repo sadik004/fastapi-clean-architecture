@@ -9,10 +9,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import (
     async_session_factory,
     engine,
@@ -36,6 +38,7 @@ from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
 from app.routers.payment_router import router as payment_router
 from app.routers.product_router import router as product_router
+from app.routers.security_router import router as security_router
 from app.routers.user_router import router as user_router
 from app.services.user_service import seed_user_bloom_filter
 
@@ -78,8 +81,30 @@ app = FastAPI(
 # Register centralized exception handlers
 register_exception_handlers(app)
 
+settings = get_settings()
+
 # Register global custom security and observability middleware
 app.add_middleware(CustomSecurityAndObservabilityMiddleware)
+
+# Configure strict production CORS middleware (Zero-wildcard when credentials enabled)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-API-Key",
+        "X-Tenant-ID",
+        "X-Department",
+        "X-Client-IP",
+        "X-Business-Hours",
+        "Idempotency-Key",
+        "X-Request-ID",
+        "X-Correlation-ID",
+    ],
+)
 
 # Mount feature routers
 app.include_router(auth_router)
@@ -90,6 +115,7 @@ app.include_router(leaderboard_router)
 app.include_router(product_router)
 app.include_router(payment_router)
 app.include_router(document_router)
+app.include_router(security_router)
 
 
 @app.get("/health", tags=["Health"])
