@@ -7,6 +7,7 @@ from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.encryption import EncryptedString
 
 if TYPE_CHECKING:
     from app.models.post import PostModel
@@ -27,6 +28,7 @@ class UserModel(Base):
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     role: Mapped[str] = mapped_column(String(20), default="user", nullable=False)
     company_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    nid_number: Mapped[str | None] = mapped_column(EncryptedString(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     permissions: Mapped[int] = mapped_column(Integer, default=3, server_default="3", nullable=False)

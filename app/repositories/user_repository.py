@@ -23,6 +23,7 @@ class UserEntity:
     bio: str | None = None
     company_name: str | None = None
     permissions: int = 3
+    nid_number: str | None = None
 
     @property
     def permission_names(self) -> list[str]:
@@ -54,12 +55,17 @@ class UserRepositoryProtocol(Protocol):
         bio: str | None = None,
         company_name: str | None = None,
         permissions: int | None = None,
+        nid_number: str | None = None,
     ) -> UserEntity:
         """Create and persist a new user entity asynchronously."""
         ...
 
     async def update_permissions(self, user_id: int, permissions: int) -> UserEntity | None:
         """Update permission bitmask flags on a user entity."""
+        ...
+
+    async def update_nid(self, user_id: int, nid_number: str | None) -> UserEntity | None:
+        """Update encrypted national identification number (NID) for a user."""
         ...
 
     async def get_by_id(self, user_id: int) -> UserEntity | None:
@@ -171,6 +177,7 @@ class InMemoryUserRepository:
         bio: str | None = None,
         company_name: str | None = None,
         permissions: int | None = None,
+        nid_number: str | None = None,
     ) -> UserEntity:
         """Create and store a new user entity with O(1) indexing asynchronously."""
         self._current_id += 1
@@ -200,6 +207,7 @@ class InMemoryUserRepository:
             bio=bio,
             company_name=company_name,
             permissions=perms,
+            nid_number=nid_number,
         )
 
         # O(1) primary storage insert
@@ -210,6 +218,15 @@ class InMemoryUserRepository:
         self._username_index[username] = new_user.id
 
         return new_user
+
+    async def update_nid(self, user_id: int, nid_number: str | None) -> UserEntity | None:
+        """Update encrypted national identification number (NID) for a user."""
+        user = self._store.get(user_id)
+        if user is None:
+            return None
+        user.nid_number = nid_number
+        user.version += 1
+        return user
 
     async def update(
         self,

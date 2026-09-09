@@ -31,6 +31,7 @@ from app.schemas.post import (
     UserWithInitialPostResponse,
 )
 from app.schemas.user import (
+    UpdateUserNidRequest,
     UpdateUserPermissionsRequest,
     UserAutocompleteResponse,
     UserCreate,
@@ -611,3 +612,29 @@ async def update_user_optimistic(
         payload=payload,
     )
     return UserResponse.model_validate(updated)
+
+
+@router.put(
+    "/{user_id}/nid",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update sensitive National Identification Number (NID) protected by Field-Level Encryption",
+    description="Encrypts NID using Fernet authenticated symmetric cryptography before persisting to database.",
+)
+async def update_user_nid(
+    payload: UpdateUserNidRequest,
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the user",
+    ),
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> UserResponse:
+    """Endpoint to update encrypted National Identification Number (NID)."""
+    updated = await service.update_nid(
+        user_id=user_id,
+        nid_number=payload.nid_number,
+    )
+    return UserResponse.model_validate(updated)
+

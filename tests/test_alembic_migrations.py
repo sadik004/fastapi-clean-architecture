@@ -60,6 +60,7 @@ async def test_apply_migrations_creates_users_table_and_indexes() -> None:
         assert "role" in inspection["columns"]
         assert "version" in inspection["columns"]
         assert "permissions" in inspection["columns"]
+        assert "nid_number" in inspection["columns"]
         assert "created_at" in inspection["columns"]
         assert "updated_at" in inspection["columns"]
 
@@ -78,6 +79,26 @@ async def test_migration_bidirectional_reversibility() -> None:
     """Verify that rollback_migration cleanly drops schema and re-upgrade restores it."""
     # Ensure current head is applied
     apply_migrations(revision="head")
+
+    # Roll back by 1 revision (nid_number column dropped from users, orders, products, version, posts & users remain)
+    rollback_migration(revision="-1")
+
+    async with engine.connect() as conn:
+
+        def check_after_rollback_nid(sync_conn: Connection) -> tuple[list[str], list[str]]:
+            insp = inspect(sync_conn)
+            tbls = insp.get_table_names()
+            cols = [c["name"] for c in insp.get_columns("users")] if "users" in tbls else []
+            return tbls, cols
+
+        tables_after_nid, user_cols_after_nid = await conn.run_sync(check_after_rollback_nid)
+        assert "orders" in tables_after_nid
+        assert "products" in tables_after_nid
+        assert "users" in tables_after_nid
+        assert "posts" in tables_after_nid
+        assert "version" in user_cols_after_nid
+        assert "permissions" in user_cols_after_nid
+        assert "nid_number" not in user_cols_after_nid
 
     # Roll back by 1 revision (orders table dropped, permissions, products, version, posts & users remain)
     rollback_migration(revision="-1")
@@ -188,6 +209,7 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "orders" in tables_after_reupgrade
         assert "version" in user_cols_after_reupgrade
         assert "permissions" in user_cols_after_reupgrade
+        assert "nid_number" in user_cols_after_reupgrade
 
 
 # ============================================================================

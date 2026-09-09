@@ -344,6 +344,38 @@ class UserService:
             except Exception as exc:
                 logger.warning("Failed to evict cache key for deleted user %s: %s", user_id, exc)
 
+    async def update_nid(self, user_id: int, nid_number: str) -> UserEntity:
+        """Update sensitive NID number for a user, protected transparently by Field-Level Encryption.
+
+        Raises:
+            UserNotFoundException: If user with given ID does not exist.
+        """
+        user = await self._repo.get_by_id(user_id)
+        if user is None:
+            raise UserNotFoundException(user_id=user_id)
+
+        updated_user = await self._repo.update_nid(user_id=user_id, nid_number=nid_number)
+        if updated_user is None:
+            raise UserNotFoundException(user_id=user_id)
+
+        # Write-Through: update Redis cache immediately
+        if self._cache is not None:
+            try:
+                serialized = self._serialize_user(updated_user)
+                await self._cache.set_str(
+                    f"{CACHE_USER_PREFIX}{user_id}",
+                    serialized,
+                    expire_seconds=CACHE_USER_TTL_SECONDS,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Redis Write-Through failed for key '%s': %s.",
+                    f"{CACHE_USER_PREFIX}{user_id}",
+                    exc,
+                )
+
+        return updated_user
+
     @staticmethod
     def _serialize_user(user: UserEntity) -> str:
         """Serialize UserEntity to a compact JSON string."""
@@ -360,6 +392,9 @@ class UserService:
             "phone_number": user.phone_number,
             "bio": user.bio,
             "company_name": user.company_name,
+            "version": user.version,
+            "permissions": user.permissions,
+            "nid_number": user.nid_number,
         }
         return json.dumps(data)
 
@@ -380,6 +415,9 @@ class UserService:
             phone_number=str(data["phone_number"]) if data.get("phone_number") is not None else None,
             bio=str(data["bio"]) if data.get("bio") is not None else None,
             company_name=str(data["company_name"]) if data.get("company_name") is not None else None,
+            version=int(data.get("version", 1)),
+            permissions=int(data.get("permissions", 3)),
+            nid_number=str(data["nid_number"]) if data.get("nid_number") is not None else None,
         )
 
     async def get_user_by_id(self, user_id: int) -> UserEntity:

@@ -30,7 +30,7 @@ from app.core.redis import (
     get_redis_pool_status,
     init_redis_pool,
 )
-from app.repositories.user_repository import SqlAlchemyUserRepository
+from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.routers.auth_router import router as auth_router
 from app.routers.document_router import router as document_router
 from app.routers.job_router import router as job_router

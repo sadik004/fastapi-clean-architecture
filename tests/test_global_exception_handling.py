@@ -23,7 +23,7 @@ class TestGlobalExceptionHandling:
     """Verification suite for centralized error responses, domain hierarchy, and safe masking."""
 
     def test_404_entity_not_found_unified_envelope(self, client: TestClient) -> None:
-        """Verify looking up non-existent user returns unified ErrorResponse with ENTITY_NOT_FOUND."""
+        """Verify looking up non-existent user returns unified ErrorResponse with USER_NOT_FOUND."""
         response = client.get("/users/999999")
         assert response.status_code == 404
 
@@ -31,8 +31,8 @@ class TestGlobalExceptionHandling:
         assert "error" in data
         error = data["error"]
 
-        # Validate structured fields
-        assert error["code"] == "ENTITY_NOT_FOUND"
+        # Validate structured fields — UserNotFoundException uses domain-specific code USER_NOT_FOUND
+        assert error["code"] == "USER_NOT_FOUND"
         assert error["status_code"] == 404
         assert "999999" in error["message"]
         assert "not found" in error["message"].lower()
@@ -42,15 +42,15 @@ class TestGlobalExceptionHandling:
 
         # Validate schema compliance
         validated = ErrorResponse.model_validate(data)
-        assert validated.error.code == "ENTITY_NOT_FOUND"
+        assert validated.error.code == "USER_NOT_FOUND"
 
     def test_404_by_username_unified_envelope(self, client: TestClient) -> None:
-        """Verify non-existent username lookup returns ENTITY_NOT_FOUND envelope."""
+        """Verify non-existent username lookup returns USER_NOT_FOUND envelope."""
         response = client.get("/users/by-username/unknown_ghost")
         assert response.status_code == 404
 
         data = response.json()
-        assert data["error"]["code"] == "ENTITY_NOT_FOUND"
+        assert data["error"]["code"] == "USER_NOT_FOUND"
         assert data["error"]["status_code"] == 404
         assert "unknown_ghost" in data["error"]["message"]
 
@@ -178,10 +178,10 @@ class TestGlobalExceptionHandling:
         assert issubclass(UserNotFoundException, EntityNotFoundException)
         assert issubclass(UserAlreadyExistsException, EntityConflictException)
 
-        # Default codes
+        # Default codes — UserNotFoundException now uses domain-specific USER_NOT_FOUND (Day 49)
         assert EntityNotFoundException().code == "ENTITY_NOT_FOUND"
         assert EntityConflictException().code == "ENTITY_CONFLICT"
         assert AuthorizationException().code == "AUTHORIZATION_FAILED"
         assert BusinessRuleViolationException().code == "BUSINESS_RULE_VIOLATION"
-        assert UserNotFoundException(123).code == "ENTITY_NOT_FOUND"
+        assert UserNotFoundException(123).code == "USER_NOT_FOUND"  # upgraded Day 49: ENTITY_NOT_FOUND → USER_NOT_FOUND
         assert UserAlreadyExistsException().code == "ENTITY_CONFLICT"

@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     jwt_private_key: str | None = None
     jwt_public_key: str | None = None
 
+    # Field-Level Encryption (FLE) Configuration (Fernet AES-128-CBC + HMAC-SHA256)
+    field_encryption_key: str = "c2R2Bycl-78k7z7RJp3DAn6_G2_3fpV8lYERo0B_AZo="
+
     # CORS Policy Configuration (Zero-Wildcard with Credentials)
     allowed_cors_origins: list[str] = [
         "http://localhost:3000",

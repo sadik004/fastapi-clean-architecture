@@ -362,6 +362,10 @@ class UserResponse(UserBase):
     created_at: datetime = Field(..., description="Timestamp of user creation")
     version: int = Field(default=1, description="Entity optimistic concurrency version")
     permissions: int = Field(default=3, description="Bitmask integer representing user permissions")
+    nid_number: str | None = Field(
+        default=None,
+        description="Decrypted National Identification Number (NID) protected by Field-Level Encryption",
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -372,6 +376,19 @@ class UserResponse(UserBase):
         return get_permission_names(self.permissions)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UpdateUserNidRequest(BaseModel):
+    """Payload for updating user's sensitive national identification number (NID)."""
+
+    nid_number: str = Field(
+        ...,
+        min_length=5,
+        max_length=50,
+        description="National Identification Number (NID) to encrypt with Field-Level Encryption",
+    )
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class UpdateUserPermissionsRequest(BaseModel):

@@ -59,6 +59,7 @@ class SqlAlchemyUserRepository:
             bio=model.bio,
             company_name=model.company_name,
             permissions=model.permissions,
+            nid_number=model.nid_number,
         )
 
     @classmethod
@@ -113,6 +114,7 @@ class SqlAlchemyUserRepository:
         bio: str | None = None,
         company_name: str | None = None,
         permissions: int | None = None,
+        nid_number: str | None = None,
     ) -> UserEntity:
         """Create and persist a new user entity in the database."""
         if permissions is None:
@@ -138,6 +140,7 @@ class SqlAlchemyUserRepository:
             bio=bio,
             company_name=company_name,
             permissions=perms,
+            nid_number=nid_number,
             is_active=True,
         )
         self._session.add(model)
@@ -179,6 +182,7 @@ class SqlAlchemyUserRepository:
         company_name: str | None = None,
         update_data: UserUpdate | None = None,
         password_hash: str | None = None,
+        nid_number: str | None = None,
     ) -> UserEntity | None:
         """Update an existing user entity and refresh database attributes."""
         # Support extracting fields from UserUpdate schema if provided directly
@@ -207,6 +211,8 @@ class SqlAlchemyUserRepository:
                 bio = data["bio"]
             if "company_name" in data:
                 company_name = data["company_name"]
+            if "nid_number" in data:
+                nid_number = data["nid_number"]
 
         stmt = select(UserModel).where(UserModel.id == user_id)
         result = await self._session.execute(stmt)
@@ -232,7 +238,23 @@ class SqlAlchemyUserRepository:
             model.bio = bio
         if company_name is not None:
             model.company_name = company_name
+        if nid_number is not None:
+            model.nid_number = nid_number
 
+        await self._session.flush()
+        await self._session.refresh(model)
+        return self._to_entity(model)
+
+    async def update_nid(self, user_id: int, nid_number: str | None) -> UserEntity | None:
+        """Update encrypted national identification number (NID) for a user."""
+        stmt = select(UserModel).where(UserModel.id == user_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+
+        model.nid_number = nid_number
+        model.version += 1
         await self._session.flush()
         await self._session.refresh(model)
         return self._to_entity(model)

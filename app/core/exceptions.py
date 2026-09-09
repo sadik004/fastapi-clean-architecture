@@ -96,6 +96,17 @@ class PathTraversalException(SecurityViolationException):
         super().__init__(message=message, code=code)
 
 
+class EncryptionTamperingException(SecurityViolationException):
+    """Raised when ciphertext integrity or HMAC signature check fails during decryption."""
+
+    def __init__(
+        self,
+        message: str = "Ciphertext integrity verification failed or payload has been tampered with.",
+        code: str = "ENCRYPTION_TAMPERING_DETECTED",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
 class UserAlreadyExistsException(EntityConflictException):
     """Raised when attempting to create a user with duplicate email or username."""
 
@@ -137,7 +148,7 @@ class UserNotFoundException(EntityNotFoundException):
         identifier: int | str | None = None,
         *,
         user_id: int | None = None,
-        code: str = "ENTITY_NOT_FOUND",
+        code: str = "USER_NOT_FOUND",
     ) -> None:
         target = user_id if user_id is not None else identifier
         if isinstance(target, int):
