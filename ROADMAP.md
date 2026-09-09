@@ -53,7 +53,7 @@ Tracking Legend:
 - [x] **Day 32**: Cache-Aside (Lazy Loading) Pattern Implementation & Invalidation
 - [x] **Day 33**: Advanced Caching Architectures (Write-Through & Write-Behind / Write-Back Patterns)
 - [x] **Day 34**: Cache Stampede (Thundering Herd) Prevention via Probabilistic Early Expiration (XFetch Algorithm)
-- [ ] **Day 35**: Database Migrations with Alembic (Setup & Auto-generation)
+- [x] **Day 35**: Bloom Filter Architecture to Prevent Cache Penetration (Probabilistic Membership Testing)
 - [ ] **Day 36**: One-to-Many & Many-to-One Relationships with Async Loading
 - [ ] **Day 37**: Database Indexing Strategies & Query Execution Plan Analysis (`EXPLAIN ANALYZE`)
 - [ ] **Day 38**: Many-to-Many Association Tables & Efficient Junction Queries

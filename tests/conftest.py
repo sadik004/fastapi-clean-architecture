@@ -15,6 +15,7 @@ from app.main import app
 from app.repositories.user_repository import UserRepositoryProtocol
 from app.routers.user_router import get_user_repository
 from app.services.notification_service import clear_notification_service
+from app.services.user_service import get_user_bloom_filter
 
 
 def _clean_database() -> None:
@@ -39,6 +40,7 @@ def clean_repo() -> Generator[UserRepositoryProtocol]:
     _clean_database()
     transaction_manager.clear()
     clear_notification_service()
+    get_user_bloom_filter().clear()
     app.dependency_overrides[get_user_repository] = lambda: _user_repository
     yield _user_repository
     app.dependency_overrides.pop(get_user_repository, None)
@@ -46,6 +48,7 @@ def clean_repo() -> Generator[UserRepositoryProtocol]:
     _clean_database()
     transaction_manager.clear()
     clear_notification_service()
+    get_user_bloom_filter().clear()
 
 
 @pytest.fixture

@@ -305,6 +305,12 @@ class SqlAlchemyUserRepository:
         """
         return self._views_store.get(user_id, 0)
 
+    async def get_all_ids(self) -> list[int]:
+        """Fetch all user IDs directly via SELECT id FROM users asynchronously."""
+        stmt = select(UserModel.id)
+        result = await self._session.scalars(stmt)
+        return [int(uid) for uid in result.all()]
+
     def clear(self) -> None:
         """Reset repository database state synchronously (convenience for test isolation)."""
         self._views_store.clear()

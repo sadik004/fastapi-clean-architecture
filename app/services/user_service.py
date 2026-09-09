@@ -7,6 +7,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.search_algorithms import binary_search_range, two_pointer_pair_search
 from app.core.dsa.trie import PrefixTrie
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
@@ -24,11 +25,30 @@ CACHE_USER_TTL_SECONDS: int = 300
 XFETCH_USER_PREFIX: str = "xfetch:user:"
 
 _user_search_trie = PrefixTrie()
+_user_bloom_filter = BloomFilter(capacity=100_000, false_positive_rate=0.01)
 
 
 def get_user_search_trie() -> PrefixTrie:
     """Singleton provider for user search autocomplete PrefixTrie."""
     return _user_search_trie
+
+
+def get_user_bloom_filter() -> BloomFilter:
+    """Singleton provider for user ID BloomFilter."""
+    return _user_bloom_filter
+
+
+async def seed_user_bloom_filter(
+    repo: UserRepositoryProtocol,
+    bloom: BloomFilter | None = None,
+) -> int:
+    """Seed the user Bloom filter with all existing user IDs from repository."""
+    bf = bloom if bloom is not None else get_user_bloom_filter()
+    user_ids = await repo.get_all_ids()
+    for uid in user_ids:
+        bf.add(uid)
+    logger.info("Seeded Bloom filter with %d existing user IDs", len(user_ids))
+    return len(user_ids)
 
 
 class UserService:
@@ -40,11 +60,13 @@ class UserService:
         uow: UnitOfWorkProtocol | None = None,
         trie: PrefixTrie | None = None,
         cache_service: CacheService | None = None,
+        bloom_filter: BloomFilter | None = None,
     ) -> None:
         self._repo = repository
         self._uow = uow
         self._trie = trie if trie is not None else get_user_search_trie()
         self._cache = cache_service
+        self._bloom = bloom_filter
 
     def _index_user_in_trie(self, user: UserEntity) -> None:
         """Index user username and full_name into PrefixTrie."""
@@ -89,6 +111,8 @@ class UserService:
             company_name=payload.company_name,
         )
         self._index_user_in_trie(created_user)
+        if self._bloom is not None:
+            self._bloom.add(created_user.id)
         return created_user
 
     async def update_user(self, user_id: int, payload: UserUpdate) -> UserEntity:
@@ -301,6 +325,14 @@ class UserService:
         Raises:
             UserNotFoundException: If user does not exist.
         """
+        # Step 0: Bloom Filter Membership Guard (Cache Penetration Shield)
+        if self._bloom is not None and not self._bloom.contains(user_id):
+            logger.debug(
+                "Bloom Filter rejected non-existent user_id=%s (0 DB/Cache queries)",
+                user_id,
+            )
+            raise UserNotFoundException(user_id=user_id)
+
         cache_key = f"{CACHE_USER_PREFIX}{user_id}"
 
         # Step 1: Check Cache (if CacheService is configured)
@@ -353,6 +385,14 @@ class UserService:
         Raises:
             UserNotFoundException: If user does not exist.
         """
+        # Step 0: Bloom Filter Membership Guard (Cache Penetration Shield)
+        if self._bloom is not None and not self._bloom.contains(user_id):
+            logger.debug(
+                "Bloom Filter rejected non-existent user_id=%s in XFetch flow (0 DB/Cache queries)",
+                user_id,
+            )
+            raise UserNotFoundException(user_id=user_id)
+
         if self._cache is None:
             user = await self._repo.get_by_id(user_id)
             if user is None:

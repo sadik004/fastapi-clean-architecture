@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Generator, Sequence
 from enum import Enum
 from typing import Annotated, Any
+from unittest.mock import AsyncMock
 
 from fastapi import Depends, Header, HTTPException, Path, Request, status
 from redis.asyncio import Redis
@@ -14,6 +15,7 @@ from app.core.database import apply_migrations as apply_migrations
 from app.core.database import get_db_pool_status as get_db_pool_status
 from app.core.database import get_db_session as get_db_session
 from app.core.database import rollback_migration as rollback_migration
+from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.core.exceptions import UserNotFoundException
 from app.core.redis import get_redis
@@ -27,7 +29,12 @@ from app.repositories.user_repository import (
 from app.schemas.user import UserRole
 from app.services.analytics_service import AnalyticsService
 from app.services.cache_service import CacheService, get_cache_service
-from app.services.user_service import UserService
+from app.services.user_service import (
+    UserService,
+)
+from app.services.user_service import (
+    get_user_bloom_filter as get_user_bloom_filter,
+)
 
 # Singleton repository instance for in-memory persistence across requests
 _user_repository = InMemoryUserRepository()
@@ -57,9 +64,16 @@ def get_user_service(
     repo: Annotated[UserRepositoryProtocol, Depends(get_user_repository)],
     uow: Annotated[UnitOfWorkProtocol | None, Depends(get_uow)] = None,
     cache_service: Annotated[CacheService | None, Depends(get_cache_service)] = None,
+    bloom_filter: Annotated[BloomFilter | None, Depends(get_user_bloom_filter)] = None,
 ) -> UserService:
     """Dependency provider for UserService."""
-    return UserService(repository=repo, uow=uow, cache_service=cache_service)
+    effective_bloom = None if isinstance(repo, AsyncMock) else bloom_filter
+    return UserService(
+        repository=repo,
+        uow=uow,
+        cache_service=cache_service,
+        bloom_filter=effective_bloom,
+    )
 
 
 def get_analytics_service(

@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import (
+    async_session_factory,
     engine,
     get_db_pool_status,
     get_db_session,
@@ -26,9 +27,11 @@ from app.core.redis import (
     get_redis_pool_status,
     init_redis_pool,
 )
+from app.repositories.user_repository import SqlAlchemyUserRepository
 from app.routers.job_router import router as job_router
 from app.routers.metrics_router import router as metrics_router
 from app.routers.user_router import router as user_router
+from app.services.user_service import seed_user_bloom_filter
 
 
 @asynccontextmanager
@@ -40,6 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
       - In production, DDL schema management is strictly delegated to version-controlled
         Alembic migrations rather than un-versioned Base.metadata.create_all().
       - Initializes async Redis connection pool and verifies connectivity.
+      - Seeds in-memory Bloom Filter with existing user IDs to prevent cache penetration.
     Shutdown:
       - Gracefully closes Redis connection pool and releases socket descriptors.
       - Closes and disposes the async database engine to release all pooled socket connections.
@@ -47,6 +51,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     async with engine.connect() as conn:
         await conn.scalar(select(1))
     await init_redis_pool()
+
+    # Seed User Bloom Filter from persistent database repository
+    async with async_session_factory() as session:
+        repo = SqlAlchemyUserRepository(session=session)
+        await seed_user_bloom_filter(repo)
+
     yield
     await close_redis_pool()
     await engine.dispose()

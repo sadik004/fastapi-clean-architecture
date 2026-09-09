@@ -78,3 +78,30 @@ class XFetchMetricsResponse(BaseModel):
     )
     hard_misses: int = Field(..., description="Initial requests on cold cache key requiring immediate computation")
     total_requests: int = Field(..., description="Cumulative total requests handled by XFetch")
+
+
+class BloomFilterMetricsResponse(BaseModel):
+    """Operational telemetry report for Bloom Filter cache penetration shield."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    capacity: int = Field(..., description="Configured maximum item capacity limit (N)")
+    bit_size: int = Field(..., description="Total size of the bit array in bits (m)")
+    bit_size_kb: float = Field(..., description="Memory footprint of the bit array in kilobytes")
+    hash_count: int = Field(..., description="Number of independent hash functions (k)")
+    item_count: int = Field(..., description="Total items currently tracked in the Bloom Filter")
+    false_positive_probability: float = Field(..., description="Current theoretical false positive probability P")
+
+
+class BloomFilterCheckResponse(BaseModel):
+    """Result of testing an ID against the Bloom Filter penetration shield."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: int = Field(..., description="User ID tested against Bloom Filter")
+    probably_exists: bool = Field(..., description="True if probably in DB; False if guaranteed 100% not in DB")
+    db_queried: bool = Field(
+        default=False,
+        description="Whether database repository was queried (strictly False when rejected)",
+    )
+    status: str = Field(..., description="Status summary of the penetration shield")

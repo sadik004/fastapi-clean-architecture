@@ -99,6 +99,10 @@ class UserRepositoryProtocol(Protocol):
         """Fetch persistent view count for a specific user ID."""
         ...
 
+    async def get_all_ids(self) -> list[int]:
+        """Fetch all user IDs asynchronously for membership testing and Bloom Filter seeding."""
+        ...
+
     def clear(self) -> None:
         """Reset repository storage and all secondary indexes synchronously."""
         ...
@@ -317,6 +321,10 @@ class InMemoryUserRepository:
         Complexity: O(1) hash map lookup.
         """
         return self._views.get(user_id, 0)
+
+    async def get_all_ids(self) -> list[int]:
+        """Fetch all user IDs asynchronously in O(N) time for Bloom Filter seeding."""
+        return list(self._store.keys())
 
     def clear(self) -> None:
         """Reset the repository state and purge all secondary indexes."""

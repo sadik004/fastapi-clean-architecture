@@ -8,9 +8,13 @@ from app.core.dependencies import (
     check_sliding_window_rate_limit,
     get_analytics_service,
     get_global_rate_limiter,
+    get_user_bloom_filter,
 )
+from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.schemas.metrics import (
+    BloomFilterCheckResponse,
+    BloomFilterMetricsResponse,
     CacheMetricsResponse,
     RateLimiterMetricsResponse,
     RateLimiterTestResponse,
@@ -125,3 +129,37 @@ async def flush_pending_views_endpoint(
     """Trigger atomic batch flush of write-behind pending profile views to repository."""
     result = await analytics_service.sync_pending_views_to_db()
     return ViewsFlushResponse(**result)
+
+
+@router.get(
+    "/bloom-filter",
+    response_model=BloomFilterMetricsResponse,
+    summary="Get Bloom Filter telemetry",
+    description="Returns capacity, bit array size in bits and KB, hash count, item count, and theoretical false positive probability.",
+)
+async def get_bloom_filter_telemetry(
+    bloom_filter: Annotated[BloomFilter, Depends(get_user_bloom_filter)],
+) -> BloomFilterMetricsResponse:
+    """Return real-time operational telemetry for the user ID Bloom Filter."""
+    metrics_data = bloom_filter.get_metrics()
+    return BloomFilterMetricsResponse(**metrics_data)
+
+
+@router.get(
+    "/bloom-filter/check/{user_id}",
+    response_model=BloomFilterCheckResponse,
+    summary="Probabilistic check of User ID membership",
+    description="Tests whether a user ID passes the Bloom Filter shield without querying database or Redis cache.",
+)
+async def check_user_bloom_filter(
+    user_id: int,
+    bloom_filter: Annotated[BloomFilter, Depends(get_user_bloom_filter)],
+) -> BloomFilterCheckResponse:
+    """Check whether a user ID exists in the Bloom filter without touching DB or cache."""
+    exists = bloom_filter.contains(user_id)
+    return BloomFilterCheckResponse(
+        user_id=user_id,
+        probably_exists=exists,
+        db_queried=False,
+        status="PASSED_FILTER_PROCEED_TO_CACHE" if exists else "BLOCKED_BY_FILTER_ZERO_DB_QUERY",
+    )
