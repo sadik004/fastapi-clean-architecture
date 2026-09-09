@@ -47,6 +47,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 38** | [Redis Lua Script Python Comment Leak & Lupa Dependency](day-38_redis_lua_python_comment_leak_and_lupa_runtime_dependency.md) | Resolved Lua syntax error from Python `# noqa` leak inside multi-line script string via `pyproject.toml` per-file ignores; integrated `lupa` runtime for fakeredis Lua execution. |
 | **Day 39** | [OCC rowcount Race & DB-Side Version Increment](day-39_optimistic_lock_rowcount_race_and_db_side_version_increment.md) | Eliminated application-side version increment race by using `UserModel.version + 1` DB expression in `.values()`; enforced dialect-safe pool kwargs to prevent `rowcount` corruption on SQLite `StaticPool`. |
 | **Day 40** | [Pessimistic Locking & Asyncio Lock Cooperation](day-40_pessimistic_locking_sqlite_concurrency_and_asyncio_lock_cooperation.md) | Resolved SQLite async test concurrency interleaving via dual-layer defense (`with_for_update` + `asyncio.Lock` registry); eliminated cross-test lock pollution via automated `clear_product_locks` fixture teardown. |
+| **Day 41** | [Distributed Lock DEL Hijacking & Mandatory TTL](day-41_distributed_locking_token_validation_race_and_ttl_fencing.md) | Eliminated lock hijacking via canonical atomic Lua release script with token ownership check; enforced mandatory millisecond TTL (`PX`) on `DistributedLock` to guarantee zero permanent deadlocks. |
 
 ---
 
