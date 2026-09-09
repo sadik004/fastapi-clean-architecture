@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.core.dependencies import (
     check_sliding_window_rate_limit,
+    get_analytics_service,
     get_global_rate_limiter,
 )
 from app.core.dsa.sliding_window import SlidingWindowLog
@@ -13,7 +14,9 @@ from app.schemas.metrics import (
     CacheMetricsResponse,
     RateLimiterMetricsResponse,
     RateLimiterTestResponse,
+    ViewsFlushResponse,
 )
+from app.services.analytics_service import AnalyticsService
 from app.services.cache_service import CacheService, get_cache_service
 
 router = APIRouter(prefix="/metrics", tags=["Metrics & Observability"])
@@ -93,3 +96,17 @@ async def evict_idle_clients_endpoint(
         "active_clients": limiter.active_client_count(),
         "total_tracked_requests": limiter.total_tracked_requests(),
     }
+
+
+@router.post(
+    "/views/flush",
+    response_model=ViewsFlushResponse,
+    summary="Flush pending profile views to database",
+    description="Synchronizes accumulated views from Redis Write-Behind buffer to database using atomic pipeline.",
+)
+async def flush_pending_views_endpoint(
+    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+) -> ViewsFlushResponse:
+    """Trigger atomic batch flush of write-behind pending profile views to repository."""
+    result = await analytics_service.sync_pending_views_to_db()
+    return ViewsFlushResponse(**result)

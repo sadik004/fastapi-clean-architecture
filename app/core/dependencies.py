@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Path, Request, status
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -15,6 +16,7 @@ from app.core.database import get_db_session as get_db_session
 from app.core.database import rollback_migration as rollback_migration
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.core.exceptions import UserNotFoundException
+from app.core.redis import get_redis
 from app.core.unit_of_work import SqlAlchemyUnitOfWork, UnitOfWorkProtocol
 from app.repositories.user_repository import (
     InMemoryUserRepository,
@@ -23,6 +25,7 @@ from app.repositories.user_repository import (
     UserRepositoryProtocol,
 )
 from app.schemas.user import UserRole
+from app.services.analytics_service import AnalyticsService
 from app.services.cache_service import CacheService, get_cache_service
 from app.services.user_service import UserService
 
@@ -57,6 +60,14 @@ def get_user_service(
 ) -> UserService:
     """Dependency provider for UserService."""
     return UserService(repository=repo, uow=uow, cache_service=cache_service)
+
+
+def get_analytics_service(
+    redis_client: Annotated[Redis, Depends(get_redis)],
+    repo: Annotated[UserRepositoryProtocol, Depends(get_user_repository)],
+) -> AnalyticsService:
+    """Dependency provider yielding an active AnalyticsService instance."""
+    return AnalyticsService(redis_client=redis_client, repository=repo)
 
 
 async def get_current_user(

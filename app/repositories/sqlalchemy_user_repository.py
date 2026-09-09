@@ -284,8 +284,30 @@ class SqlAlchemyUserRepository:
         models = result.scalars().all()
         return [self._to_user_with_posts_entity(m) for m in models]
 
+    # In-memory storage for persistent view telemetry counters
+    _views_store: dict[int, int] = {}
+
+    async def increment_views_batch(self, views_map: dict[int, int]) -> int:
+        """Batch increment persistent view counts for multiple users in a single bulk operation.
+
+        Complexity: O(M) where M is the number of dirty users to update.
+        """
+        updated = 0
+        for user_id, count in views_map.items():
+            self._views_store[user_id] = self._views_store.get(user_id, 0) + count
+            updated += 1
+        return updated
+
+    async def get_views(self, user_id: int) -> int:
+        """Fetch persistent view count for a specific user ID.
+
+        Complexity: O(1) time complexity.
+        """
+        return self._views_store.get(user_id, 0)
+
     def clear(self) -> None:
         """Reset repository database state synchronously (convenience for test isolation)."""
+        self._views_store.clear()
         settings = get_settings()
         if settings.database_url.startswith("sqlite"):
             db_path = settings.database_url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")

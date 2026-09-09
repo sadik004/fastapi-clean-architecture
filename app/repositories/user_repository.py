@@ -91,6 +91,14 @@ class UserRepositoryProtocol(Protocol):
         """List user entities asynchronously with pagination and optional filters."""
         ...
 
+    async def increment_views_batch(self, views_map: dict[int, int]) -> int:
+        """Batch increment persistent view counts for multiple users in a single bulk operation."""
+        ...
+
+    async def get_views(self, user_id: int) -> int:
+        """Fetch persistent view count for a specific user ID."""
+        ...
+
     def clear(self) -> None:
         """Reset repository storage and all secondary indexes synchronously."""
         ...
@@ -116,6 +124,9 @@ class InMemoryUserRepository:
         # Inverted index Hash Maps for O(1) uniqueness checks
         self._email_index: dict[str, int] = {}
         self._username_index: dict[str, int] = {}
+
+        # Profile view counts storage: user_id -> views
+        self._views: dict[int, int] = {}
 
         # Auto-incrementing primary key counter
         self._current_id: int = 0
@@ -289,11 +300,30 @@ class InMemoryUserRepository:
 
         return filtered[offset : offset + limit]
 
+    async def increment_views_batch(self, views_map: dict[int, int]) -> int:
+        """Batch increment persistent view counts for multiple users in a single bulk operation.
+
+        Complexity: O(M) where M is the number of dirty users to update.
+        """
+        updated_count = 0
+        for user_id, count in views_map.items():
+            self._views[user_id] = self._views.get(user_id, 0) + count
+            updated_count += 1
+        return updated_count
+
+    async def get_views(self, user_id: int) -> int:
+        """Fetch persistent view count for a specific user ID.
+
+        Complexity: O(1) hash map lookup.
+        """
+        return self._views.get(user_id, 0)
+
     def clear(self) -> None:
         """Reset the repository state and purge all secondary indexes."""
         self._store.clear()
         self._email_index.clear()
         self._username_index.clear()
+        self._views.clear()
         self._current_id = 0
 
 

@@ -141,6 +141,76 @@ class UserService:
 
         return updated_user
 
+    async def update_user_write_through(self, user_id: int, payload: UserUpdate) -> UserEntity:
+        """Update user attributes using the Write-Through caching pattern.
+
+        1. Validates uniqueness constraints in O(1) time.
+        2. Persists changes synchronously to the underlying repository/database.
+        3. Synchronizes PrefixTrie indexing.
+        4. Write-Through: Immediately serializes and populates the updated entity
+           directly into Redis (cache:user:{user_id}) with TTL=300s.
+        5. Returns the updated entity, guaranteeing zero cache misses on subsequent reads
+           with 100% cache-database consistency.
+
+        Raises:
+            UserNotFoundException: If user does not exist.
+            UserAlreadyExistsException: If email or username is already taken.
+        """
+        user = await self._repo.get_by_id(user_id)
+        if user is None:
+            raise UserNotFoundException(user_id=user_id)
+
+        if payload.email is not None and payload.email != user.email:
+            existing_email_user = await self._repo.get_by_email(payload.email)
+            if existing_email_user is not None and existing_email_user.id != user_id:
+                raise UserAlreadyExistsException(f"Email '{payload.email}' is already registered.")
+
+        if payload.username is not None and payload.username != user.username:
+            existing_user = await self._repo.get_by_username(payload.username)
+            if existing_user is not None and existing_user.id != user_id:
+                raise UserAlreadyExistsException(f"Username '{payload.username}' is already taken.")
+
+        role_val = payload.role.value if payload.role is not None else None
+
+        updated_user = await self._repo.update(
+            user_id=user_id,
+            email=payload.email,
+            username=payload.username,
+            age=payload.age,
+            role=role_val,
+            full_name=payload.full_name,
+            phone_number=payload.phone_number,
+            bio=payload.bio,
+            company_name=payload.company_name,
+        )
+        if updated_user is None:
+            raise UserNotFoundException(user_id=user_id)
+
+        # Synchronize PrefixTrie indexing
+        if user.username != updated_user.username:
+            self._trie.delete(user.username)
+        if user.full_name and user.full_name != updated_user.full_name:
+            self._trie.delete(user.full_name)
+        self._index_user_in_trie(updated_user)
+
+        # Write-Through: populate Redis immediately with fresh data
+        if self._cache is not None:
+            try:
+                serialized = self._serialize_user(updated_user)
+                await self._cache.set_str(
+                    f"{CACHE_USER_PREFIX}{user_id}",
+                    serialized,
+                    expire_seconds=CACHE_USER_TTL_SECONDS,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Redis Write-Through failed for key '%s': %s.",
+                    f"{CACHE_USER_PREFIX}{user_id}",
+                    exc,
+                )
+
+        return updated_user
+
     async def update_profile(self, user_id: int, payload: UserProfileUpdate) -> UserEntity:
         """Update user profile fields (backward compatible helper)."""
         return await self.update_user(

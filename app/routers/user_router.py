@@ -9,6 +9,7 @@ from app.core.dependencies import (
     RoleChecker,
     ScopedTransactionContext,
     TransactionStatus,
+    get_analytics_service,
     get_current_active_admin,
     get_current_user,
     get_transaction_context,
@@ -21,6 +22,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.repositories.user_repository import UserEntity
+from app.schemas.metrics import UserViewResponse, UserViewsSummaryResponse
 from app.schemas.post import (
     PostResponse,
     UserWithInitialPostCreate,
@@ -36,6 +38,7 @@ from app.schemas.user import (
     UserRole,
     UserUpdate,
 )
+from app.services.analytics_service import AnalyticsService
 from app.services.notification_service import record_audit_log, send_welcome_notification
 from app.services.user_service import UserService
 
@@ -430,3 +433,68 @@ async def delete_user(
         tx.stage(f"delete_user:{user_id}")
     await service.delete_user(user_id=user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/{user_id}/write-through",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update a user using Write-Through caching pattern",
+    description="Synchronously persists update to database and simultaneously warms Redis cache with TTL=300.",
+)
+async def update_user_write_through(
+    payload: UserUpdate,
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the user",
+    ),
+    authorized_user: Annotated[UserEntity, Depends(require_user_ownership)] = None,  # type: ignore[assignment]
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> UserResponse:
+    """Endpoint to update user data via the Write-Through caching pattern."""
+    updated_user = await service.update_user_write_through(user_id=user_id, payload=payload)
+    return UserResponse.model_validate(updated_user)
+
+
+@router.post(
+    "/{user_id}/view",
+    response_model=UserViewResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Record a user profile view via Write-Behind caching pattern",
+    description="Fast-path in-memory view counter ingestion using Redis HINCRBY without blocking on DB I/O.",
+)
+async def record_user_view(
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the user",
+    ),
+    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)] = None,  # type: ignore[assignment]
+) -> UserViewResponse:
+    """Endpoint to ingest user view counts asynchronously via Write-Behind pattern."""
+    result = await analytics_service.record_view(user_id=user_id)
+    return UserViewResponse(**result)
+
+
+@router.get(
+    "/{user_id}/views",
+    response_model=UserViewsSummaryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get user profile views summary",
+    description="Returns persistent views from repository, pending views in Redis, and combined total views.",
+)
+async def get_user_views(
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the user",
+    ),
+    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)] = None,  # type: ignore[assignment]
+) -> UserViewsSummaryResponse:
+    """Endpoint to retrieve aggregated view counts across database and write-behind cache."""
+    result = await analytics_service.get_user_views(user_id=user_id)
+    return UserViewsSummaryResponse(**result)
