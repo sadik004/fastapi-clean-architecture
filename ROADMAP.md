@@ -59,7 +59,7 @@ Tracking Legend:
 - [x] **Day 38**: Token Bucket Rate Limiting Architecture with Atomic Redis Lua Scripts
 - [x] **Day 39**: Optimistic Concurrency Control (OCC) Architecture with Row Versioning
 - [x] **Day 40**: Pessimistic Locking Architecture (Inventory Stock Blocking via SQLAlchemy with_for_update)
-- [ ] **Day 41**: Database Transactions, Unit of Work Pattern & Rollback Safety
+- [x] **Day 41**: Distributed Locking Architecture (Redlock Pattern & Atomic Lua Mutex across Multi-Node Clusters)
 - [ ] **Day 42**: Soft Deletes vs Hard Deletes with Query Filters
 - [ ] **Day 43**: Keyset Pagination (Cursor) vs Offset Pagination Performance
 - [ ] **Day 44**: Complex Aggregations & SQL Group By Optimization

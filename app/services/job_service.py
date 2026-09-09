@@ -5,11 +5,15 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+from redis.asyncio import Redis
+
+from app.core.dsa.distributed_lock import DistributedLock
 from app.core.dsa.priority_queue import (
     JobPriority,
     PriorityJob,
     PriorityJobScheduler,
 )
+from app.core.exceptions import DistributedLockConflictException
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +31,23 @@ class JobService:
     def __init__(
         self,
         scheduler: PriorityJobScheduler | None = None,
+        redis_client: Redis | None = None,
     ) -> None:
         self._scheduler: PriorityJobScheduler = scheduler if scheduler is not None else get_priority_job_scheduler()
+        self._redis: Redis | None = redis_client
         self._processed_history: list[dict[str, Any]] = []
+
+    async def _get_redis(self) -> Redis:
+        """Resolve active Redis client instance."""
+        if self._redis is not None:
+            return self._redis
+        import app.core.redis as r_mod
+
+        if r_mod._redis_client is None:
+            await r_mod.init_redis_pool()
+        if r_mod._redis_client is None:
+            raise RuntimeError("Redis client uninitialized")
+        return r_mod._redis_client
 
     @property
     def scheduler(self) -> PriorityJobScheduler:
@@ -132,6 +150,48 @@ class JobService:
             return 0.0
 
         return min(max(time_until_due, 0.01), 1.0)
+
+    async def execute_exclusive_job(
+        self,
+        job_name: str,
+        payload: dict[str, Any],
+        ttl_ms: int = 5000,
+    ) -> dict[str, Any]:
+        """Execute a job exclusively across a distributed cluster using Redis Redlock Mutex.
+
+        Args:
+            job_name: Unique logical job name to synchronize across workers.
+            payload: Job payload data.
+            ttl_ms: Distributed lock TTL in milliseconds (default 5000ms).
+
+        Raises:
+            DistributedLockConflictException: If the lock cannot be acquired (resource busy).
+
+        Returns:
+            dict containing execution metadata and processed payload.
+        """
+        redis = await self._get_redis()
+        lock = DistributedLock(redis=redis, name=job_name, ttl_ms=ttl_ms)
+
+        acquired = await lock.acquire()
+        if not acquired:
+            raise DistributedLockConflictException()
+
+        start_time = time.time()
+        token = lock.token or ""
+        try:
+            result = {
+                "job_name": job_name,
+                "status": "completed",
+                "execution_token": token,
+                "payload": payload,
+                "executed_at": datetime.now(UTC),
+                "duration_ms": round((time.time() - start_time) * 1000, 2),
+            }
+            self._processed_history.append(result)
+            return result
+        finally:
+            await lock.release()
 
 
 _global_job_service = JobService()

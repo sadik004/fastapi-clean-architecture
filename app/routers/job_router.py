@@ -2,9 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from app.schemas.job import (
+    ExclusiveJobRequest,
+    ExclusiveJobResponse,
     JobScheduleRequest,
     JobScheduleResponse,
     JobStatusResponse,
@@ -46,6 +48,32 @@ async def get_job_queue_status(
     """Inspect the binary min-heap root job and queue depth in O(1) time."""
     telemetry = await service.get_telemetry()
     return JobStatusResponse.model_validate(telemetry)
+
+
+@router.post(
+    "/execute-exclusive/{job_name}",
+    response_model=ExclusiveJobResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Execute an exclusive job protected by Redis Distributed Lock",
+)
+async def execute_exclusive_job_endpoint(
+    job_name: Annotated[str, Path(..., min_length=1, max_length=100, description="Unique job identifier to lock")],
+    request: ExclusiveJobRequest,
+    service: Annotated[JobService, Depends(get_job_service)],
+) -> ExclusiveJobResponse:
+    """Execute job with guaranteed mutual exclusion across cluster workers.
+
+    Guarantees:
+    - Atomicity: Acquires lock via Redis SET NX PX in O(1) time.
+    - Mutex: Only 1 worker executes; concurrent competing requests receive HTTP 409 Conflict.
+    - Safe Release: Token-checked release via atomic Lua script prevents lock hijacking.
+    """
+    result = await service.execute_exclusive_job(
+        job_name=job_name,
+        payload=request.payload,
+        ttl_ms=request.ttl_ms,
+    )
+    return ExclusiveJobResponse.model_validate(result)
 
 
 __all__ = [

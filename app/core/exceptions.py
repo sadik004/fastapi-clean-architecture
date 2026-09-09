@@ -85,6 +85,17 @@ class OptimisticLockException(EntityConflictException):
         super().__init__(message=message, code=code)
 
 
+class DistributedLockConflictException(EntityConflictException):
+    """Raised when a distributed lock cannot be acquired due to concurrent process execution (HTTP 409)."""
+
+    def __init__(
+        self,
+        message: str = "Resource is currently locked by another concurrent process. Please retry later.",
+        code: str = "LOCK_CONFLICT",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
 class UserNotFoundException(EntityNotFoundException):
     """Raised when a requested user entity does not exist."""
 

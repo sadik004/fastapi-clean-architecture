@@ -54,3 +54,30 @@ class JobStatusResponse(BaseModel):
     next_job_scheduled_at: datetime | None = Field(default=None, description="Scheduled time of next pending root job")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ExclusiveJobRequest(BaseModel):
+    """Input payload schema for requesting exclusive distributed job execution."""
+
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Arbitrary parameters passed to worker executor",
+    )
+    ttl_ms: int = Field(
+        default=5000,
+        ge=100,
+        le=60000,
+        description="Distributed lock TTL in milliseconds",
+    )
+
+
+class ExclusiveJobResponse(BaseModel):
+    """Output response schema returned upon successful exclusive job execution."""
+
+    job_name: str = Field(..., description="Name of the exclusively executed job")
+    status: str = Field(default="completed", description="Execution outcome")
+    execution_token: str = Field(..., description="Unique distributed lock token that executed this job")
+    payload: dict[str, Any] = Field(default_factory=dict, description="Payload processed by the job")
+    executed_at: datetime = Field(..., description="Timestamp when job execution completed")
+
+    model_config = ConfigDict(from_attributes=True)
