@@ -3,8 +3,10 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
+from redis.asyncio import Redis
 
 from app.core.dependencies import (
+    RateLimitGuard,
     check_sliding_window_rate_limit,
     get_analytics_service,
     get_global_rate_limiter,
@@ -12,6 +14,7 @@ from app.core.dependencies import (
 )
 from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.sliding_window import SlidingWindowLog
+from app.core.redis import get_redis
 from app.schemas.metrics import (
     BloomFilterCheckResponse,
     BloomFilterMetricsResponse,
@@ -23,6 +26,7 @@ from app.schemas.metrics import (
 )
 from app.services.analytics_service import AnalyticsService
 from app.services.cache_service import CacheService, get_cache_service
+from app.services.rate_limiter_service import RateLimiterService
 
 router = APIRouter(prefix="/metrics", tags=["Metrics & Observability"])
 
@@ -163,3 +167,35 @@ async def check_user_bloom_filter(
         db_queried=False,
         status="PASSED_FILTER_PROCEED_TO_CACHE" if exists else "BLOCKED_BY_FILTER_ZERO_DB_QUERY",
     )
+
+
+@router.get(
+    "/rate-limit/{client_id}",
+    summary="Get distributed rate limit status for client",
+    description="Inspects real-time sliding window active requests and TTL in Redis for a given client identifier.",
+)
+async def get_distributed_rate_limit_status(
+    client_id: str,
+    redis: Annotated[Redis, Depends(get_redis)],
+    window_seconds: Annotated[float, Query(ge=1.0)] = 60.0,
+) -> dict[str, Any]:
+    """Retrieve real-time active requests and TTL for a client in Redis."""
+    service = RateLimiterService(redis_client=redis)
+    return await service.get_client_status(key=client_id, window_seconds=window_seconds)
+
+
+@router.get(
+    "/test-rate-limit/distributed",
+    dependencies=[Depends(RateLimitGuard(limit=5, window_seconds=10.0, scope="test"))],
+    summary="Protected test endpoint for distributed sliding window rate limiter",
+    description="Endpoint limited to 5 requests per 10 seconds via Redis ZSET sliding window.",
+)
+async def distributed_rate_limit_test_metrics_endpoint(
+    request: Request,
+) -> dict[str, Any]:
+    """Protected test route under /metrics prefix."""
+    return {
+        "message": "Request accepted within distributed sliding window quota",
+        "client_id": getattr(request.state, "rate_limit_client", "unknown"),
+        "request_number": getattr(request.state, "rate_limit_count", 1),
+    }

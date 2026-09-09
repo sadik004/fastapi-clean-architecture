@@ -1,3 +1,4 @@
+import math
 import secrets
 import time
 import uuid
@@ -30,6 +31,7 @@ from app.schemas.user import UserRole
 from app.services.analytics_service import AnalyticsService
 from app.services.cache_service import CacheService, get_cache_service
 from app.services.leaderboard_service import LeaderboardService
+from app.services.rate_limiter_service import RateLimiterService
 from app.services.user_service import (
     UserService,
 )
@@ -404,3 +406,66 @@ def check_sliding_window_rate_limit(
 ) -> SlidingWindowRateLimiterDependency:
     """Factory creating a reusable SlidingWindowRateLimiter dependency."""
     return SlidingWindowRateLimiterDependency(window=window, limit=limit, limiter=limiter)
+
+
+class RateLimitGuard:
+    """Declarative FastAPI dependency enforcing distributed sliding window rate limiting via Redis ZSET.
+
+    Eliminates multi-node synchronization blindness across clustered instances.
+    """
+
+    def __init__(
+        self,
+        limit: int = 10,
+        window_seconds: float = 60.0,
+        scope: str = "default",
+    ) -> None:
+        self.limit = limit
+        self.window_seconds = window_seconds
+        self.scope = scope
+
+    async def __call__(
+        self,
+        request: Request,
+        redis: Annotated[Redis, Depends(get_redis)],
+    ) -> None:
+        """Resolve client identifier and enforce distributed sliding window rate limit.
+
+        Raises:
+            HTTPException(429) with Retry-After and X-RateLimit headers if quota is exceeded.
+        """
+        api_key = request.headers.get("X-API-Key")
+        forwarded = request.headers.get("X-Forwarded-For")
+        if api_key:
+            client_id = api_key
+        elif forwarded:
+            client_id = forwarded.split(",")[0].strip()
+        elif request.client and request.client.host:
+            client_id = request.client.host
+        else:
+            client_id = "127.0.0.1"
+
+        scoped_key = f"{self.scope}:{client_id}"
+        service = RateLimiterService(redis_client=redis)
+        is_limited, current_count, retry_after = await service.check_distributed_rate_limit(
+            key=scoped_key,
+            limit=self.limit,
+            window_seconds=self.window_seconds,
+        )
+
+        if is_limited:
+            retry_seconds = max(1, math.ceil(retry_after))
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too Many Requests: Rate limit exceeded",
+                headers={
+                    "Retry-After": str(retry_seconds),
+                    "X-RateLimit-Limit": str(self.limit),
+                    "X-RateLimit-Remaining": "0",
+                },
+            )
+
+        # Attach rate limit context to request state for downstream handlers and observability
+        request.state.rate_limit_client = client_id
+        request.state.rate_limit_count = current_count
+        request.state.rate_limit_limit = self.limit

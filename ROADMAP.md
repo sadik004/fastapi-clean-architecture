@@ -55,14 +55,14 @@ Tracking Legend:
 - [x] **Day 34**: Cache Stampede (Thundering Herd) Prevention via Probabilistic Early Expiration (XFetch Algorithm)
 - [x] **Day 35**: Bloom Filter Architecture to Prevent Cache Penetration (Probabilistic Membership Testing)
 - [x] **Day 36**: Real-Time Leaderboard Service Architecture using Redis Sorted Sets (ZSET)
-- [ ] **Day 37**: Database Indexing Strategies & Query Execution Plan Analysis (`EXPLAIN ANALYZE`)
-- [ ] **Day 38**: Many-to-Many Association Tables & Efficient Junction Queries
-- [ ] **Day 39**: Database Transactions, Unit of Work Pattern & Rollback Safety
-- [ ] **Day 40**: Soft Deletes vs Hard Deletes with Query Filters
-- [ ] **Day 41**: Keyset Pagination (Cursor) vs Offset Pagination Performance
-- [ ] **Day 42**: Complex Aggregations & SQL Group By Optimization
-- [ ] **Day 43**: Full-Text Search in PostgreSQL with GIN Indexes
-- [ ] **Day 44**: Bulk Insert & Batch Upsert Performance Optimization
+- [x] **Day 37**: Distributed Sliding Window Log Rate Limiter using Redis ZSET & Atomic Pipelines
+- [ ] **Day 38**: Database Indexing Strategies & Query Execution Plan Analysis (`EXPLAIN ANALYZE`)
+- [ ] **Day 39**: Many-to-Many Association Tables & Efficient Junction Queries
+- [ ] **Day 40**: Database Transactions, Unit of Work Pattern & Rollback Safety
+- [ ] **Day 41**: Soft Deletes vs Hard Deletes with Query Filters
+- [ ] **Day 42**: Keyset Pagination (Cursor) vs Offset Pagination Performance
+- [ ] **Day 43**: Complex Aggregations & SQL Group By Optimization
+- [ ] **Day 44**: Full-Text Search in PostgreSQL with GIN Indexes
 - [ ] **Day 45**: Phase 3 Capstone: Enterprise SQL-Backed Service with Zero N+1 Queries
 
 ---

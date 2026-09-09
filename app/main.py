@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ from app.core.database import (
     get_db_pool_status,
     get_db_session,
 )
+from app.core.dependencies import RateLimitGuard
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import CustomSecurityAndObservabilityMiddleware
 from app.core.redis import (
@@ -89,6 +90,21 @@ async def health_check() -> dict[str, str]:
     return {
         "status": "healthy",
         "timestamp": datetime.now(UTC).isoformat(),
+    }
+
+
+@app.get(
+    "/test-rate-limit/distributed",
+    dependencies=[Depends(RateLimitGuard(limit=5, window_seconds=10.0, scope="test"))],
+    tags=["Testing"],
+    summary="Protected test endpoint for distributed sliding window rate limiter",
+)
+async def distributed_rate_limit_test_root(request: Request) -> dict[str, Any]:
+    """Protected test route under root prefix."""
+    return {
+        "message": "Request accepted within distributed sliding window quota",
+        "client_id": getattr(request.state, "rate_limit_client", "unknown"),
+        "request_number": getattr(request.state, "rate_limit_count", 1),
     }
 
 
