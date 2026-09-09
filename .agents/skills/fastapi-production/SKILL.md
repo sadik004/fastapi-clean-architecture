@@ -186,6 +186,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 100. **Mandatory TTL on Ephemeral Cache Keys**: Always declare an explicit expiration timeout (`ex=expire_seconds`) on transient cached values (tokens, OTPs, session state, rate limiters) to prevent unbounded RAM growth.
 101. **Graceful Redis Degradation & Test Double Isolation**: Provide fallback compatibility (`fakeredis`) and dependency overrides (`get_redis`) so that automated test suites and local environments run with 100% pass rate without requiring external daemons.
 102. **Domain Service Encapsulation for Cache Operations**: Encapsulate raw Redis data structure commands (`set`, `get`, `hset`, `lpush`, `rpop`) inside a domain-driven `CacheService`. Routers must never execute raw driver commands directly.
+103. **Cache-Aside (Lazy Loading) with Active Invalidation**: In domain services (`UserService.get_user_by_id`), check Redis first; on hit deserialize JSON and return in $\mathcal{O}(1)$; on miss query repository, serialize, and store in Redis with TTL (300s). On mutations (`update_user`, `update_profile`, `delete_user`), actively evict the cache key to eliminate stale reads.
+104. **Graceful Cache Degradation (Zero 500s on Cache Outage)**: Caching is an accelerator, never a single point of failure. Wrap all Redis operations in defensive `try...except` blocks with structured warning logs and seamless database fallback, guaranteeing zero HTTP 500 errors from cache unavailability.
+105. **Atomic Telemetry & Hit-Ratio Observability**: Track cache hits and misses atomically via Redis counters (`INCRBY`) and expose operational metrics (`GET /metrics/cache`) returning `hits`, `misses`, and `hit_ratio` for real-time observability.
 
 ### Bad Patterns (Forbidden)
 1. **Isolated Day/Topic Folders**: Creating `day1/`, `day2/`, `tutorial/` folders instead of expanding `app/`.
@@ -275,6 +278,9 @@ All algorithms, data transformations, and data structures must be optimized for 
 85. **Storing Cache Keys Without TTL**: Writing ephemeral keys (sessions, OTPs, cached query results) without an explicit expiration time (`expire_seconds` / `ex=...`). Under production traffic, memory consumption grows unbounded until Redis throws OOM crashes (`OOM command not allowed`).
 86. **Synchronous Redis Driver Calls on the Event Loop**: Using synchronous Redis libraries (`import redis; r = redis.Redis()`) inside async endpoints. Synchronous socket I/O halts the entire Python event loop, turning a high-concurrency gateway into a serialized bottleneck. Always use `redis.asyncio`.
 87. **Direct Driver Invocations in Route Handlers**: Calling raw Redis driver commands directly inside FastAPI router handlers instead of delegating to an encapsulated domain cache service (`CacheService`). This breaches 3-tier clean architecture boundaries and couples transport endpoints to Redis command signatures.
+88. **Writing Mutated Data Directly to Cache Without Eviction**: Updating a database record and attempting to write-through to cache without eviction. Concurrent writes cause race conditions where an earlier write can overwrite a later write in Redis, leaving the cache permanently out of sync with the database. Always evict the cache key on mutation.
+89. **Letting Cache Errors Crash Request Lifecycles**: Failing to catch Redis connection timeouts, drops, or errors in service methods, causing user HTTP requests to fail with HTTP 500 errors when the cache is down. Always treat cache as an optional accelerator with seamless database fallback.
+90. **Serving Stale Data via Indefinite Cache Lifetimes**: Omitting cache eviction on user update or deletion, serving stale or invalid profiles to clients until the key TTL expires.
 
 ---
 

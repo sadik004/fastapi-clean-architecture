@@ -10,9 +10,11 @@ from app.core.dependencies import (
 )
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.schemas.metrics import (
+    CacheMetricsResponse,
     RateLimiterMetricsResponse,
     RateLimiterTestResponse,
 )
+from app.services.cache_service import CacheService, get_cache_service
 
 router = APIRouter(prefix="/metrics", tags=["Metrics & Observability"])
 
@@ -37,6 +39,20 @@ async def get_rate_limiter_telemetry(
     """Return real-time operational telemetry for the sliding window rate limiter."""
     metrics_data = limiter.get_metrics()
     return RateLimiterMetricsResponse(**metrics_data)
+
+
+@router.get(
+    "/cache",
+    response_model=CacheMetricsResponse,
+    summary="Get cache telemetry",
+    description="Returns real-time cache hits, misses, and calculated hit ratio for Redis Cache-Aside.",
+)
+async def get_cache_telemetry(
+    cache_service: Annotated[CacheService, Depends(get_cache_service)],
+) -> CacheMetricsResponse:
+    """Return real-time operational telemetry for Redis cache hit ratio."""
+    metrics_data = await cache_service.get_metrics()
+    return CacheMetricsResponse(**metrics_data)
 
 
 @router.get(

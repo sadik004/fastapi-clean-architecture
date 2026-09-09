@@ -2,6 +2,8 @@
 
 import asyncio
 import hashlib
+import json
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -13,6 +15,12 @@ from app.core.unit_of_work import UnitOfWorkProtocol
 from app.repositories.post_repository import PostEntity
 from app.repositories.user_repository import UserEntity, UserRepositoryProtocol
 from app.schemas.user import UserCreate, UserProfileUpdate, UserRole, UserUpdate
+from app.services.cache_service import CacheService
+
+logger = logging.getLogger(__name__)
+
+CACHE_USER_PREFIX: str = "cache:user:"
+CACHE_USER_TTL_SECONDS: int = 300
 
 _user_search_trie = PrefixTrie()
 
@@ -30,10 +38,12 @@ class UserService:
         repository: UserRepositoryProtocol,
         uow: UnitOfWorkProtocol | None = None,
         trie: PrefixTrie | None = None,
+        cache_service: CacheService | None = None,
     ) -> None:
         self._repo = repository
         self._uow = uow
         self._trie = trie if trie is not None else get_user_search_trie()
+        self._cache = cache_service
 
     def _index_user_in_trie(self, user: UserEntity) -> None:
         """Index user username and full_name into PrefixTrie."""
@@ -122,6 +132,13 @@ class UserService:
             self._trie.delete(user.full_name)
         self._index_user_in_trie(updated_user)
 
+        # Cache Invalidation: evict stale user entry from Redis
+        if self._cache is not None:
+            try:
+                await self._cache.delete(f"{CACHE_USER_PREFIX}{user_id}")
+            except Exception as exc:
+                logger.warning("Failed to evict cache key for user %s: %s", user_id, exc)
+
         return updated_user
 
     async def update_profile(self, user_id: int, payload: UserProfileUpdate) -> UserEntity:
@@ -154,15 +171,99 @@ class UserService:
         if user.full_name:
             self._trie.delete(user.full_name)
 
+        # Cache Invalidation: evict deleted user from Redis
+        if self._cache is not None:
+            try:
+                await self._cache.delete(f"{CACHE_USER_PREFIX}{user_id}")
+            except Exception as exc:
+                logger.warning("Failed to evict cache key for deleted user %s: %s", user_id, exc)
+
+    @staticmethod
+    def _serialize_user(user: UserEntity) -> str:
+        """Serialize UserEntity to a compact JSON string."""
+        data: dict[str, Any] = {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "password_hash": user.password_hash,
+            "is_active": user.is_active,
+            "created_at": user.created_at.isoformat(),
+            "age": user.age,
+            "role": user.role,
+            "full_name": user.full_name,
+            "phone_number": user.phone_number,
+            "bio": user.bio,
+            "company_name": user.company_name,
+        }
+        return json.dumps(data)
+
+    @staticmethod
+    def _deserialize_user(raw_json: str) -> UserEntity:
+        """Deserialize a JSON string into a validated UserEntity."""
+        data: dict[str, Any] = json.loads(raw_json)
+        return UserEntity(
+            id=int(data["id"]),
+            email=str(data["email"]),
+            username=str(data["username"]),
+            password_hash=str(data["password_hash"]),
+            is_active=bool(data["is_active"]),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            age=int(data["age"]) if data.get("age") is not None else None,
+            role=str(data.get("role", "user")),
+            full_name=str(data["full_name"]) if data.get("full_name") is not None else None,
+            phone_number=str(data["phone_number"]) if data.get("phone_number") is not None else None,
+            bio=str(data["bio"]) if data.get("bio") is not None else None,
+            company_name=str(data["company_name"]) if data.get("company_name") is not None else None,
+        )
+
     async def get_user_by_id(self, user_id: int) -> UserEntity:
         """Fetch user by ID with validation asynchronously.
+
+        Implements Cache-Aside (Lazy Loading) pattern:
+        1. Check Redis for cache key 'cache:user:{user_id}'.
+        2. On cache hit: record hit metric, deserialize, and return immediately.
+        3. On cache miss: record miss metric, query database repository,
+           store serialized entity in Redis with TTL (300s), and return entity.
+        4. Resilient fallback: If Redis encounters an error, gracefully fall back
+           to database without breaking user request.
 
         Raises:
             UserNotFoundException: If user does not exist.
         """
+        cache_key = f"{CACHE_USER_PREFIX}{user_id}"
+
+        # Step 1: Check Cache (if CacheService is configured)
+        if self._cache is not None:
+            try:
+                cached_data = await self._cache.get_str(cache_key)
+                if cached_data is not None:
+                    await self._cache.record_hit()
+                    return self._deserialize_user(cached_data)
+                await self._cache.record_miss()
+            except Exception as exc:
+                logger.warning(
+                    "Redis cache read failed for key '%s': %s. Falling back to DB.",
+                    cache_key,
+                    exc,
+                )
+
+        # Step 2: Query Database / Repository
         user = await self._repo.get_by_id(user_id)
         if user is None:
             raise UserNotFoundException(user_id=user_id)
+
+        # Step 3: Lazy-Load Entity into Cache
+        if self._cache is not None:
+            try:
+                serialized = self._serialize_user(user)
+                await self._cache.set_str(cache_key, serialized, expire_seconds=CACHE_USER_TTL_SECONDS)
+            except Exception as exc:
+                logger.warning(
+                    "Redis cache write failed for key '%s': %s.",
+                    cache_key,
+                    exc,
+                )
+
         return user
 
     async def get_user_by_username(self, username: str) -> UserEntity:

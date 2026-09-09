@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from typing import Annotated, Any, cast
 
@@ -9,6 +10,11 @@ from fastapi import Depends
 from redis.asyncio import Redis
 
 from app.core.redis import get_redis
+
+logger = logging.getLogger(__name__)
+
+METRICS_HITS_KEY: str = "metrics:cache:hits"
+METRICS_MISSES_KEY: str = "metrics:cache:misses"
 
 
 class CacheService:
@@ -22,6 +28,8 @@ class CacheService:
 
     def __init__(self, redis_client: Redis) -> None:
         self._redis = redis_client
+        self._local_hits: int = 0
+        self._local_misses: int = 0
 
     # -------------------------------------------------------------------------
     # 1. String Operations with TTL
@@ -131,6 +139,58 @@ class CacheService:
         Complexity: O(1) time complexity.
         """
         return bool(await self._redis.exists(key))
+
+    # -------------------------------------------------------------------------
+    # Telemetry Operations
+    # -------------------------------------------------------------------------
+
+    async def record_hit(self) -> None:
+        """Record a cache hit in Redis telemetry with in-memory fallback."""
+        try:
+            await self._redis.incrby(METRICS_HITS_KEY, 1)
+        except Exception:
+            self._local_hits += 1
+
+    async def record_miss(self) -> None:
+        """Record a cache miss in Redis telemetry with in-memory fallback."""
+        try:
+            await self._redis.incrby(METRICS_MISSES_KEY, 1)
+        except Exception:
+            self._local_misses += 1
+
+    async def get_metrics(self) -> dict[str, Any]:
+        """Calculate and return cache hit/miss counts and hit ratio.
+
+        Complexity: O(1) time complexity.
+        """
+        hits = self._local_hits
+        misses = self._local_misses
+        try:
+            raw_hits = await self._redis.get(METRICS_HITS_KEY)
+            if raw_hits is not None:
+                hits += int(raw_hits)
+            raw_misses = await self._redis.get(METRICS_MISSES_KEY)
+            if raw_misses is not None:
+                misses += int(raw_misses)
+        except Exception as exc:
+            logger.debug("Redis metrics read failed: %s", exc)
+
+        total = hits + misses
+        ratio = round(hits / total, 4) if total > 0 else 0.0
+        return {
+            "hits": hits,
+            "misses": misses,
+            "hit_ratio": ratio,
+        }
+
+    async def reset_metrics(self) -> None:
+        """Reset hit and miss telemetry counters."""
+        try:
+            await self._redis.delete(METRICS_HITS_KEY, METRICS_MISSES_KEY)
+        except Exception as exc:
+            logger.debug("Redis metrics reset failed: %s", exc)
+        self._local_hits = 0
+        self._local_misses = 0
 
 
 def get_cache_service(

@@ -23,6 +23,7 @@ from app.repositories.user_repository import (
     UserRepositoryProtocol,
 )
 from app.schemas.user import UserRole
+from app.services.cache_service import CacheService, get_cache_service
 from app.services.user_service import UserService
 
 # Singleton repository instance for in-memory persistence across requests
@@ -52,9 +53,10 @@ def get_uow() -> UnitOfWorkProtocol:
 def get_user_service(
     repo: Annotated[UserRepositoryProtocol, Depends(get_user_repository)],
     uow: Annotated[UnitOfWorkProtocol | None, Depends(get_uow)] = None,
+    cache_service: Annotated[CacheService | None, Depends(get_cache_service)] = None,
 ) -> UserService:
     """Dependency provider for UserService."""
-    return UserService(repository=repo, uow=uow)
+    return UserService(repository=repo, uow=uow, cache_service=cache_service)
 
 
 async def get_current_user(

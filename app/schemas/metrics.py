@@ -24,3 +24,13 @@ class RateLimiterTestResponse(BaseModel):
     message: str = Field(..., description="Confirmation message")
     client_id: str = Field(..., description="Detected client identifier")
     request_number: int = Field(..., description="Ordinal request count in current window")
+
+
+class CacheMetricsResponse(BaseModel):
+    """Operational telemetry for Redis Cache-Aside performance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hits: int = Field(..., description="Total count of cache hits")
+    misses: int = Field(..., description="Total count of cache misses")
+    hit_ratio: float = Field(..., description="Ratio of hits to total cache requests (hits / (hits + misses))")
