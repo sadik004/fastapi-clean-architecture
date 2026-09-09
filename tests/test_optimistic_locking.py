@@ -18,22 +18,19 @@ Verifies:
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
 from app.core.exceptions import OptimisticLockException
 from app.main import app
 from app.models.user import UserModel
 from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
-from app.repositories.user_repository import InMemoryUserRepository, UserEntity
+from app.repositories.user_repository import InMemoryUserRepository
 from app.schemas.user import UserCreate, UserUpdate
 from app.services.user_service import UserService
-
 
 # ============================================================================
 # 1. Direct SQLAlchemy Repository Tests

@@ -120,3 +120,30 @@ class PlayerNotFoundException(EntityNotFoundException):
             message=f"Player '{player_id}' is not present on leaderboard '{leaderboard_id}'.",
             code=code,
         )
+
+
+class InsufficientStockException(BusinessRuleViolationException):
+    """Raised when an inventory deduction request exceeds available stock (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Requested quantity exceeds available stock.",
+        code: str = "INSUFFICIENT_STOCK",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+class ProductNotFoundException(EntityNotFoundException):
+    """Raised when a requested product does not exist in inventory (HTTP 404)."""
+
+    def __init__(
+        self,
+        product_id: int,
+        code: str = "ENTITY_NOT_FOUND",
+    ) -> None:
+        self.product_id = product_id
+        super().__init__(
+            message=f"Product with ID {product_id} was not found.",
+            code=code,
+        )
+

@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.core.dependencies import _user_repository, transaction_manager
 from app.main import app
+from app.repositories.product_repository import clear_product_locks
 from app.repositories.user_repository import UserRepositoryProtocol
 from app.routers.user_router import get_user_repository
 from app.services.notification_service import clear_notification_service
@@ -28,6 +29,7 @@ def _clean_database() -> None:
                 with sqlite3.connect(db_path) as conn:
                     conn.execute("DELETE FROM posts")
                     conn.execute("DELETE FROM users")
+                    conn.execute("DELETE FROM products")
                     conn.commit()
             except sqlite3.OperationalError:
                 pass
@@ -37,6 +39,7 @@ def _clean_database() -> None:
 def clean_repo() -> Generator[UserRepositoryProtocol]:
     """Autouse fixture ensuring clean, isolated repository, transaction, and background task state."""
     _user_repository.clear()
+    clear_product_locks()
     _clean_database()
     transaction_manager.clear()
     clear_notification_service()
@@ -45,6 +48,7 @@ def clean_repo() -> Generator[UserRepositoryProtocol]:
     yield _user_repository
     app.dependency_overrides.pop(get_user_repository, None)
     _user_repository.clear()
+    clear_product_locks()
     _clean_database()
     transaction_manager.clear()
     clear_notification_service()

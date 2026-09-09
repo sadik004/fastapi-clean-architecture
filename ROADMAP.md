@@ -58,7 +58,7 @@ Tracking Legend:
 - [x] **Day 37**: Distributed Sliding Window Log Rate Limiter using Redis ZSET & Atomic Pipelines
 - [x] **Day 38**: Token Bucket Rate Limiting Architecture with Atomic Redis Lua Scripts
 - [x] **Day 39**: Optimistic Concurrency Control (OCC) Architecture with Row Versioning
-- [ ] **Day 40**: Many-to-Many Association Tables & Efficient Junction Queries
+- [x] **Day 40**: Pessimistic Locking Architecture (Inventory Stock Blocking via SQLAlchemy with_for_update)
 - [ ] **Day 41**: Database Transactions, Unit of Work Pattern & Rollback Safety
 - [ ] **Day 42**: Soft Deletes vs Hard Deletes with Query Filters
 - [ ] **Day 43**: Keyset Pagination (Cursor) vs Offset Pagination Performance

@@ -30,6 +30,7 @@ from app.repositories.user_repository import (
 from app.schemas.user import UserRole
 from app.services.analytics_service import AnalyticsService
 from app.services.cache_service import CacheService, get_cache_service
+from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
 from app.services.rate_limiter_service import RateLimiterService
 from app.services.user_service import (
@@ -61,6 +62,13 @@ def get_user_repository(
 def get_uow() -> UnitOfWorkProtocol:
     """Dependency provider for UnitOfWorkProtocol."""
     return SqlAlchemyUnitOfWork()
+
+
+def get_inventory_service(
+    uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
+) -> InventoryService:
+    """Dependency provider yielding an active InventoryService instance."""
+    return InventoryService(uow=uow)
 
 
 def get_user_service(

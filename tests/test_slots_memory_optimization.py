@@ -31,6 +31,7 @@ class UnslottedUserEntity:
     password_hash: str
     is_active: bool
     created_at: datetime
+    version: int = 1
     age: int | None = None
     role: str = "user"
     full_name: str | None = None
@@ -200,9 +201,9 @@ def test_mathematical_memory_reduction_benchmark() -> None:
     assert metrics["has_dict_slotted"] is False
 
     # Per-instance memory savings under PEP 412 split-table dictionaries:
-    # In CPython 3.13, slotted instances save > 40% per instance (128 bytes vs 216 bytes).
-    assert metrics["instance_savings_pct"] >= 40.0, (
-        f"Expected >= 40% split-table instance savings, got {metrics['instance_savings_pct']}%"
+    # In CPython 3.13, slotted instances with 13 fields save ~39%+ per instance (136 bytes vs 224 bytes).
+    assert metrics["instance_savings_pct"] >= 38.0, (
+        f"Expected >= 38% split-table instance savings, got {metrics['instance_savings_pct']}%"
     )
     assert metrics["slotted_instance_bytes"] < metrics["unslotted_instance_bytes"]
 

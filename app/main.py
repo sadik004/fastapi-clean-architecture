@@ -32,6 +32,7 @@ from app.repositories.user_repository import SqlAlchemyUserRepository
 from app.routers.job_router import router as job_router
 from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
+from app.routers.product_router import router as product_router
 from app.routers.user_router import router as user_router
 from app.services.user_service import seed_user_bloom_filter
 
@@ -82,6 +83,7 @@ app.include_router(user_router)
 app.include_router(job_router)
 app.include_router(metrics_router)
 app.include_router(leaderboard_router)
+app.include_router(product_router)
 
 
 @app.get("/health", tags=["Health"])
