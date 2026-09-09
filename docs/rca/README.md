@@ -41,6 +41,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 32** | [TestClient Event Loop Affinity & Method Assignment Narrowing](day-32_event_loop_cross_binding_in_testclient_and_cache_aside_resilience.md) | Eliminated `Queue is bound to a different event loop` via `AsyncClient` loop unification; replaced `# type: ignore` with `monkeypatch.setattr`; validated graceful cache fallback. |
 | **Day 33** | [Schema Alignment, Write DB Bypass & Admin Auth Seeding](day-33_write_patterns_schema_alignment_and_admin_auth_seeding.md) | Prevented false cache miss tracking during write-through validation via direct repository lookup; resolved HTTP 401 via `admin_user` fixture seeding; aligned test assertions with DTO schema fields. |
 | **Day 34** | [Cache Stampede, XFetch Stochastic Bounds & Mutex Locks](day-34_cache_stampede_probabilistic_early_expiration_and_xfetch_invariants.md) | Prevented cache stampede via XFetch stochastic early expiration; resolved Bandit S311 and $\ln(0)$ singularities; eliminated early stampede race conditions via non-blocking atomic mutex locks. |
+| **Day 35** | [Bloom Filter Cache Penetration & Mock Isolation](day-35_bloom_filter_cache_penetration_and_mock_isolation.md) | Eliminated cache penetration via in-memory slotted Bloom filter with Kirsch-Mitzenmacher double hashing; isolated `AsyncMock` test doubles in dependency factory; prevented $h_2=0$ degeneracy. |
 
 ---
 
