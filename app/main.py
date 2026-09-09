@@ -31,6 +31,7 @@ from app.core.redis import (
     init_redis_pool,
 )
 from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
+from app.routers.arq_router import router as arq_router
 from app.routers.auth_router import router as auth_router
 from app.routers.document_router import router as document_router
 from app.routers.job_router import router as job_router
@@ -122,6 +123,7 @@ app.include_router(document_router)
 app.include_router(security_router)
 app.include_router(task_router)
 app.include_router(schedule_router)
+app.include_router(arq_router)
 
 
 @app.get("/health", tags=["Health"])
