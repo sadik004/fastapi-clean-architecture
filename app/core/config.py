@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     kafka_client_id: str = "fastapi-order-producer"
     kafka_producer_acks: str = "all"
     kafka_enable_idempotence: bool = True
+    kafka_consumer_group_id: str = "order-processing-group"
+    kafka_auto_offset_reset: str = "earliest"
+    kafka_max_poll_records: int = 50
 
     # JWT Cryptographic Configuration (HS256 / RS256)
     jwt_secret_key: str = "secret-key-for-jwt-signing-production-grade-32bytes"  # noqa: S105

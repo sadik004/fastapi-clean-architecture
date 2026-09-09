@@ -32,6 +32,21 @@ class RecordMetadata:
     timestamp: int
 
 
+_shared_mock_kafka_storage: dict[str, dict[int, list[tuple[int, bytes | None, bytes, int]]]] = defaultdict(
+    lambda: defaultdict(list)
+)
+
+
+def get_shared_mock_kafka_storage() -> dict[str, dict[int, list[tuple[int, bytes | None, bytes, int]]]]:
+    """Return shared in-memory topic partition logs for mock producer & consumer interoperability."""
+    return _shared_mock_kafka_storage
+
+
+def clear_shared_mock_kafka_storage() -> None:
+    """Purge all shared mock Kafka topic partition commit logs."""
+    _shared_mock_kafka_storage.clear()
+
+
 class MockAIOKafkaProducer:
     """In-memory Mock Kafka Producer accurately simulating Kafka 3.x+ append-only commit logs."""
 
@@ -45,6 +60,7 @@ class MockAIOKafkaProducer:
         max_batch_size: int = 16384,
         linger_ms: int = 10,
         partitions_per_topic: int = 3,
+        storage: dict[str, dict[int, list[tuple[int, bytes | None, bytes, int]]]] | None = None,
     ) -> None:
         self.bootstrap_servers = bootstrap_servers
         self.client_id = client_id
@@ -56,8 +72,8 @@ class MockAIOKafkaProducer:
         self.partitions_per_topic = partitions_per_topic
 
         # Storage structure: topic -> partition_id -> list of (offset, key, value, timestamp)
-        self.logs: dict[str, dict[int, list[tuple[int, bytes | None, bytes, int]]]] = defaultdict(
-            lambda: defaultdict(list)
+        self.logs: dict[str, dict[int, list[tuple[int, bytes | None, bytes, int]]]] = (
+            _shared_mock_kafka_storage if storage is None else storage
         )
         self.is_started = False
 

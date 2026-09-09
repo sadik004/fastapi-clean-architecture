@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -109,3 +110,70 @@ class KafkaPublishResponse(BaseModel):
     key: str = Field(..., description="Partition routing key used for hashing")
     timestamp: int = Field(..., description="Kafka record server timestamp (Unix ms)")
     message: str = Field(..., description="Human-readable status summary")
+
+
+class KafkaPollBatchRequest(BaseModel):
+    """Request payload to trigger controlled batch consumption."""
+
+    model_config = ConfigDict(frozen=True)
+
+    topic: str = Field(
+        default="orders.events",
+        description="Target topic to consume from",
+        examples=["orders.events"],
+    )
+    group_id: str = Field(
+        default="order-processing-group",
+        description="Logical Kafka consumer group",
+        examples=["order-processing-group"],
+    )
+    batch_size: int = Field(
+        default=10,
+        description="Maximum records to process and commit in this cycle",
+        gt=0,
+        le=100,
+        examples=[10],
+    )
+
+
+class KafkaPartitionLag(BaseModel):
+    """Partition-level consumer lag metrics."""
+
+    model_config = ConfigDict(frozen=True)
+
+    partition: int = Field(..., description="Partition index")
+    current_offset: int = Field(..., description="Last committed offset of the consumer group")
+    end_offset: int = Field(..., description="Latest log end offset (high watermark)")
+    lag: int = Field(..., description="Number of unconsumed records remaining (end_offset - current_offset)")
+
+
+class KafkaConsumerGroupStatus(BaseModel):
+    """Telemetry report describing health, partition assignment, and consumer lag."""
+
+    model_config = ConfigDict(frozen=True)
+
+    group_id: str = Field(..., description="Consumer group identifier")
+    topic: str = Field(..., description="Inspected topic")
+    state: str = Field(default="STABLE", description="Consumer group rebalance state")
+    assigned_partitions: list[int] = Field(..., description="List of partition indices currently assigned")
+    partitions: list[KafkaPartitionLag] = Field(..., description="Per-partition metrics and lag breakdown")
+    total_lag: int = Field(..., description="Sum of unconsumed records across all assigned partitions")
+
+
+class KafkaPollBatchResponse(BaseModel):
+    """Result of controlled batch consumption and manual offset commit."""
+
+    model_config = ConfigDict(frozen=True)
+
+    topic: str = Field(..., description="Consumed topic")
+    group_id: str = Field(..., description="Consumer group that processed the batch")
+    records_processed: int = Field(..., description="Count of successfully processed records")
+    committed_offsets: dict[int, int] = Field(
+        ...,
+        description="Map of partition index to newly committed offset",
+    )
+    events: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of deserialized event payloads",
+    )
+    message: str = Field(default="Batch processed and offsets committed successfully")

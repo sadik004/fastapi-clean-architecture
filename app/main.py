@@ -38,6 +38,7 @@ from app.routers.auth_router import router as auth_router
 from app.routers.broker_router import router as broker_router
 from app.routers.document_router import router as document_router
 from app.routers.job_router import router as job_router
+from app.routers.kafka_consumer_router import router as kafka_consumer_router
 from app.routers.kafka_router import router as kafka_router
 from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
@@ -138,6 +139,7 @@ app.include_router(schedule_router)
 app.include_router(arq_router)
 app.include_router(broker_router)
 app.include_router(kafka_router)
+app.include_router(kafka_consumer_router)
 
 
 @app.get("/health", tags=["Health"])
