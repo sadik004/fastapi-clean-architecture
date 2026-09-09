@@ -40,6 +40,8 @@
 - `tests/test_cache_aside.py`: 6 automated tests covering Cache Miss, Cache Hit, Update Invalidation, Delete Invalidation, Graceful Fallback on Redis Failure, and HTTP Metrics Endpoint.
 - `docs/days_bn/day-32.md`: 10-part comprehensive pedagogical guide in 100% Bengali.
 - `docs/days_bn/README.md`: Bengali curriculum catalog updated with Day 32 entry.
+- `docs/rca/day-32_event_loop_cross_binding_in_testclient_and_cache_aside_resilience.md`: Root cause analysis on TestClient asyncio loop collisions and type-safe monkeypatching.
+- `docs/rca/README.md`: Updated RCA directory with Day 32 entry.
 - `.agents/skills/fastapi-production/SKILL.md`: Codified Cache-Aside Good Patterns vs Bad Patterns.
 
 ---

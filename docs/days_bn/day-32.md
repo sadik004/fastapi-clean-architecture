@@ -79,6 +79,12 @@
 3. **ক্যাশে মেমোরি ব্লাস্ট ও OOM ক্র্যাশ**:
    - TTL ছাড়া ক্যাশ করলে কোটি কোটি নিষ্ক্রিয় ইউজারের অবজেক্ট রেডিসে জমে থাকত, যার ফলে রেডিস মেমোরি লিমিট ছাড়িয়ে সার্ভার ক্র্যাশ করত।
 
+### বাস্তব ঘটনার RCA: টেস্টক্লায়েন্টে ইভেন্ট লুপ বাইন্ডিং ও গ্রেসফুল ফলব্যাকের প্রমাণ
+- **ইনসিডেন্ট**: সিনক্রোনাস `TestClient`-এ `asyncio.run(cache_service.reset_metrics())` কল করার কারণে FakeRedis-এর কিউ অন্য ইভেন্ট লুপে আটকে গিয়েছিল (`Queue is bound to a different event loop`)।
+- **গ্রেসফুল ফলব্যাক**: যেহেতু আমাদের `UserService`-এ `try...except` ফলব্যাক ছিল, অ্যাপ্লিকেশন ক্র্যাশ করেনি বরং নিরাপদে ডেটাবেসে চলে গিয়েছিল।
+- **স্থায়ী সমাধান**: টেস্ট ক্লায়েন্টকে সরাসরি `httpx.AsyncClient(transport=ASGITransport(app=app))` দিয়ে অ্যাসিনক্রোনাস লুপের অধীনে আনা হয়েছে এবং `repo_spy` অ্যাসাইনমেন্টকে টাইপ-সেফ `monkeypatch.setattr` দিয়ে সমাধান করা হয়েছে।
+- **বিস্তারিত RCA লগ**: [`docs/rca/day-32_event_loop_cross_binding_in_testclient_and_cache_aside_resilience.md`](../rca/day-32_event_loop_cross_binding_in_testclient_and_cache_aside_resilience.md) ফাইলে বিস্তারিত লিপিবদ্ধ করা হয়েছে।
+
 ---
 
 ## ৭. আমাদের প্রজেক্টের আসল কোড ও কোডের লাইন-বাই-লাইন সহজ ব্যাখ্যা

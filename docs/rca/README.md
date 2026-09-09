@@ -38,6 +38,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 29** | [Static Type Backpressure & AST Compliance](day-29_static_type_backpressure_and_ast_compliance_guard.md) | Eliminated read-only frozen Settings mutation via safe dynamic reflection without `# type: ignore`; enforced AST compliance and zero `print()` statements. |
 | **Day 30** | [Skill File Drift & Architecture Consolidation](day-30_skill_file_drift_and_architectural_baseline_consolidation.md) | Sealed Month 1 foundation codex (`fastapi-core`) to prevent architectural drift; codified 10 commandments and 84 anti-patterns under milestone tag `v1.0.0-month1-core`. |
 | **Day 31** | [Redis Subscriptability Collision & Connection Pool Draining](day-31_redis_runtime_subscriptability_and_connection_pool_lifecycle.md) | Resolved Python 3.13 FastAPI `eval_str=True` reflection collision on non-generic `Redis` class; implemented defensive multi-version socket draining across `redis-py` 4.x/5.x. |
+| **Day 32** | [TestClient Event Loop Affinity & Method Assignment Narrowing](day-32_event_loop_cross_binding_in_testclient_and_cache_aside_resilience.md) | Eliminated `Queue is bound to a different event loop` via `AsyncClient` loop unification; replaced `# type: ignore` with `monkeypatch.setattr`; validated graceful cache fallback. |
 
 ---
 
