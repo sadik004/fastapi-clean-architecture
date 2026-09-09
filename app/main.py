@@ -23,6 +23,7 @@ from app.core.database import (
 )
 from app.core.dependencies import RateLimitGuard, TokenBucketGuard
 from app.core.exception_handlers import register_exception_handlers
+from app.core.kafka import close_kafka_producer, init_kafka_producer
 from app.core.middleware import CustomSecurityAndObservabilityMiddleware
 from app.core.rabbitmq import close_rabbitmq, init_rabbitmq
 from app.core.redis import (
@@ -37,6 +38,7 @@ from app.routers.auth_router import router as auth_router
 from app.routers.broker_router import router as broker_router
 from app.routers.document_router import router as document_router
 from app.routers.job_router import router as job_router
+from app.routers.kafka_router import router as kafka_router
 from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
 from app.routers.order_router import router as order_router
@@ -60,7 +62,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
       - Initializes async Redis connection pool and verifies connectivity.
       - Seeds in-memory Bloom Filter with existing user IDs to prevent cache penetration.
       - Initializes RabbitMQ AMQP 0-9-1 connection and channel.
+      - Initializes Apache Kafka event streaming producer.
     Shutdown:
+      - Gracefully closes Kafka producer and flushes pending record batches.
       - Gracefully closes RabbitMQ connection and channel.
       - Gracefully closes Redis connection pool and releases socket descriptors.
       - Closes and disposes the async database engine to release all pooled socket connections.
@@ -69,6 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         await conn.scalar(select(1))
     await init_redis_pool()
     await init_rabbitmq()
+    await init_kafka_producer()
 
     # Seed User Bloom Filter from persistent database repository
     async with async_session_factory() as session:
@@ -76,6 +81,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         await seed_user_bloom_filter(repo)
 
     yield
+    await close_kafka_producer()
     await close_rabbitmq()
     await close_redis_pool()
     await engine.dispose()
@@ -131,6 +137,7 @@ app.include_router(task_router)
 app.include_router(schedule_router)
 app.include_router(arq_router)
 app.include_router(broker_router)
+app.include_router(kafka_router)
 
 
 @app.get("/health", tags=["Health"])

@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     rabbitmq_pool_size: int = 10
 
+    # Apache Kafka Configuration (aiokafka Event Streaming)
+    kafka_bootstrap_servers: str = "localhost:9092"
+    kafka_client_id: str = "fastapi-order-producer"
+    kafka_producer_acks: str = "all"
+    kafka_enable_idempotence: bool = True
+
     # JWT Cryptographic Configuration (HS256 / RS256)
     jwt_secret_key: str = "secret-key-for-jwt-signing-production-grade-32bytes"  # noqa: S105
     jwt_algorithm: str = "HS256"
