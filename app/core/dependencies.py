@@ -29,6 +29,7 @@ from app.repositories.user_repository import (
 from app.schemas.user import UserRole
 from app.services.analytics_service import AnalyticsService
 from app.services.cache_service import CacheService, get_cache_service
+from app.services.leaderboard_service import LeaderboardService
 from app.services.user_service import (
     UserService,
 )
@@ -82,6 +83,13 @@ def get_analytics_service(
 ) -> AnalyticsService:
     """Dependency provider yielding an active AnalyticsService instance."""
     return AnalyticsService(redis_client=redis_client, repository=repo)
+
+
+def get_leaderboard_service(
+    cache_service: Annotated[CacheService, Depends(get_cache_service)],
+) -> LeaderboardService:
+    """Dependency provider yielding an active LeaderboardService instance."""
+    return LeaderboardService(cache_service=cache_service)
 
 
 async def get_current_user(

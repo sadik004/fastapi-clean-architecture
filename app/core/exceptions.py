@@ -92,3 +92,20 @@ class UserNotFoundException(EntityNotFoundException):
         else:
             message = "User was not found."
         super().__init__(message=message, code=code)
+
+
+class PlayerNotFoundException(EntityNotFoundException):
+    """Raised when a player is not found on a specific leaderboard."""
+
+    def __init__(
+        self,
+        player_id: str,
+        leaderboard_id: str,
+        code: str = "PLAYER_NOT_FOUND",
+    ) -> None:
+        self.player_id = player_id
+        self.leaderboard_id = leaderboard_id
+        super().__init__(
+            message=f"Player '{player_id}' is not present on leaderboard '{leaderboard_id}'.",
+            code=code,
+        )

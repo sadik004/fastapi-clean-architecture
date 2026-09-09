@@ -54,7 +54,7 @@ Tracking Legend:
 - [x] **Day 33**: Advanced Caching Architectures (Write-Through & Write-Behind / Write-Back Patterns)
 - [x] **Day 34**: Cache Stampede (Thundering Herd) Prevention via Probabilistic Early Expiration (XFetch Algorithm)
 - [x] **Day 35**: Bloom Filter Architecture to Prevent Cache Penetration (Probabilistic Membership Testing)
-- [ ] **Day 36**: One-to-Many & Many-to-One Relationships with Async Loading
+- [x] **Day 36**: Real-Time Leaderboard Service Architecture using Redis Sorted Sets (ZSET)
 - [ ] **Day 37**: Database Indexing Strategies & Query Execution Plan Analysis (`EXPLAIN ANALYZE`)
 - [ ] **Day 38**: Many-to-Many Association Tables & Efficient Junction Queries
 - [ ] **Day 39**: Database Transactions, Unit of Work Pattern & Rollback Safety

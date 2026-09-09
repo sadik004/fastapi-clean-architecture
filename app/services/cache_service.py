@@ -29,6 +29,7 @@ class CacheService:
       - Strings with TTL (Time-To-Live) and Atomic Counters
       - Hashes (Key-Value Field Dictionaries)
       - Lists (Double-Ended Queues / Buffers)
+      - Sorted Sets (ZSET - Real-Time Rankings & Leaderboards)
     """
 
     def __init__(self, redis_client: Redis) -> None:
@@ -147,6 +148,67 @@ class CacheService:
         Complexity: O(1) time complexity.
         """
         return bool(await self._redis.exists(key))
+
+    # -------------------------------------------------------------------------
+    # 4. Sorted Set (ZSET) Operations
+    # -------------------------------------------------------------------------
+
+    async def zadd(self, key: str, mapping: Mapping[str, float]) -> int:
+        """Add one or more members with scores to a sorted set, or update scores.
+
+        Complexity: O(M * log(N)) where M is members added and N is total elements.
+        """
+        if not mapping:
+            return 0
+        return int(await self._redis.zadd(name=key, mapping=mapping))
+
+    async def zincrby(self, key: str, amount: float, member: str) -> float:
+        """Atomically increment the score of member in a sorted set by amount.
+
+        Complexity: O(log(N)) time complexity.
+        """
+        result = await self._redis.zincrby(name=key, amount=amount, value=member)
+        return float(result)
+
+    async def zrevrank(self, key: str, member: str) -> int | None:
+        """Return the 0-based rank of member ordered from highest score to lowest.
+
+        Complexity: O(log(N)) time complexity.
+        """
+        rank = await self._redis.zrevrank(name=key, value=member)
+        return int(rank) if rank is not None else None
+
+    async def zscore(self, key: str, member: str) -> float | None:
+        """Return the score of member in the sorted set.
+
+        Complexity: O(1) time complexity via internal hash map.
+        """
+        score = await self._redis.zscore(name=key, value=member)
+        return float(score) if score is not None else None
+
+    async def zrevrange_with_scores(self, key: str, start: int, stop: int) -> list[tuple[str, float]]:
+        """Return a slice of members and their scores ordered from highest to lowest.
+
+        Complexity: O(log(N) + M) where M is the number of elements returned.
+        """
+        results = await self._redis.zrevrange(name=key, start=start, end=stop, withscores=True)
+        return [(str(m) if not isinstance(m, str) else m, float(s)) for m, s in results]
+
+    async def zrem(self, key: str, *members: str) -> int:
+        """Remove one or more members from a sorted set.
+
+        Complexity: O(M * log(N)) where M is the number of members removed.
+        """
+        if not members:
+            return 0
+        return int(await self._redis.zrem(key, *members))
+
+    async def zcard(self, key: str) -> int:
+        """Return the cardinality (number of members) of the sorted set.
+
+        Complexity: O(1) time complexity.
+        """
+        return int(await self._redis.zcard(name=key))
 
     # -------------------------------------------------------------------------
     # Telemetry Operations
