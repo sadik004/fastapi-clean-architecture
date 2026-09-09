@@ -269,6 +269,7 @@ def fake_redis() -> Generator[Any]:
 def configure_celery_eager_mode() -> Generator[None]:
     """Configure Celery to run in eager synchronous mode during tests with in-memory result backend."""
     import app.tasks.report_tasks as _report_tasks  # noqa: F401 (register Celery task definitions)
+    import app.tasks.scheduled_tasks as _scheduled_tasks  # noqa: F401
     from app.core.celery_app import celery_app
 
     original_eager = celery_app.conf.task_always_eager

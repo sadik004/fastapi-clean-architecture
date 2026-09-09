@@ -39,6 +39,7 @@ from app.routers.metrics_router import router as metrics_router
 from app.routers.order_router import router as order_router
 from app.routers.payment_router import router as payment_router
 from app.routers.product_router import router as product_router
+from app.routers.schedule_router import router as schedule_router
 from app.routers.security_router import router as security_router
 from app.routers.task_router import router as task_router
 from app.routers.user_router import router as user_router
@@ -120,6 +121,7 @@ app.include_router(payment_router)
 app.include_router(document_router)
 app.include_router(security_router)
 app.include_router(task_router)
+app.include_router(schedule_router)
 
 
 @app.get("/health", tags=["Health"])
