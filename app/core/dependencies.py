@@ -45,6 +45,7 @@ from app.services.cache_service import CacheService, get_cache_service
 from app.services.document_service import DocumentService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
+from app.services.order_service import OrderService
 from app.services.rate_limiter_service import RateLimiterService
 from app.services.user_service import (
     UserService,
@@ -82,6 +83,13 @@ def get_inventory_service(
 ) -> InventoryService:
     """Dependency provider yielding an active InventoryService instance."""
     return InventoryService(uow=uow)
+
+
+def get_order_service(
+    uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
+) -> OrderService:
+    """Dependency provider yielding an active OrderService instance."""
+    return OrderService(uow=uow)
 
 
 def get_user_service(

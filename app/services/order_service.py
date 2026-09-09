@@ -1,0 +1,61 @@
+"""Order domain service orchestrating order creation with UUIDv7 and O(1) timestamp extraction."""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import Sequence
+from datetime import datetime
+
+from app.core.exceptions import OrderNotFoundException, UserNotFoundException
+from app.core.identifiers import extract_timestamp_from_uuidv7
+from app.core.unit_of_work import UnitOfWorkProtocol
+from app.repositories.order_repository import OrderEntity
+
+
+class OrderService:
+    """Business service governing order transactions with B-tree optimized UUIDv7 identifiers."""
+
+    def __init__(self, uow: UnitOfWorkProtocol) -> None:
+        self._uow = uow
+
+    async def create_order(
+        self,
+        user_id: int,
+        total_amount: float,
+        status: str = "pending",
+        order_id: uuid.UUID | None = None,
+    ) -> OrderEntity:
+        """Create and persist a new order within an atomic Unit of Work transaction.
+
+        Verifies that the ordering user exists before creating the order.
+        """
+        async with self._uow as uow:
+            user = await uow.users.get_by_id(user_id)
+            if user is None:
+                raise UserNotFoundException(user_id=user_id)
+
+            order = await uow.orders.create(
+                user_id=user_id,
+                total_amount=total_amount,
+                status=status,
+                order_id=order_id,
+            )
+            await uow.commit()
+            return order
+
+    async def get_order_by_id(self, order_id: uuid.UUID) -> OrderEntity:
+        """Fetch order details by UUIDv7 primary key."""
+        async with self._uow as uow:
+            order = await uow.orders.get_by_id(order_id)
+            if order is None:
+                raise OrderNotFoundException(order_id=str(order_id))
+            return order
+
+    async def list_orders_by_user(self, user_id: int, limit: int = 100, offset: int = 0) -> Sequence[OrderEntity]:
+        """List user orders sorted by B-Tree monotonic primary key."""
+        async with self._uow as uow:
+            return await uow.orders.list_by_user_id(user_id=user_id, limit=limit, offset=offset)
+
+    def extract_order_timestamp(self, order_id: uuid.UUID) -> datetime:
+        """Extract creation UTC timestamp directly from UUIDv7 bits in strictly O(1) time."""
+        return extract_timestamp_from_uuidv7(order_id)

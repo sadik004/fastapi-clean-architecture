@@ -36,6 +36,7 @@ from app.routers.document_router import router as document_router
 from app.routers.job_router import router as job_router
 from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
+from app.routers.order_router import router as order_router
 from app.routers.payment_router import router as payment_router
 from app.routers.product_router import router as product_router
 from app.routers.security_router import router as security_router
@@ -113,6 +114,7 @@ app.include_router(job_router)
 app.include_router(metrics_router)
 app.include_router(leaderboard_router)
 app.include_router(product_router)
+app.include_router(order_router)
 app.include_router(payment_router)
 app.include_router(document_router)
 app.include_router(security_router)

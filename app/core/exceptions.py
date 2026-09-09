@@ -206,3 +206,18 @@ class ProductNotFoundException(EntityNotFoundException):
             code=code,
         )
 
+
+class OrderNotFoundException(EntityNotFoundException):
+    """Raised when a requested order does not exist in persistence (HTTP 404)."""
+
+    def __init__(
+        self,
+        order_id: str,
+        code: str = "ORDER_NOT_FOUND",
+    ) -> None:
+        self.order_id = order_id
+        super().__init__(
+            message=f"Order with ID '{order_id}' was not found.",
+            code=code,
+        )
+

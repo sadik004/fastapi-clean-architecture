@@ -79,7 +79,27 @@ async def test_migration_bidirectional_reversibility() -> None:
     # Ensure current head is applied
     apply_migrations(revision="head")
 
-    # Roll back by 1 revision (permissions column dropped, products, version, posts & users remain)
+    # Roll back by 1 revision (orders table dropped, permissions, products, version, posts & users remain)
+    rollback_migration(revision="-1")
+
+    # Verify orders table was dropped while permissions, products, users, posts, and version column remain
+    async with engine.connect() as conn:
+
+        def check_after_rollback_orders(sync_conn: Connection) -> tuple[list[str], list[str]]:
+            insp = inspect(sync_conn)
+            tbls = insp.get_table_names()
+            cols = [c["name"] for c in insp.get_columns("users")] if "users" in tbls else []
+            return tbls, cols
+
+        tables_after_orders, user_cols_after_orders = await conn.run_sync(check_after_rollback_orders)
+        assert "orders" not in tables_after_orders
+        assert "products" in tables_after_orders
+        assert "users" in tables_after_orders
+        assert "posts" in tables_after_orders
+        assert "version" in user_cols_after_orders
+        assert "permissions" in user_cols_after_orders
+
+    # Roll back by another 1 revision (permissions column dropped from users)
     rollback_migration(revision="-1")
 
     # Verify permissions column was dropped while products, users, posts, and version column remain
@@ -147,11 +167,12 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "users" not in tables_after_rollback_base
         assert "posts" not in tables_after_rollback_base
         assert "products" not in tables_after_rollback_base
+        assert "orders" not in tables_after_rollback_base
 
     # Re-apply migrations to head
     apply_migrations(revision="head")
 
-    # Verify all tables, version column, permissions, and products table were successfully restored
+    # Verify all tables, version column, permissions, products table, and orders were successfully restored
     async with engine.connect() as conn:
 
         def check_after_reupgrade(sync_conn: Connection) -> tuple[list[str], list[str]]:
@@ -164,6 +185,7 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "users" in tables_after_reupgrade
         assert "posts" in tables_after_reupgrade
         assert "products" in tables_after_reupgrade
+        assert "orders" in tables_after_reupgrade
         assert "version" in user_cols_after_reupgrade
         assert "permissions" in user_cols_after_reupgrade
 
