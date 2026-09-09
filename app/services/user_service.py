@@ -10,6 +10,8 @@ from typing import Any
 from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.search_algorithms import binary_search_range, two_pointer_pair_search
 from app.core.dsa.trie import PrefixTrie
+from app.core.event_bus import EventDispatcher, get_event_dispatcher
+from app.core.events import UserRegisteredEvent
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.core.security import hash_password_async, needs_rehash, verify_password_async
 from app.core.unit_of_work import UnitOfWorkProtocol
@@ -61,12 +63,14 @@ class UserService:
         trie: PrefixTrie | None = None,
         cache_service: CacheService | None = None,
         bloom_filter: BloomFilter | None = None,
+        event_dispatcher: EventDispatcher | None = None,
     ) -> None:
         self._repo = repository
         self._uow = uow
         self._trie = trie if trie is not None else get_user_search_trie()
         self._cache = cache_service
         self._bloom = bloom_filter
+        self._event_dispatcher = event_dispatcher if event_dispatcher is not None else get_event_dispatcher()
 
     def _index_user_in_trie(self, user: UserEntity) -> None:
         """Index user username and full_name into PrefixTrie."""
@@ -117,6 +121,16 @@ class UserService:
         self._index_user_in_trie(created_user)
         if self._bloom is not None:
             self._bloom.add(created_user.id)
+
+        # Emit domain event for decoupled side-effects (welcome email, audit log, analytics)
+        if self._event_dispatcher is not None:
+            event = UserRegisteredEvent(
+                user_id=created_user.id,
+                email=created_user.email,
+                username=created_user.username,
+            )
+            await self._event_dispatcher.publish(event)
+
         return created_user
 
     async def update_user_permissions(self, user_id: int, permissions: int) -> UserEntity:

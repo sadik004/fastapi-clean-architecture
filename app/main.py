@@ -32,6 +32,7 @@ from app.core.redis import (
     get_redis_pool_status,
     init_redis_pool,
 )
+from app.events.handlers import register_default_event_handlers
 from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.routers.arq_router import router as arq_router
 from app.routers.auth_router import router as auth_router
@@ -76,6 +77,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await init_redis_pool()
     await init_rabbitmq()
     await init_kafka_producer()
+    register_default_event_handlers()
 
     # Seed User Bloom Filter from persistent database repository
     async with async_session_factory() as session:
