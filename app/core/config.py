@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     redis_pool_size: int = 20
     redis_timeout: float = 2.0
 
+    # JWT Cryptographic Configuration (HS256 / RS256)
+    jwt_secret_key: str = "secret-key-for-jwt-signing-production-grade-32bytes"  # noqa: S105
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 15
+    jwt_refresh_token_expire_days: int = 7
+    jwt_private_key: str | None = None
+    jwt_public_key: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

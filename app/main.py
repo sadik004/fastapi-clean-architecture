@@ -29,6 +29,7 @@ from app.core.redis import (
     init_redis_pool,
 )
 from app.repositories.user_repository import SqlAlchemyUserRepository
+from app.routers.auth_router import router as auth_router
 from app.routers.job_router import router as job_router
 from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
@@ -80,6 +81,7 @@ register_exception_handlers(app)
 app.add_middleware(CustomSecurityAndObservabilityMiddleware)
 
 # Mount feature routers
+app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(job_router)
 app.include_router(metrics_router)

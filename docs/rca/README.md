@@ -50,6 +50,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 41** | [Distributed Lock DEL Hijacking & Mandatory TTL](day-41_distributed_locking_token_validation_race_and_ttl_fencing.md) | Eliminated lock hijacking via canonical atomic Lua release script with token ownership check; enforced mandatory millisecond TTL (`PX`) on `DistributedLock` to guarantee zero permanent deadlocks. |
 | **Day 42** | [Idempotency Key Tampering & In-Flight Concurrency](day-42_idempotency_key_payload_tampering_and_in_flight_concurrency.md) | Eliminated duplicate debits via Stripe/PayPal idempotency standard; guarded payload tampering via SHA-256 (HTTP 422); resolved in-flight concurrency races (HTTP 409) and bounded Redis memory via 24h TTL. |
 | **Day 43** | [Argon2id Event Loop Starvation & GPU Brute-Force Immunity](day-43_argon2id_event_loop_starvation_and_gpu_brute_force_immunity.md) | Eliminated GPU/ASIC brute-force cracking via OWASP Argon2id memory-hard KDF ($m=64\text{MB}, t=3, p=4$); eliminated event loop starvation and liveness probe drops by offloading CPU-bound crypto to worker threads via `asyncio.to_thread`; automated transparent database rehash on login. |
+| **Day 44** | [Header Default Invariant & AsyncClient Loop Isolation](day-44_jwt_stateless_auth_header_default_assertion_and_async_client_event_loop.md) | Resolved FastAPI `Annotated[Header]` compilation assertion by removing redundant default inside `Header()`; eliminated async `fake_redis` cross-loop `Queue` crash by replacing `TestClient` with `httpx.AsyncClient`. |
 
 ---
 

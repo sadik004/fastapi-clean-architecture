@@ -20,6 +20,7 @@ from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.core.exceptions import UserNotFoundException
 from app.core.redis import get_redis
+from app.core.security import decode_jwt_token
 from app.core.unit_of_work import SqlAlchemyUnitOfWork, UnitOfWorkProtocol
 from app.repositories.user_repository import (
     InMemoryUserRepository,
@@ -27,8 +28,10 @@ from app.repositories.user_repository import (
     UserEntity,
     UserRepositoryProtocol,
 )
+from app.schemas.auth import AuthenticatedUserResponse
 from app.schemas.user import UserRole
 from app.services.analytics_service import AnalyticsService
+from app.services.auth_service import AuthService
 from app.services.cache_service import CacheService, get_cache_service
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
@@ -85,6 +88,15 @@ def get_user_service(
         cache_service=cache_service,
         bloom_filter=effective_bloom,
     )
+
+
+def get_auth_service(
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AuthService:
+    """Dependency provider yielding an active AuthService instance."""
+    return AuthService(user_service=user_service, redis=redis, settings=settings)
 
 
 def get_analytics_service(
@@ -158,6 +170,43 @@ async def get_current_user(
         )
 
     return user
+
+
+async def get_current_authenticated_user(
+    authorization: Annotated[
+        str | None,
+        Header(
+            alias="Authorization",
+            description="Stateless Bearer JWT token header",
+        ),
+    ] = None,
+) -> AuthenticatedUserResponse:
+    """Stateless authentication guard resolving claims from Bearer JWT.
+
+    Decodes signature and validates claims in strictly O(1) time without
+    performing any database queries or network lookups.
+    """
+    if authorization is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Authorization header scheme. Expected 'Bearer <token>'",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = authorization.removeprefix("Bearer ").strip()
+    payload = decode_jwt_token(token, expected_type="access")
+
+    user_id = int(payload.get("sub", 0))
+    role = str(payload.get("role", "user"))
+
+    return AuthenticatedUserResponse(user_id=user_id, role=role)
 
 
 class RoleChecker:
