@@ -1,5 +1,7 @@
 """FastAPI Application Entrypoint."""
 
+from __future__ import annotations
+
 import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -7,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +20,12 @@ from app.core.database import (
 )
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import CustomSecurityAndObservabilityMiddleware
+from app.core.redis import (
+    close_redis_pool,
+    get_redis,
+    get_redis_pool_status,
+    init_redis_pool,
+)
 from app.routers.job_router import router as job_router
 from app.routers.metrics_router import router as metrics_router
 from app.routers.user_router import router as user_router
@@ -30,12 +39,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
       - Verifies database connectivity using non-blocking ping query (SELECT 1).
       - In production, DDL schema management is strictly delegated to version-controlled
         Alembic migrations rather than un-versioned Base.metadata.create_all().
+      - Initializes async Redis connection pool and verifies connectivity.
     Shutdown:
+      - Gracefully closes Redis connection pool and releases socket descriptors.
       - Closes and disposes the async database engine to release all pooled socket connections.
     """
     async with engine.connect() as conn:
         await conn.scalar(select(1))
+    await init_redis_pool()
     yield
+    await close_redis_pool()
     await engine.dispose()
 
 
@@ -95,6 +108,25 @@ async def db_pool_health_check() -> dict[str, Any]:
     idle checked-in connections, and overflow capacity.
     """
     return get_db_pool_status()
+
+
+@app.get("/health/redis", tags=["Health"])
+async def redis_health_check(
+    redis: Redis = Depends(get_redis),
+) -> dict[str, Any]:
+    """Redis connectivity verification endpoint executing an async ping.
+
+    Measures round-trip ping latency in milliseconds and returns connection pool status.
+    """
+    start_time = time.perf_counter()
+    await redis.ping()
+    ping_ms = round((time.perf_counter() - start_time) * 1000, 2)
+    return {
+        "status": "healthy",
+        "redis": "connected",
+        "ping_ms": ping_ms,
+        "pool": get_redis_pool_status(),
+    }
 
 
 @app.get("/test/raise-unhandled-500", include_in_schema=False)

@@ -37,6 +37,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 28** | [AsyncMock Invariants & TestClient Background Task Isolation](day-28_async_testing_mock_lifecycles_and_dependency_overrides.md) | Resolved TestClient background task error propagation via `raise_server_exceptions=False` to verify gateway resilience; enforced spec-bound `AsyncMock`; guaranteed dependency override state teardown. |
 | **Day 29** | [Static Type Backpressure & AST Compliance](day-29_static_type_backpressure_and_ast_compliance_guard.md) | Eliminated read-only frozen Settings mutation via safe dynamic reflection without `# type: ignore`; enforced AST compliance and zero `print()` statements. |
 | **Day 30** | [Skill File Drift & Architecture Consolidation](day-30_skill_file_drift_and_architectural_baseline_consolidation.md) | Sealed Month 1 foundation codex (`fastapi-core`) to prevent architectural drift; codified 10 commandments and 84 anti-patterns under milestone tag `v1.0.0-month1-core`. |
+| **Day 31** | [Redis Subscriptability Collision & Connection Pool Draining](day-31_redis_runtime_subscriptability_and_connection_pool_lifecycle.md) | Resolved Python 3.13 FastAPI `eval_str=True` reflection collision on non-generic `Redis` class; implemented defensive multi-version socket draining across `redis-py` 4.x/5.x. |
 
 ---
 

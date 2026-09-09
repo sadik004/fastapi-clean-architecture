@@ -237,3 +237,22 @@ def mock_db_session() -> AsyncMock:
     session.rollback = AsyncMock()
     session.close = AsyncMock()
     return session
+
+
+@pytest.fixture
+def fake_redis() -> Generator[Any]:
+    """Provide an isolated in-memory FakeRedis client with guaranteed teardown and dependency override."""
+    import fakeredis.aioredis
+
+    from app.core.redis import get_redis, set_redis_client_override
+
+    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    set_redis_client_override(client)
+
+    async def _override_get_redis() -> Any:
+        yield client
+
+    app.dependency_overrides[get_redis] = _override_get_redis
+    yield client
+    app.dependency_overrides.pop(get_redis, None)
+    set_redis_client_override(None)

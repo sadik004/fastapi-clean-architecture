@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     db_pool_recycle: int = 1800
     db_pool_pre_ping: bool = True
 
+    # Redis Configuration (redis.asyncio)
+    redis_url: str = "redis://localhost:6379/0"
+    redis_pool_size: int = 20
+    redis_timeout: float = 2.0
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

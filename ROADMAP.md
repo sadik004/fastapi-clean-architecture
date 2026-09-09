@@ -49,7 +49,7 @@ Tracking Legend:
 ---
 
 ## Phase 3: Relational Persistence & Query Optimization (Days 31–45)
-- [ ] **Day 31**: SQLAlchemy 2.0 Async Core & Declarative Base Models
+- [x] **Day 31**: Redis Async Basics (Connection Pooling, Strings with TTL, Hashes & Lists)
 - [ ] **Day 32**: Async Engine, Connection Pooling & Session Management
 - [ ] **Day 33**: Implementing the Repository Pattern with SQLAlchemy AsyncSession
 - [ ] **Day 34**: Database Migrations with Alembic (Setup & Auto-generation)
