@@ -20,7 +20,7 @@ from app.core.dependencies import (
     track_request_lifecycle,
     transaction_manager,
 )
-from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
+from app.core.exceptions import OptimisticLockException, UserAlreadyExistsException, UserNotFoundException
 from app.repositories.user_repository import UserEntity
 from app.schemas.metrics import UserViewResponse, UserViewsSummaryResponse
 from app.schemas.post import (
@@ -46,6 +46,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 # Re-export for backwards compatibility with existing test suites
 __all__ = [
+    "OptimisticLockException",
     "RoleChecker",
     "ScopedTransactionContext",
     "TransactionStatus",
@@ -520,3 +521,34 @@ async def get_user_by_id_xfetch(
     """Fetch user profile with XFetch probabilistic stampede defense."""
     user = await service.get_user_by_id_xfetch(user_id=user_id, beta=beta)
     return UserResponse.model_validate(user)
+
+
+@router.put(
+    "/{user_id}/optimistic",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update a user with Optimistic Concurrency Control (OCC) and row versioning",
+    description="Atomically updates entity only if expected_version matches database version, preventing lost updates.",
+)
+async def update_user_optimistic(
+    payload: UserUpdate,
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the user",
+    ),
+    expected_version: int = Query(
+        ...,
+        ge=1,
+        description="The version of the entity the client expects to mutate",
+    ),
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> UserResponse:
+    """Endpoint to update user attributes using Optimistic Concurrency Control."""
+    updated = await service.update_user_optimistic(
+        user_id=user_id,
+        expected_version=expected_version,
+        payload=payload,
+    )
+    return UserResponse.model_validate(updated)

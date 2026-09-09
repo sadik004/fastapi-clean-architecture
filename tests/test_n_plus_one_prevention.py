@@ -302,15 +302,17 @@ async def test_posts_table_schema_migration_lifecycle() -> None:
         drift = await conn.run_sync(check_drift)
         assert drift == [], f"Detected unexpected schema drift: {drift}"
 
-    # 3. Test reversibility: downgrade by 1 revision (drops posts table)
-    rollback_migration(revision="-1")
-    async with engine.connect() as conn:
-        tables_after_rollback = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
-        assert "posts" not in tables_after_rollback
-        assert "users" in tables_after_rollback
+    # 3. Test reversibility: downgrade to e25bf437c78f (drops posts table)
+    try:
+        rollback_migration(revision="e25bf437c78f")
+        async with engine.connect() as conn:
+            tables_after_rollback = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
+            assert "posts" not in tables_after_rollback
+            assert "users" in tables_after_rollback
+    finally:
+        # 4. Re-apply to head
+        apply_migrations(revision="head")
 
-    # 4. Re-apply to head
-    apply_migrations(revision="head")
     async with engine.connect() as conn:
         tables_restored = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
         assert "posts" in tables_restored

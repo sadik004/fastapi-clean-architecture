@@ -360,6 +360,7 @@ class UserResponse(UserBase):
     role: UserRole = Field(default=UserRole.USER, description="User role")
     is_active: bool = Field(default=True, description="Account active status")
     created_at: datetime = Field(..., description="Timestamp of user creation")
+    version: int = Field(default=1, description="Entity optimistic concurrency version")
 
     model_config = ConfigDict(from_attributes=True)
 

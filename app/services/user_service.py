@@ -236,6 +236,58 @@ class UserService:
 
         return updated_user
 
+    async def update_user_optimistic(
+        self,
+        user_id: int,
+        expected_version: int,
+        payload: UserUpdate,
+    ) -> UserEntity:
+        """Update user record with Optimistic Concurrency Control (OCC) and row versioning.
+
+        1. Verifies user existence.
+        2. Validates domain uniqueness constraints for email/username if modified.
+        3. Executes atomic conditional update via repository WHERE id=:id AND version=:expected_version.
+        4. Synchronizes PrefixTrie and invalidates cache.
+
+        Raises:
+            UserNotFoundException: If user does not exist.
+            UserAlreadyExistsException: If email/username is already taken.
+            OptimisticLockException: If version mismatch or concurrent mutation detected.
+        """
+        user = await self.get_user_by_id(user_id)
+
+        if payload.email is not None and payload.email != user.email:
+            existing_email_user = await self._repo.get_by_email(payload.email)
+            if existing_email_user is not None and existing_email_user.id != user_id:
+                raise UserAlreadyExistsException(f"Email '{payload.email}' is already registered.")
+
+        if payload.username is not None and payload.username != user.username:
+            existing_user = await self._repo.get_by_username(payload.username)
+            if existing_user is not None and existing_user.id != user_id:
+                raise UserAlreadyExistsException(f"Username '{payload.username}' is already taken.")
+
+        updated_user = await self._repo.update_with_optimistic_lock(
+            user_id=user_id,
+            expected_version=expected_version,
+            update_data=payload,
+        )
+
+        # Synchronize PrefixTrie indexing
+        if user.username != updated_user.username:
+            self._trie.delete(user.username)
+        if user.full_name and user.full_name != updated_user.full_name:
+            self._trie.delete(user.full_name)
+        self._index_user_in_trie(updated_user)
+
+        # Cache Invalidation: evict stale user entry from Redis
+        if self._cache is not None:
+            try:
+                await self._cache.delete(f"{CACHE_USER_PREFIX}{user_id}")
+            except Exception as exc:
+                logger.warning("Failed to evict cache key for user %s: %s", user_id, exc)
+
+        return updated_user
+
     async def update_profile(self, user_id: int, payload: UserProfileUpdate) -> UserEntity:
         """Update user profile fields (backward compatible helper)."""
         return await self.update_user(

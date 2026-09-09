@@ -12,7 +12,7 @@ Enforces:
 import sqlite3
 from datetime import UTC
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -27,6 +27,11 @@ class SqlAlchemyUserRepository:
 
     def __init__(self, session: AsyncSession) -> None:
         self._session: AsyncSession = session
+
+    @property
+    def session(self) -> AsyncSession:
+        """Expose active AsyncSession."""
+        return self._session
 
     @staticmethod
     def _to_entity(model: UserModel) -> UserEntity:
@@ -46,6 +51,7 @@ class SqlAlchemyUserRepository:
             password_hash=model.password_hash,
             is_active=model.is_active,
             created_at=created_at,
+            version=model.version,
             age=model.age,
             role=model.role,
             full_name=model.full_name,
@@ -84,6 +90,7 @@ class SqlAlchemyUserRepository:
             password_hash=base_entity.password_hash,
             is_active=base_entity.is_active,
             created_at=base_entity.created_at,
+            version=base_entity.version,
             age=base_entity.age,
             role=base_entity.role,
             full_name=base_entity.full_name,
@@ -209,6 +216,46 @@ class SqlAlchemyUserRepository:
         await self._session.flush()
         await self._session.refresh(model)
         return self._to_entity(model)
+
+    async def update_with_optimistic_lock(
+        self,
+        user_id: int,
+        expected_version: int,
+        update_data: UserUpdate,
+    ) -> UserEntity:
+        """Atomically update user record enforcing optimistic locking via row versioning.
+
+        Executes a single, atomic conditional SQL update:
+            UPDATE users SET ..., version = version + 1
+            WHERE users.id = :user_id AND users.version = :expected_version
+
+        Raises:
+            OptimisticLockException: If rowcount == 0 (stale version or concurrent mutation).
+        """
+        update_dict = update_data.model_dump(exclude_unset=True)
+        if "role" in update_dict and update_dict["role"] is not None:
+            role_val = update_dict["role"]
+            update_dict["role"] = role_val.value if hasattr(role_val, "value") else str(role_val)
+
+        stmt = (
+            update(UserModel)
+            .where(UserModel.id == user_id, UserModel.version == expected_version)
+            .values(**update_dict, version=UserModel.version + 1)
+        )
+        result = await self.session.execute(stmt)
+        if result.rowcount == 0:
+            from app.core.exceptions import OptimisticLockException
+
+            raise OptimisticLockException(
+                "Resource was modified by another transaction. Stale version detected; please refresh and retry."
+            )
+
+        await self._session.flush()
+
+        stmt_select = select(UserModel).where(UserModel.id == user_id)
+        res_select = await self._session.execute(stmt_select)
+        updated_model = res_select.scalar_one()
+        return self._to_entity(updated_model)
 
     async def delete(self, user_id: int) -> bool:
         """Delete an existing user from the database asynchronously."""

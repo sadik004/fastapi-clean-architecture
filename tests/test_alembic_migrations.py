@@ -58,6 +58,7 @@ async def test_apply_migrations_creates_users_table_and_indexes() -> None:
         assert "username" in inspection["columns"]
         assert "password_hash" in inspection["columns"]
         assert "role" in inspection["columns"]
+        assert "version" in inspection["columns"]
         assert "created_at" in inspection["columns"]
         assert "updated_at" in inspection["columns"]
 
@@ -77,14 +78,30 @@ async def test_migration_bidirectional_reversibility() -> None:
     # Ensure current head is applied
     apply_migrations(revision="head")
 
-    # Roll back by 1 revision (posts table dropped, users remains)
+    # Roll back by 1 revision (version column dropped from users, posts & users tables remain)
     rollback_migration(revision="-1")
 
-    # Verify posts table was dropped while users remains
+    # Verify version column was dropped while posts and users remain
     async with engine.connect() as conn:
-        tables_after_rollback_1 = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
-        assert "posts" not in tables_after_rollback_1
-        assert "users" in tables_after_rollback_1
+
+        def check_after_rollback_1(sync_conn: Connection) -> tuple[list[str], list[str]]:
+            insp = inspect(sync_conn)
+            tbls = insp.get_table_names()
+            cols = [c["name"] for c in insp.get_columns("users")] if "users" in tbls else []
+            return tbls, cols
+
+        tables_after_1, user_cols_after_1 = await conn.run_sync(check_after_rollback_1)
+        assert "users" in tables_after_1
+        assert "posts" in tables_after_1
+        assert "version" not in user_cols_after_1
+
+    # Roll back to e25bf437c78f (posts table dropped, users remains)
+    rollback_migration(revision="e25bf437c78f")
+
+    async with engine.connect() as conn:
+        tables_after_rollback_posts = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
+        assert "posts" not in tables_after_rollback_posts
+        assert "users" in tables_after_rollback_posts
 
     # Roll back to base (all tables dropped)
     rollback_migration(revision="base")
@@ -97,11 +114,19 @@ async def test_migration_bidirectional_reversibility() -> None:
     # Re-apply migrations to head
     apply_migrations(revision="head")
 
-    # Verify both tables were successfully restored
+    # Verify both tables and version column were successfully restored
     async with engine.connect() as conn:
-        tables_after_reupgrade = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
+
+        def check_after_reupgrade(sync_conn: Connection) -> tuple[list[str], list[str]]:
+            insp = inspect(sync_conn)
+            tbls = insp.get_table_names()
+            cols = [c["name"] for c in insp.get_columns("users")] if "users" in tbls else []
+            return tbls, cols
+
+        tables_after_reupgrade, user_cols_after_reupgrade = await conn.run_sync(check_after_reupgrade)
         assert "users" in tables_after_reupgrade
         assert "posts" in tables_after_reupgrade
+        assert "version" in user_cols_after_reupgrade
 
 
 # ============================================================================

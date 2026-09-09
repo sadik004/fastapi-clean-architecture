@@ -74,6 +74,17 @@ class UserAlreadyExistsException(EntityConflictException):
         super().__init__(message=message, code=code)
 
 
+class OptimisticLockException(EntityConflictException):
+    """Raised when an update fails due to a version mismatch in optimistic concurrency control."""
+
+    def __init__(
+        self,
+        message: str = "Resource was modified by another transaction. Stale version detected; please refresh and retry.",
+        code: str = "CONCURRENCY_CONFLICT",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
 class UserNotFoundException(EntityNotFoundException):
     """Raised when a requested user entity does not exist."""
 

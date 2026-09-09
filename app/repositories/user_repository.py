@@ -15,6 +15,7 @@ class UserEntity:
     password_hash: str
     is_active: bool
     created_at: datetime
+    version: int = 1
     age: int | None = None
     role: str = "user"
     full_name: str | None = None
@@ -74,6 +75,15 @@ class UserRepositoryProtocol(Protocol):
         update_data: Any | None = None,
     ) -> UserEntity | None:
         """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
+        ...
+
+    async def update_with_optimistic_lock(
+        self,
+        user_id: int,
+        expected_version: int,
+        update_data: Any,
+    ) -> UserEntity:
+        """Atomically update a user entity with optimistic locking and row versioning."""
         ...
 
     async def delete(self, user_id: int) -> bool:
@@ -239,6 +249,55 @@ class InMemoryUserRepository:
         if company_name is not None:
             user.company_name = company_name
 
+        return user
+
+    async def update_with_optimistic_lock(
+        self,
+        user_id: int,
+        expected_version: int,
+        update_data: Any,
+    ) -> UserEntity:
+        """Atomically update a user entity verifying expected version in O(1) time.
+
+        Raises:
+            OptimisticLockException: If entity is missing or expected_version does not match current version.
+        """
+        user = self._store.get(user_id)
+        if user is None or user.version != expected_version:
+            from app.core.exceptions import OptimisticLockException
+
+            raise OptimisticLockException(
+                "Resource was modified by another transaction. Stale version detected; please refresh and retry."
+            )
+
+        data = (
+            update_data.model_dump(exclude_unset=True)
+            if hasattr(update_data, "model_dump")
+            else dict(update_data)
+        )
+        if "email" in data and data["email"] != user.email:
+            self._email_index.pop(user.email, None)
+            self._email_index[data["email"]] = user.id
+            user.email = data["email"]
+        if "username" in data and data["username"] != user.username:
+            self._username_index.pop(user.username, None)
+            self._username_index[data["username"]] = user.id
+            user.username = data["username"]
+        if "age" in data:
+            user.age = data["age"]
+        if "role" in data:
+            role_val = data["role"]
+            user.role = role_val.value if hasattr(role_val, "value") else str(role_val)
+        if "full_name" in data:
+            user.full_name = data["full_name"]
+        if "phone_number" in data:
+            user.phone_number = data["phone_number"]
+        if "bio" in data:
+            user.bio = data["bio"]
+        if "company_name" in data:
+            user.company_name = data["company_name"]
+
+        user.version += 1
         return user
 
     async def delete(self, user_id: int) -> bool:
