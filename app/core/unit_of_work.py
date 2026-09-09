@@ -13,6 +13,12 @@ from app.repositories.order_repository import (
     OrderRepositoryProtocol,
     SqlAlchemyOrderRepository,
 )
+from app.repositories.outbox_repository import (
+    InMemoryOutboxRepository,
+    OutboxEventEntity,
+    OutboxRepositoryProtocol,
+    SqlAlchemyOutboxRepository,
+)
 from app.repositories.post_repository import (
     InMemoryPostRepository,
     PostEntity,
@@ -56,6 +62,11 @@ class UnitOfWorkProtocol(Protocol):
         """Order repository operating on the shared transaction."""
         ...
 
+    @property
+    def outbox(self) -> OutboxRepositoryProtocol:
+        """Transactional outbox repository operating on the shared transaction."""
+        ...
+
     async def __aenter__(self) -> Self:
         """Open the transaction boundary and initialize repositories with the shared session."""
         ...
@@ -97,6 +108,7 @@ class SqlAlchemyUnitOfWork:
         self._posts: SqlAlchemyPostRepository | None = None
         self._products: SqlAlchemyProductRepository | None = None
         self._orders: SqlAlchemyOrderRepository | None = None
+        self._outbox: SqlAlchemyOutboxRepository | None = None
 
     @property
     def users(self) -> UserRepositoryProtocol:
@@ -122,12 +134,19 @@ class SqlAlchemyUnitOfWork:
             raise RuntimeError("UnitOfWork is not open. Access repositories within 'async with uow:' block.")
         return self._orders
 
+    @property
+    def outbox(self) -> OutboxRepositoryProtocol:
+        if self._outbox is None:
+            raise RuntimeError("UnitOfWork is not open. Access repositories within 'async with uow:' block.")
+        return self._outbox
+
     async def __aenter__(self) -> Self:
         self.session = self._session_factory()
         self._users = SqlAlchemyUserRepository(session=self.session)
         self._posts = SqlAlchemyPostRepository(session=self.session)
         self._products = SqlAlchemyProductRepository(session=self.session)
         self._orders = SqlAlchemyOrderRepository(session=self.session)
+        self._outbox = SqlAlchemyOutboxRepository(session=self.session)
         return self
 
     async def __aexit__(
@@ -147,6 +166,7 @@ class SqlAlchemyUnitOfWork:
                 self._posts = None
                 self._products = None
                 self._orders = None
+                self._outbox = None
 
     async def commit(self) -> None:
         """Commit all pending operations in the active session."""
@@ -170,11 +190,13 @@ class InMemoryUnitOfWork:
         post_repo: InMemoryPostRepository | None = None,
         product_repo: InMemoryProductRepository | None = None,
         order_repo: InMemoryOrderRepository | None = None,
+        outbox_repo: InMemoryOutboxRepository | None = None,
     ) -> None:
         self.users: InMemoryUserRepository = user_repo or InMemoryUserRepository()
         self.posts: InMemoryPostRepository = post_repo or InMemoryPostRepository()
         self.products: InMemoryProductRepository = product_repo or InMemoryProductRepository()
         self.orders: InMemoryOrderRepository = order_repo or InMemoryOrderRepository()
+        self.outbox: InMemoryOutboxRepository = outbox_repo or InMemoryOutboxRepository()
 
         # State snapshots for rollback restoration
         self._user_store_snapshot: dict[int, UserEntity] | None = None
@@ -189,6 +211,7 @@ class InMemoryUnitOfWork:
         self._product_id_snapshot: int | None = None
 
         self._order_store_snapshot: dict[uuid.UUID, OrderEntity] | None = None
+        self._outbox_store_snapshot: dict[uuid.UUID, OutboxEventEntity] | None = None
 
     async def __aenter__(self) -> Self:
         # Snapshot in-memory repositories state
@@ -204,6 +227,7 @@ class InMemoryUnitOfWork:
         self._product_id_snapshot = self.products._current_id
 
         self._order_store_snapshot = dict(self.orders._store)
+        self._outbox_store_snapshot = dict(self.outbox._store)
         return self
 
     async def __aexit__(
@@ -226,6 +250,7 @@ class InMemoryUnitOfWork:
         self._product_store_snapshot = None
         self._product_id_snapshot = None
         self._order_store_snapshot = None
+        self._outbox_store_snapshot = None
 
     async def commit(self) -> None:
         """Commit in-memory changes by discarding rollback snapshots."""
@@ -254,6 +279,9 @@ class InMemoryUnitOfWork:
 
         if self._order_store_snapshot is not None:
             self.orders._store = dict(self._order_store_snapshot)
+
+        if self._outbox_store_snapshot is not None:
+            self.outbox._store = dict(self._outbox_store_snapshot)
 
 
 __all__ = [

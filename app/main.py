@@ -45,6 +45,7 @@ from app.routers.kafka_router import router as kafka_router
 from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
 from app.routers.order_router import router as order_router
+from app.routers.outbox_router import router as outbox_router
 from app.routers.payment_router import router as payment_router
 from app.routers.product_router import router as product_router
 from app.routers.schedule_router import router as schedule_router
@@ -144,6 +145,7 @@ app.include_router(broker_router)
 app.include_router(kafka_router)
 app.include_router(kafka_consumer_router)
 app.include_router(dlq_router)
+app.include_router(outbox_router)
 
 
 @app.get("/health", tags=["Health"])

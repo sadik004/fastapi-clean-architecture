@@ -46,6 +46,7 @@ from app.services.document_service import DocumentService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
 from app.services.order_service import OrderService
+from app.services.outbox_relay_service import OutboxRelayService
 from app.services.rate_limiter_service import RateLimiterService
 from app.services.user_service import (
     UserService,
@@ -90,6 +91,13 @@ def get_order_service(
 ) -> OrderService:
     """Dependency provider yielding an active OrderService instance."""
     return OrderService(uow=uow)
+
+
+def get_outbox_relay_service(
+    uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
+) -> OutboxRelayService:
+    """Dependency provider yielding an active OutboxRelayService instance."""
+    return OutboxRelayService(uow=uow)
 
 
 def get_user_service(

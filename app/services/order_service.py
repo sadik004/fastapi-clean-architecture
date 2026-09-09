@@ -10,6 +10,7 @@ from app.core.exceptions import OrderNotFoundException, UserNotFoundException
 from app.core.identifiers import extract_timestamp_from_uuidv7
 from app.core.unit_of_work import UnitOfWorkProtocol
 from app.repositories.order_repository import OrderEntity
+from app.repositories.outbox_repository import OutboxEventEntity
 
 
 class OrderService:
@@ -42,6 +43,45 @@ class OrderService:
             )
             await uow.commit()
             return order
+
+    async def create_order_with_outbox(
+        self,
+        user_id: int,
+        total_amount: float,
+        status: str = "pending",
+        order_id: uuid.UUID | None = None,
+    ) -> tuple[OrderEntity, OutboxEventEntity]:
+        """Create an order and record an outbox event in the same local ACID transaction.
+
+        Guarantees:
+        - Atomic Co-location: Either both Order and Outbox event are committed, or neither.
+        - Zero Data Loss: Eliminates the dual-write vulnerability between DB and Kafka.
+        """
+        async with self._uow as uow:
+            user = await uow.users.get_by_id(user_id)
+            if user is None:
+                raise UserNotFoundException(user_id=user_id)
+
+            order = await uow.orders.create(
+                user_id=user_id,
+                total_amount=total_amount,
+                status=status,
+                order_id=order_id,
+            )
+            outbox_event = await uow.outbox.record_event(
+                event_type="order.created",
+                aggregate_type="order",
+                aggregate_id=str(order.id),
+                payload={
+                    "order_id": str(order.id),
+                    "user_id": order.user_id,
+                    "total_amount": order.total_amount,
+                    "status": order.status,
+                    "created_at": order.created_at.isoformat(),
+                },
+            )
+            await uow.commit()
+            return order, outbox_event
 
     async def get_order_by_id(self, order_id: uuid.UUID) -> OrderEntity:
         """Fetch order details by UUIDv7 primary key."""
