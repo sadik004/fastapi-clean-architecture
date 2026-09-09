@@ -44,6 +44,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 35** | [Bloom Filter Cache Penetration & Mock Isolation](day-35_bloom_filter_cache_penetration_and_mock_isolation.md) | Eliminated cache penetration via in-memory slotted Bloom filter with Kirsch-Mitzenmacher double hashing; isolated `AsyncMock` test doubles in dependency factory; prevented $h_2=0$ degeneracy. |
 | **Day 36** | [Redis ZSET Driver Collision & Rank Invariants](day-36_redis_zset_member_parameter_collision_and_rank_invariants.md) | Resolved `redis-py` `zrevrank`/`zscore` keyword collision (`value` vs `member`); mapped 0-indexed ranks to 1-indexed presentation; guarded inclusive range slicing and single-player percentile. |
 | **Day 37** | [Sliding Window Exclusive Bound & Pipeline Race Conditions](day-37_sliding_window_exclusive_bound_and_atomic_pipeline_race_condition.md) | Enforced exclusive interval `(now - window)` in `ZREMRANGEBYSCORE` to preserve boundary timestamps; eliminated concurrency race conditions via atomic multi-command transactional pipeline. |
+| **Day 38** | [Redis Lua Script Python Comment Leak & Lupa Dependency](day-38_redis_lua_python_comment_leak_and_lupa_runtime_dependency.md) | Resolved Lua syntax error from Python `# noqa` leak inside multi-line script string via `pyproject.toml` per-file ignores; integrated `lupa` runtime for fakeredis Lua execution. |
 
 ---
 

@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 
 from app.core.dependencies import (
     RateLimitGuard,
+    TokenBucketGuard,
     check_sliding_window_rate_limit,
     get_analytics_service,
     get_global_rate_limiter,
@@ -198,4 +199,37 @@ async def distributed_rate_limit_test_metrics_endpoint(
         "message": "Request accepted within distributed sliding window quota",
         "client_id": getattr(request.state, "rate_limit_client", "unknown"),
         "request_number": getattr(request.state, "rate_limit_count", 1),
+    }
+
+
+@router.get(
+    "/token-bucket/{client_id}",
+    summary="Get Token Bucket rate limit status for client",
+    description="Inspects real-time tokens, capacity, refill rate, and TTL in Redis for a given client identifier.",
+)
+async def get_token_bucket_status_endpoint(
+    client_id: str,
+    redis: Annotated[Redis, Depends(get_redis)],
+    capacity: Annotated[float, Query(ge=1.0)] = 10.0,
+    refill_rate: Annotated[float, Query(ge=0.1)] = 2.0,
+) -> dict[str, Any]:
+    """Retrieve real-time token bucket telemetry for a client in Redis."""
+    service = RateLimiterService(redis_client=redis)
+    return await service.get_token_bucket_status(key=client_id, capacity=capacity, refill_rate=refill_rate)
+
+
+@router.get(
+    "/test-rate-limit/token-bucket",
+    dependencies=[Depends(TokenBucketGuard(capacity=5.0, refill_rate=1.0, scope="test"))],
+    summary="Protected test endpoint for Token Bucket rate limiter",
+    description="Endpoint limited to capacity 5 and refill rate 1.0 token/s via atomic Redis Lua script.",
+)
+async def token_bucket_test_metrics_endpoint(
+    request: Request,
+) -> dict[str, Any]:
+    """Protected test route under /metrics prefix for Token Bucket."""
+    return {
+        "message": "Request accepted within token bucket quota",
+        "client_id": getattr(request.state, "token_bucket_client", "unknown"),
+        "remaining_tokens": getattr(request.state, "token_bucket_remaining", 0.0),
     }

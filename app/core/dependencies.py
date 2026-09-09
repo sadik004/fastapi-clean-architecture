@@ -469,3 +469,69 @@ class RateLimitGuard:
         request.state.rate_limit_client = client_id
         request.state.rate_limit_count = current_count
         request.state.rate_limit_limit = self.limit
+
+
+class TokenBucketGuard:
+    """Declarative FastAPI dependency enforcing Token Bucket rate limits via atomic Redis Lua script.
+
+    Provides O(1) space efficiency (< 100 bytes per client) and burst-friendly traffic shaping.
+    """
+
+    def __init__(
+        self,
+        capacity: float = 10.0,
+        refill_rate: float = 2.0,
+        requested: float = 1.0,
+        scope: str = "default",
+    ) -> None:
+        self.capacity = capacity
+        self.refill_rate = refill_rate
+        self.requested = requested
+        self.scope = scope
+
+    async def __call__(
+        self,
+        request: Request,
+        redis: Annotated[Redis, Depends(get_redis)],
+    ) -> None:
+        """Resolve client identifier and evaluate token bucket via atomic Redis Lua script.
+
+        Raises:
+            HTTPException(429) with Retry-After and X-RateLimit headers if bucket has insufficient tokens.
+        """
+        api_key = request.headers.get("X-API-Key")
+        forwarded = request.headers.get("X-Forwarded-For")
+        if api_key:
+            client_id = api_key
+        elif forwarded:
+            client_id = forwarded.split(",")[0].strip()
+        elif request.client and request.client.host:
+            client_id = request.client.host
+        else:
+            client_id = "127.0.0.1"
+
+        scoped_key = f"{self.scope}:{client_id}"
+        service = RateLimiterService(redis_client=redis)
+        is_limited, remaining_tokens, retry_after = await service.check_token_bucket(
+            key=scoped_key,
+            capacity=self.capacity,
+            refill_rate=self.refill_rate,
+            requested=self.requested,
+        )
+
+        if is_limited:
+            retry_seconds = max(1, math.ceil(retry_after))
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too Many Requests: Token bucket capacity exhausted",
+                headers={
+                    "Retry-After": str(retry_seconds),
+                    "X-RateLimit-Limit": str(int(self.capacity)),
+                    "X-RateLimit-Remaining": str(int(remaining_tokens)),
+                },
+            )
+
+        # Attach token bucket context to request state for downstream handlers and observability
+        request.state.token_bucket_client = client_id
+        request.state.token_bucket_remaining = remaining_tokens
+        request.state.token_bucket_capacity = self.capacity

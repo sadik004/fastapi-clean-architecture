@@ -19,7 +19,7 @@ from app.core.database import (
     get_db_pool_status,
     get_db_session,
 )
-from app.core.dependencies import RateLimitGuard
+from app.core.dependencies import RateLimitGuard, TokenBucketGuard
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import CustomSecurityAndObservabilityMiddleware
 from app.core.redis import (
@@ -105,6 +105,22 @@ async def distributed_rate_limit_test_root(request: Request) -> dict[str, Any]:
         "message": "Request accepted within distributed sliding window quota",
         "client_id": getattr(request.state, "rate_limit_client", "unknown"),
         "request_number": getattr(request.state, "rate_limit_count", 1),
+    }
+
+
+@app.get(
+    "/test-rate-limit/token-bucket",
+    dependencies=[Depends(TokenBucketGuard(capacity=5.0, refill_rate=1.0, scope="test"))],
+    tags=["Testing"],
+    summary="Protected test endpoint for Token Bucket rate limiter",
+)
+async def token_bucket_test_root(request: Request) -> dict[str, Any]:
+    """Protected test route under root prefix for Token Bucket."""
+    return {
+        "message": "Request accepted within token bucket quota",
+        "client_id": getattr(request.state, "token_bucket_client", "unknown"),
+        "remaining_tokens": getattr(request.state, "token_bucket_remaining", 0.0),
+        "capacity": getattr(request.state, "token_bucket_capacity", 5.0),
     }
 
 

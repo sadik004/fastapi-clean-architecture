@@ -53,6 +53,9 @@ ignore = [
     "S107", # Allow test passwords in defaults
     "S311", # Allow pseudo-random generators in performance benchmarks
 ]
+"app/services/rate_limiter_service.py" = [
+    "S105", # Rate limiter token bucket naming is not a hardcoded password
+]
 "alembic/*" = [
     "I001", # Allow migration-specific import ordering
 ]
