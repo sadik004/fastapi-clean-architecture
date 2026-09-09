@@ -49,6 +49,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 40** | [Pessimistic Locking & Asyncio Lock Cooperation](day-40_pessimistic_locking_sqlite_concurrency_and_asyncio_lock_cooperation.md) | Resolved SQLite async test concurrency interleaving via dual-layer defense (`with_for_update` + `asyncio.Lock` registry); eliminated cross-test lock pollution via automated `clear_product_locks` fixture teardown. |
 | **Day 41** | [Distributed Lock DEL Hijacking & Mandatory TTL](day-41_distributed_locking_token_validation_race_and_ttl_fencing.md) | Eliminated lock hijacking via canonical atomic Lua release script with token ownership check; enforced mandatory millisecond TTL (`PX`) on `DistributedLock` to guarantee zero permanent deadlocks. |
 | **Day 42** | [Idempotency Key Tampering & In-Flight Concurrency](day-42_idempotency_key_payload_tampering_and_in_flight_concurrency.md) | Eliminated duplicate debits via Stripe/PayPal idempotency standard; guarded payload tampering via SHA-256 (HTTP 422); resolved in-flight concurrency races (HTTP 409) and bounded Redis memory via 24h TTL. |
+| **Day 43** | [Argon2id Event Loop Starvation & GPU Brute-Force Immunity](day-43_argon2id_event_loop_starvation_and_gpu_brute_force_immunity.md) | Eliminated GPU/ASIC brute-force cracking via OWASP Argon2id memory-hard KDF ($m=64\text{MB}, t=3, p=4$); eliminated event loop starvation and liveness probe drops by offloading CPU-bound crypto to worker threads via `asyncio.to_thread`; automated transparent database rehash on login. |
 
 ---
 

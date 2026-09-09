@@ -30,8 +30,8 @@ async def test_password_hash_and_verification() -> None:
 
     # Invariant: Each hash must have a unique random salt
     assert hash1 != hash2
-    assert hash1.startswith("pbkdf2:sha256:100000$")
-    assert hash2.startswith("pbkdf2:sha256:100000$")
+    assert hash1.startswith("$argon2id$v=19$m=65536,t=3,p=4$")
+    assert hash2.startswith("$argon2id$v=19$m=65536,t=3,p=4$")
 
     # Verification: Valid password must pass
     assert await verify_password(plain_password, hash1) is True

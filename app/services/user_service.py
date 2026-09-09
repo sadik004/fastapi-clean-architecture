@@ -11,7 +11,7 @@ from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.search_algorithms import binary_search_range, two_pointer_pair_search
 from app.core.dsa.trie import PrefixTrie
 from app.core.exceptions import UserAlreadyExistsException, UserNotFoundException
-from app.core.security import get_password_hash, verify_password
+from app.core.security import hash_password_async, needs_rehash, verify_password_async
 from app.core.unit_of_work import UnitOfWorkProtocol
 from app.repositories.post_repository import PostEntity
 from app.repositories.user_repository import UserEntity, UserRepositoryProtocol
@@ -96,8 +96,8 @@ class UserService:
         if await self._repo.get_by_username(payload.username) is not None:
             raise UserAlreadyExistsException(f"Username '{payload.username}' is already taken.")
 
-        # CPU-bound key derivation offloaded to thread pool to prevent event loop starvation
-        password_hash = await get_password_hash(payload.password)
+        # Memory-hard Argon2id key derivation offloaded to thread pool
+        password_hash = await hash_password_async(payload.password)
 
         created_user = await self._repo.create(
             email=payload.email,
@@ -556,13 +556,26 @@ class UserService:
         username: str,
         password: str,
     ) -> UserEntity | None:
-        """Authenticate a user using constant-time hash verification offloaded to worker thread."""
+        """Authenticate a user using constant-time verification and transparent security rehash."""
         user = await self._repo.get_by_username(username)
         if user is None:
+            user = await self._repo.get_by_email(username)
+        if user is None:
             return None
-        is_valid = await verify_password(password, user.password_hash)
+
+        is_valid = await verify_password_async(password, user.password_hash)
         if not is_valid:
             return None
+
+        # Transparently upgrade legacy or low-work-factor hashes to OWASP Argon2id
+        if needs_rehash(user.password_hash):
+            new_hash = await hash_password_async(password)
+            updated = await self._repo.update(user.id, password_hash=new_hash)
+            if updated is not None:
+                user = updated
+            else:
+                user.password_hash = new_hash
+
         return user
 
     @staticmethod
@@ -609,8 +622,8 @@ class UserService:
             if await active_uow.users.get_by_username(user_create.username) is not None:
                 raise UserAlreadyExistsException(f"Username '{user_create.username}' is already taken.")
 
-            # CPU-bound password hashing
-            password_hash = await get_password_hash(user_create.password)
+            # Memory-hard Argon2id key derivation offloaded to thread pool
+            password_hash = await hash_password_async(user_create.password)
 
             # 1. Create user entity via shared transaction
             user = await active_uow.users.create(

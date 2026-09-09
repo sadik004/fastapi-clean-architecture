@@ -73,6 +73,7 @@ class UserRepositoryProtocol(Protocol):
         bio: str | None = None,
         company_name: str | None = None,
         update_data: Any | None = None,
+        password_hash: str | None = None,
     ) -> UserEntity | None:
         """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
         ...
@@ -195,6 +196,7 @@ class InMemoryUserRepository:
         bio: str | None = None,
         company_name: str | None = None,
         update_data: Any | None = None,
+        password_hash: str | None = None,
     ) -> UserEntity | None:
         """Update an existing user entity and synchronize indexes asynchronously in O(1) time."""
         if update_data is not None:
@@ -203,6 +205,7 @@ class InMemoryUserRepository:
             )
             email = data.get("email", email)
             username = data.get("username", username)
+            password_hash = data.get("password_hash", password_hash)
             age = data.get("age", age)
             role_val = data.get("role", role)
             role = (
@@ -248,6 +251,9 @@ class InMemoryUserRepository:
 
         if company_name is not None:
             user.company_name = company_name
+
+        if password_hash is not None:
+            user.password_hash = password_hash
 
         return user
 

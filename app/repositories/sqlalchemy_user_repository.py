@@ -163,6 +163,7 @@ class SqlAlchemyUserRepository:
         bio: str | None = None,
         company_name: str | None = None,
         update_data: UserUpdate | None = None,
+        password_hash: str | None = None,
     ) -> UserEntity | None:
         """Update an existing user entity and refresh database attributes."""
         # Support extracting fields from UserUpdate schema if provided directly
@@ -172,6 +173,8 @@ class SqlAlchemyUserRepository:
                 email = data["email"]
             if "username" in data:
                 username = data["username"]
+            if "password_hash" in data:
+                password_hash = data["password_hash"]
             if "age" in data:
                 age = data["age"]
             if "role" in data:
@@ -200,6 +203,8 @@ class SqlAlchemyUserRepository:
             model.email = email
         if username is not None:
             model.username = username
+        if password_hash is not None:
+            model.password_hash = password_hash
         if age is not None:
             model.age = age
         if role is not None:
