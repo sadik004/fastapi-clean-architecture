@@ -16,7 +16,7 @@ no_implicit_reexport = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["redis", "redis.*", "fakeredis", "fakeredis.*", "celery", "celery.*", "arq", "arq.*"]
+module = ["redis", "redis.*", "fakeredis", "fakeredis.*", "celery", "celery.*", "arq", "arq.*", "aio_pika", "aio_pika.*", "aiormq", "aiormq.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

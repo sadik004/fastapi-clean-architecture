@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     redis_pool_size: int = 20
     redis_timeout: float = 2.0
 
+    # RabbitMQ Configuration (aio-pika AMQP 0-9-1)
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    rabbitmq_pool_size: int = 10
+
     # JWT Cryptographic Configuration (HS256 / RS256)
     jwt_secret_key: str = "secret-key-for-jwt-signing-production-grade-32bytes"  # noqa: S105
     jwt_algorithm: str = "HS256"
