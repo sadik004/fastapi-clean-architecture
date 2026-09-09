@@ -40,6 +40,7 @@ This directory logs all architecture traps, test failures, performance bottlenec
 | **Day 31** | [Redis Subscriptability Collision & Connection Pool Draining](day-31_redis_runtime_subscriptability_and_connection_pool_lifecycle.md) | Resolved Python 3.13 FastAPI `eval_str=True` reflection collision on non-generic `Redis` class; implemented defensive multi-version socket draining across `redis-py` 4.x/5.x. |
 | **Day 32** | [TestClient Event Loop Affinity & Method Assignment Narrowing](day-32_event_loop_cross_binding_in_testclient_and_cache_aside_resilience.md) | Eliminated `Queue is bound to a different event loop` via `AsyncClient` loop unification; replaced `# type: ignore` with `monkeypatch.setattr`; validated graceful cache fallback. |
 | **Day 33** | [Schema Alignment, Write DB Bypass & Admin Auth Seeding](day-33_write_patterns_schema_alignment_and_admin_auth_seeding.md) | Prevented false cache miss tracking during write-through validation via direct repository lookup; resolved HTTP 401 via `admin_user` fixture seeding; aligned test assertions with DTO schema fields. |
+| **Day 34** | [Cache Stampede, XFetch Stochastic Bounds & Mutex Locks](day-34_cache_stampede_probabilistic_early_expiration_and_xfetch_invariants.md) | Prevented cache stampede via XFetch stochastic early expiration; resolved Bandit S311 and $\ln(0)$ singularities; eliminated early stampede race conditions via non-blocking atomic mutex locks. |
 
 ---
 
