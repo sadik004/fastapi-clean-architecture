@@ -16,8 +16,13 @@ no_implicit_reexport = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["redis", "redis.*", "fakeredis", "fakeredis.*"]
+module = ["redis", "redis.*", "fakeredis", "fakeredis.*", "celery", "celery.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["app.tasks.*"]
+disallow_untyped_decorators = false
+
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

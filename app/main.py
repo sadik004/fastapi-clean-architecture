@@ -40,6 +40,7 @@ from app.routers.order_router import router as order_router
 from app.routers.payment_router import router as payment_router
 from app.routers.product_router import router as product_router
 from app.routers.security_router import router as security_router
+from app.routers.task_router import router as task_router
 from app.routers.user_router import router as user_router
 from app.services.user_service import seed_user_bloom_filter
 
@@ -118,6 +119,7 @@ app.include_router(order_router)
 app.include_router(payment_router)
 app.include_router(document_router)
 app.include_router(security_router)
+app.include_router(task_router)
 
 
 @app.get("/health", tags=["Health"])

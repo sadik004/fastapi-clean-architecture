@@ -263,3 +263,41 @@ def fake_redis() -> Generator[Any]:
     yield client
     app.dependency_overrides.pop(get_redis, None)
     set_redis_client_override(None)
+
+
+@pytest.fixture(autouse=True)
+def configure_celery_eager_mode() -> Generator[None]:
+    """Configure Celery to run in eager synchronous mode during tests with in-memory result backend."""
+    import app.tasks.report_tasks as _report_tasks  # noqa: F401 (register Celery task definitions)
+    from app.core.celery_app import celery_app
+
+    original_eager = celery_app.conf.task_always_eager
+    original_propagates = celery_app.conf.task_eager_propagates
+    original_store_eager = celery_app.conf.task_store_eager_result
+    original_backend = celery_app.conf.result_backend
+
+    celery_app.conf.update(
+        task_always_eager=True,
+        task_eager_propagates=True,
+        task_store_eager_result=True,
+        result_backend="cache+memory://",
+    )
+    celery_app._backend = celery_app._get_backend()
+
+    # Synchronize task instances to store eager results into cache backend
+    for task in celery_app.tasks.values():
+        task.store_eager_result = True
+
+    yield
+
+    for task in celery_app.tasks.values():
+        task.store_eager_result = False
+
+    celery_app.conf.update(
+        task_always_eager=original_eager,
+        task_eager_propagates=original_propagates,
+        task_store_eager_result=original_store_eager,
+        result_backend=original_backend,
+    )
+    celery_app._backend = celery_app._get_backend()
+
