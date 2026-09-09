@@ -22,6 +22,14 @@ class UserEntity:
     phone_number: str | None = None
     bio: str | None = None
     company_name: str | None = None
+    permissions: int = 3
+
+    @property
+    def permission_names(self) -> list[str]:
+        """Compute active permission flag names from bitmask."""
+        from app.core.permissions import get_permission_names
+
+        return get_permission_names(self.permissions)
 
 
 @dataclass(slots=True)
@@ -45,8 +53,13 @@ class UserRepositoryProtocol(Protocol):
         phone_number: str | None = None,
         bio: str | None = None,
         company_name: str | None = None,
+        permissions: int | None = None,
     ) -> UserEntity:
         """Create and persist a new user entity asynchronously."""
+        ...
+
+    async def update_permissions(self, user_id: int, permissions: int) -> UserEntity | None:
+        """Update permission bitmask flags on a user entity."""
         ...
 
     async def get_by_id(self, user_id: int) -> UserEntity | None:
@@ -157,9 +170,22 @@ class InMemoryUserRepository:
         phone_number: str | None = None,
         bio: str | None = None,
         company_name: str | None = None,
+        permissions: int | None = None,
     ) -> UserEntity:
         """Create and store a new user entity with O(1) indexing asynchronously."""
         self._current_id += 1
+        if permissions is None:
+            if role == "admin":
+                perms = 63
+            elif role == "moderator":
+                perms = 7
+            elif role == "guest":
+                perms = 1
+            else:
+                perms = 3
+        else:
+            perms = permissions
+
         new_user = UserEntity(
             id=self._current_id,
             email=email,
@@ -173,6 +199,7 @@ class InMemoryUserRepository:
             phone_number=phone_number,
             bio=bio,
             company_name=company_name,
+            permissions=perms,
         )
 
         # O(1) primary storage insert
@@ -305,6 +332,30 @@ class InMemoryUserRepository:
 
         user.version += 1
         return user
+
+    async def update_permissions(self, user_id: int, permissions: int) -> UserEntity | None:
+        """Update permission bitmask flags for user in O(1) time."""
+        user = self._store.get(user_id)
+        if user is None:
+            return None
+        updated_user = UserEntity(
+            id=user.id,
+            email=user.email,
+            username=user.username,
+            password_hash=user.password_hash,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            version=user.version + 1,
+            age=user.age,
+            role=user.role,
+            full_name=user.full_name,
+            phone_number=user.phone_number,
+            bio=user.bio,
+            company_name=user.company_name,
+            permissions=permissions,
+        )
+        self._store[user_id] = updated_user
+        return updated_user
 
     async def delete(self, user_id: int) -> bool:
         """Delete an existing user and purge secondary indexes asynchronously in O(1) time."""

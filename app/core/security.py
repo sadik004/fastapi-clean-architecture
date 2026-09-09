@@ -128,6 +128,7 @@ verify_password = verify_password_async
 def create_access_token(
     user_id: int,
     role: str,
+    permissions: int | None = None,
     expires_delta: timedelta | None = None,
     algorithm: str | None = None,
     secret_or_private_key: str | None = None,
@@ -155,9 +156,22 @@ def create_access_token(
     )
     expire = now + expire_duration
 
+    if permissions is None:
+        if role == "admin":
+            perms = 63
+        elif role == "moderator":
+            perms = 7
+        elif role == "guest":
+            perms = 1
+        else:
+            perms = 3
+    else:
+        perms = permissions
+
     payload: dict[str, Any] = {
         "sub": str(user_id),
         "role": role,
+        "permissions": perms,
         "token_type": "access",
         "jti": uuid.uuid4().hex,
         "iat": int(now.timestamp()),

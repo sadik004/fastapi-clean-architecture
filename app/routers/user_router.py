@@ -1,7 +1,7 @@
 """User Router handling HTTP endpoints, request/response validation, and status codes."""
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Response, status
 
@@ -16,11 +16,13 @@ from app.core.dependencies import (
     get_uow,
     get_user_repository,
     get_user_service,
+    require_permission,
     require_user_ownership,
     track_request_lifecycle,
     transaction_manager,
 )
 from app.core.exceptions import OptimisticLockException, UserAlreadyExistsException, UserNotFoundException
+from app.core.permissions import Permission, grant_permission, revoke_permission
 from app.repositories.user_repository import UserEntity
 from app.schemas.metrics import UserViewResponse, UserViewsSummaryResponse
 from app.schemas.post import (
@@ -29,6 +31,7 @@ from app.schemas.post import (
     UserWithInitialPostResponse,
 )
 from app.schemas.user import (
+    UpdateUserPermissionsRequest,
     UserAutocompleteResponse,
     UserCreate,
     UserDashboardResponse,
@@ -246,6 +249,27 @@ async def filter_users_by_age(
 
 
 @router.get(
+    "/admin/analytics",
+    status_code=status.HTTP_200_OK,
+    summary="Administrative system analytics",
+)
+async def get_admin_analytics(
+    admin: Annotated[Any, Depends(require_permission(Permission.ADMIN))],
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> dict[str, Any]:
+    """Administrative analytics endpoint guarded strictly by Permission.ADMIN bitmask flag."""
+    admin_id = getattr(admin, "user_id", getattr(admin, "id", 0))
+    users = await service.list_users(limit=100)
+    return {
+        "status": "success",
+        "admin_id": admin_id,
+        "total_active_users": len([u for u in users if u.is_active]),
+        "metric": "Bitmasking RBAC Administrative Analytics",
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+
+
+@router.get(
     "/{user_id}",
     response_model=UserResponse,
     status_code=status.HTTP_200_OK,
@@ -425,15 +449,50 @@ async def delete_user(
         le=2_147_483_647,
         description="The unique positive integer ID of the user",
     ),
-    current_admin: Annotated[UserEntity, Depends(get_current_active_admin)] = None,  # type: ignore[assignment]
+    current_admin: Annotated[Any, Depends(require_permission(Permission.DELETE))] = None,
     service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
     tx: Annotated[ScopedTransactionContext, Depends(get_transaction_context)] = None,  # type: ignore[assignment]
 ) -> Response:
-    """Endpoint to delete a user by ID."""
+    """Endpoint to delete a user by ID guarded strictly by Permission.DELETE."""
     if tx is not None:
         tx.stage(f"delete_user:{user_id}")
     await service.delete_user(user_id=user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/{user_id}/permissions",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update user permissions bitmask",
+    description="Allows administrators with Permission.ADMIN to grant or revoke specific bitmask flags or set permissions.",
+)
+async def update_user_permissions(
+    payload: UpdateUserPermissionsRequest,
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the target user",
+    ),
+    admin: Annotated[Any, Depends(require_permission(Permission.ADMIN))] = None,
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> UserResponse:
+    """Endpoint allowing an ADMIN to grant, revoke, or set bitmask permission flags on target user."""
+    target_user = await service.get_user_by_id(user_id=user_id)
+    current_perms = target_user.permissions
+
+    if payload.permissions is not None:
+        new_perms = payload.permissions
+    else:
+        new_perms = current_perms
+        if payload.grant is not None:
+            new_perms = grant_permission(new_perms, payload.grant)
+        if payload.revoke is not None:
+            new_perms = revoke_permission(new_perms, payload.revoke)
+
+    updated_user = await service.update_user_permissions(user_id=user_id, permissions=new_perms)
+    return UserResponse.model_validate(updated_user)
 
 
 @router.put(

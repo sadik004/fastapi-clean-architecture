@@ -6,7 +6,7 @@ from enum import Enum
 from re import Pattern
 from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator, model_validator
 
 # Module-level pre-compiled regexes & sets for O(1) lookups and O(k) pattern matching
 RESERVED_USERNAMES: frozenset[str] = frozenset({"admin", "root", "system", "superuser", "administrator", "operator"})
@@ -361,8 +361,27 @@ class UserResponse(UserBase):
     is_active: bool = Field(default=True, description="Account active status")
     created_at: datetime = Field(..., description="Timestamp of user creation")
     version: int = Field(default=1, description="Entity optimistic concurrency version")
+    permissions: int = Field(default=3, description="Bitmask integer representing user permissions")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def permission_names(self) -> list[str]:
+        """Compute human-readable permission flag names."""
+        from app.core.permissions import get_permission_names
+
+        return get_permission_names(self.permissions)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UpdateUserPermissionsRequest(BaseModel):
+    """Payload for mutating permission bitmask flags on a user."""
+
+    permissions: int | None = Field(default=None, ge=0, description="Absolute bitmask integer to set")
+    grant: int | None = Field(default=None, ge=0, description="Bitmask flags to grant (bitwise OR)")
+    revoke: int | None = Field(default=None, ge=0, description="Bitmask flags to revoke (bitwise AND NOT)")
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class UserDashboardResponse(BaseModel):

@@ -1,6 +1,6 @@
 """Pydantic v2 schemas for authentication, token exchange, and refresh token rotation."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class LoginRequest(BaseModel):
@@ -36,6 +36,15 @@ class AuthenticatedUserResponse(BaseModel):
 
     user_id: int = Field(..., description="Unique authenticated user integer ID")
     role: str = Field(..., description="User access control role")
+    permissions: int = Field(default=3, description="User permission bitmask flags")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def permission_names(self) -> list[str]:
+        """Compute human-readable permission flag names."""
+        from app.core.permissions import get_permission_names
+
+        return get_permission_names(self.permissions)
 
     model_config = ConfigDict(from_attributes=True)
 

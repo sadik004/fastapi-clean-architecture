@@ -58,6 +58,7 @@ class SqlAlchemyUserRepository:
             phone_number=model.phone_number,
             bio=model.bio,
             company_name=model.company_name,
+            permissions=model.permissions,
         )
 
     @classmethod
@@ -111,8 +112,21 @@ class SqlAlchemyUserRepository:
         phone_number: str | None = None,
         bio: str | None = None,
         company_name: str | None = None,
+        permissions: int | None = None,
     ) -> UserEntity:
         """Create and persist a new user entity in the database."""
+        if permissions is None:
+            if role == "admin":
+                perms = 63
+            elif role == "moderator":
+                perms = 7
+            elif role == "guest":
+                perms = 1
+            else:
+                perms = 3
+        else:
+            perms = permissions
+
         model = UserModel(
             email=email,
             username=username,
@@ -123,6 +137,7 @@ class SqlAlchemyUserRepository:
             phone_number=phone_number,
             bio=bio,
             company_name=company_name,
+            permissions=perms,
             is_active=True,
         )
         self._session.add(model)
@@ -260,6 +275,25 @@ class SqlAlchemyUserRepository:
         stmt_select = select(UserModel).where(UserModel.id == user_id)
         res_select = await self._session.execute(stmt_select)
         updated_model = res_select.scalar_one()
+        return self._to_entity(updated_model)
+
+    async def update_permissions(self, user_id: int, permissions: int) -> UserEntity | None:
+        """Update permission bitmask flags for user."""
+        stmt = (
+            update(UserModel)
+            .where(UserModel.id == user_id)
+            .values(permissions=permissions, version=UserModel.version + 1)
+        )
+        result = await self._session.execute(stmt)
+        if result.rowcount == 0:
+            return None
+        await self._session.flush()
+
+        stmt_select = select(UserModel).where(UserModel.id == user_id)
+        res_select = await self._session.execute(stmt_select)
+        updated_model = res_select.scalar_one_or_none()
+        if updated_model is None:
+            return None
         return self._to_entity(updated_model)
 
     async def delete(self, user_id: int) -> bool:

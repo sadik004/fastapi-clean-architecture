@@ -99,21 +99,40 @@ class UserService:
         # Memory-hard Argon2id key derivation offloaded to thread pool
         password_hash = await hash_password_async(payload.password)
 
+        role_str = payload.role.value if hasattr(payload.role, "value") else str(payload.role)
+        perms = 63 if role_str == "admin" else 3
+
         created_user = await self._repo.create(
             email=payload.email,
             username=payload.username,
             password_hash=password_hash,
             age=payload.age,
-            role=payload.role.value,
+            role=role_str,
             full_name=payload.full_name,
             phone_number=payload.phone_number,
             bio=payload.bio,
             company_name=payload.company_name,
+            permissions=perms,
         )
         self._index_user_in_trie(created_user)
         if self._bloom is not None:
             self._bloom.add(created_user.id)
         return created_user
+
+    async def update_user_permissions(self, user_id: int, permissions: int) -> UserEntity:
+        """Update permission bitmask flags for user with O(1) time complexity."""
+        await self.get_user_by_id(user_id)
+        updated_user = await self._repo.update_permissions(user_id=user_id, permissions=permissions)
+        if updated_user is None:
+            raise UserNotFoundException(user_id=user_id)
+
+        if self._cache is not None:
+            try:
+                await self._cache.delete(f"{CACHE_USER_PREFIX}{user_id}")
+            except Exception as exc:
+                logger.warning("Failed to evict cache key for user %s: %s", user_id, exc)
+
+        return updated_user
 
     async def update_user(self, user_id: int, payload: UserUpdate) -> UserEntity:
         """Update user attributes with O(1) domain uniqueness verification asynchronously.
