@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 CACHE_USER_PREFIX: str = "cache:user:"
 CACHE_USER_TTL_SECONDS: int = 300
+XFETCH_USER_PREFIX: str = "xfetch:user:"
 
 _user_search_trie = PrefixTrie()
 
@@ -335,6 +336,47 @@ class UserService:
                 )
 
         return user
+
+    async def get_user_by_id_xfetch(
+        self,
+        user_id: int,
+        beta: float = 1.0,
+        now: float | None = None,
+        rand_val: float | None = None,
+    ) -> UserEntity:
+        """Fetch user by ID protected by XFetch Probabilistic Cache Stampede Prevention.
+
+        Under heavy concurrent reads near key expiration, exactly one request probabilistically
+        triggers early recomputation from the database, while all other concurrent requests are
+        served warm cached data from the envelope. Eliminates the Thundering Herd disaster.
+
+        Raises:
+            UserNotFoundException: If user does not exist.
+        """
+        if self._cache is None:
+            user = await self._repo.get_by_id(user_id)
+            if user is None:
+                raise UserNotFoundException(user_id=user_id)
+            return user
+
+        cache_key = f"{XFETCH_USER_PREFIX}{user_id}"
+
+        async def compute() -> str:
+            db_user = await self._repo.get_by_id(user_id)
+            if db_user is None:
+                raise UserNotFoundException(user_id=user_id)
+            return self._serialize_user(db_user)
+
+        serialized_user = await self._cache.xfetch_get_or_compute(
+            key=cache_key,
+            compute_func=compute,
+            ttl=float(CACHE_USER_TTL_SECONDS),
+            beta=beta,
+            now=now,
+            rand_val=rand_val,
+        )
+
+        return self._deserialize_user(serialized_user)
 
     async def get_user_by_username(self, username: str) -> UserEntity:
         """Fetch user by unique username with O(1) hash index lookup asynchronously.

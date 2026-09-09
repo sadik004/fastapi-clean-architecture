@@ -52,9 +52,9 @@ Tracking Legend:
 - [x] **Day 31**: Redis Async Basics (Connection Pooling, Strings with TTL, Hashes & Lists)
 - [x] **Day 32**: Cache-Aside (Lazy Loading) Pattern Implementation & Invalidation
 - [x] **Day 33**: Advanced Caching Architectures (Write-Through & Write-Behind / Write-Back Patterns)
-- [ ] **Day 34**: Database Migrations with Alembic (Setup & Auto-generation)
-- [ ] **Day 35**: One-to-Many & Many-to-One Relationships with Async Loading
-- [ ] **Day 36**: Avoiding N+1 Query Traps: `selectinload` vs `joinedload`
+- [x] **Day 34**: Cache Stampede (Thundering Herd) Prevention via Probabilistic Early Expiration (XFetch Algorithm)
+- [ ] **Day 35**: Database Migrations with Alembic (Setup & Auto-generation)
+- [ ] **Day 36**: One-to-Many & Many-to-One Relationships with Async Loading
 - [ ] **Day 37**: Database Indexing Strategies & Query Execution Plan Analysis (`EXPLAIN ANALYZE`)
 - [ ] **Day 38**: Many-to-Many Association Tables & Efficient Junction Queries
 - [ ] **Day 39**: Database Transactions, Unit of Work Pattern & Rollback Safety

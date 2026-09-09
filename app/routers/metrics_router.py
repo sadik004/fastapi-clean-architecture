@@ -15,6 +15,7 @@ from app.schemas.metrics import (
     RateLimiterMetricsResponse,
     RateLimiterTestResponse,
     ViewsFlushResponse,
+    XFetchMetricsResponse,
 )
 from app.services.analytics_service import AnalyticsService
 from app.services.cache_service import CacheService, get_cache_service
@@ -56,6 +57,20 @@ async def get_cache_telemetry(
     """Return real-time operational telemetry for Redis cache hit ratio."""
     metrics_data = await cache_service.get_metrics()
     return CacheMetricsResponse(**metrics_data)
+
+
+@router.get(
+    "/xfetch",
+    response_model=XFetchMetricsResponse,
+    summary="Get XFetch telemetry",
+    description="Returns real-time telemetry on normal hits, early recomputations, and hard misses for XFetch cache stampede defense.",
+)
+async def get_xfetch_telemetry(
+    cache_service: Annotated[CacheService, Depends(get_cache_service)],
+) -> XFetchMetricsResponse:
+    """Return real-time operational telemetry for XFetch stampede defense."""
+    metrics_data = await cache_service.get_xfetch_metrics()
+    return XFetchMetricsResponse(**metrics_data)
 
 
 @router.get(

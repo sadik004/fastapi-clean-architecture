@@ -65,3 +65,16 @@ class UserViewsSummaryResponse(BaseModel):
     persistent_views: int = Field(..., description="Views flushed and persisted to relational storage")
     pending_views: int = Field(..., description="Unflushed views currently buffered in-memory in Redis")
     total_views: int = Field(..., description="Total real-time view count (persistent + pending)")
+
+
+class XFetchMetricsResponse(BaseModel):
+    """Operational telemetry report for XFetch Cache Stampede defense."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    normal_hits: int = Field(..., description="Requests served warm data from cache without recomputation")
+    early_recomputations: int = Field(
+        ..., description="Requests probabilistically selected to refresh cache before expiry"
+    )
+    hard_misses: int = Field(..., description="Initial requests on cold cache key requiring immediate computation")
+    total_requests: int = Field(..., description="Cumulative total requests handled by XFetch")

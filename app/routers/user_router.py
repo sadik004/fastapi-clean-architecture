@@ -498,3 +498,25 @@ async def get_user_views(
     """Endpoint to retrieve aggregated view counts across database and write-behind cache."""
     result = await analytics_service.get_user_views(user_id=user_id)
     return UserViewsSummaryResponse(**result)
+
+
+@router.get(
+    "/{user_id}/xfetch",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get user profile protected by XFetch Cache Stampede Prevention",
+    description="Probabilistic early expiration algorithm prevents Thundering Herd database collapse during key expiration.",
+)
+async def get_user_by_id_xfetch(
+    user_id: int = Path(
+        ...,
+        ge=1,
+        le=2_147_483_647,
+        description="The unique positive integer ID of the user",
+    ),
+    beta: Annotated[float, Query(ge=0.1, le=10.0, description="XFetch aggressiveness factor")] = 1.0,
+    service: Annotated[UserService, Depends(get_user_service)] = None,  # type: ignore[assignment]
+) -> UserResponse:
+    """Fetch user profile with XFetch probabilistic stampede defense."""
+    user = await service.get_user_by_id_xfetch(user_id=user_id, beta=beta)
+    return UserResponse.model_validate(user)

@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+import time
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Annotated, Any, cast
 
 from fastapi import Depends
 from redis.asyncio import Redis
 
+from app.core.dsa.xfetch import XFetchEnvelope, should_recompute
 from app.core.redis import get_redis
 
 logger = logging.getLogger(__name__)
 
 METRICS_HITS_KEY: str = "metrics:cache:hits"
 METRICS_MISSES_KEY: str = "metrics:cache:misses"
+METRICS_XFETCH_HITS_KEY: str = "metrics:xfetch:normal_hits"
+METRICS_XFETCH_EARLY_KEY: str = "metrics:xfetch:early_recomputations"
+METRICS_XFETCH_MISSES_KEY: str = "metrics:xfetch:hard_misses"
 
 
 class CacheService:
@@ -30,6 +35,9 @@ class CacheService:
         self._redis = redis_client
         self._local_hits: int = 0
         self._local_misses: int = 0
+        self._local_xfetch_hits: int = 0
+        self._local_xfetch_early: int = 0
+        self._local_xfetch_misses: int = 0
 
     # -------------------------------------------------------------------------
     # 1. String Operations with TTL
@@ -191,6 +199,175 @@ class CacheService:
             logger.debug("Redis metrics reset failed: %s", exc)
         self._local_hits = 0
         self._local_misses = 0
+
+    # -------------------------------------------------------------------------
+    # 5. XFetch Probabilistic Cache Stampede Prevention
+    # -------------------------------------------------------------------------
+
+    async def xfetch_get_or_compute(
+        self,
+        key: str,
+        compute_func: Callable[[], Awaitable[str]],
+        ttl: float = 300.0,
+        beta: float = 1.0,
+        now: float | None = None,
+        rand_val: float | None = None,
+    ) -> str:
+        """Fetch or recompute a value using the optimal probabilistic XFetch algorithm.
+
+        Shields the database from Cache Stampedes (Thundering Herd) under high concurrency:
+        1. Reads envelope from Redis (val, delta, expiry).
+        2. If key doesn't exist (Hard Miss):
+           - Measures delta computation time.
+           - Executes compute_func().
+           - Stores envelope in Redis with physical TTL padded by grace period:
+             ttl + max(delta * 2, 10.0).
+        3. If key exists:
+           - Evaluates should_recompute(delta, expiry, now, beta, rand_val).
+           - On False (Normal Hit): returns cached val immediately.
+           - On True (Probabilistic Early Recomputation):
+             - Exactly one lucky request initiates refresh before physical death.
+             - Re-executes compute_func(), measures fresh delta, refreshes envelope in Redis.
+             - Returns fresh val.
+
+        Complexity: O(1) time complexity for cache check & math formula.
+        """
+        current_time = time.time() if now is None else now
+        raw_envelope_str: str | None = None
+
+        try:
+            raw_envelope_str = await self.get_str(key)
+        except Exception as exc:
+            logger.warning("XFetch Redis read failed for key '%s': %s. Falling back to compute.", key, exc)
+
+        if raw_envelope_str is not None:
+            try:
+                envelope = XFetchEnvelope.from_json(raw_envelope_str)
+                recompute = should_recompute(
+                    delta=envelope.delta,
+                    expiry=envelope.expiry,
+                    now=current_time,
+                    beta=beta,
+                    rand_val=rand_val,
+                )
+                if not recompute:
+                    # Normal Hit: Serve warm data
+                    await self._record_xfetch_hit()
+                    return envelope.val
+
+                # Probabilistic Early Recomputation: We are chosen to refresh early.
+                # Optimistically bump logical expiry in Redis by max(envelope.delta * 2, 5.0) seconds
+                # so concurrent requests in the next few milliseconds see a warm, valid cache and don't recompute.
+                bump_lock_key = f"lock:{key}:recompute"
+                acquired = False
+                try:
+                    # Non-blocking lock with short TTL (e.g. 10s)
+                    acquired = bool(await self._redis.set(bump_lock_key, "1", nx=True, ex=10))
+                except Exception:
+                    acquired = True  # If Redis lock fails, proceed as normal
+
+                if not acquired:
+                    # Another concurrent worker is already actively recomputing.
+                    # Serve the warm cached value immediately to avoid duplicate DB queries.
+                    await self._record_xfetch_hit()
+                    return envelope.val
+
+                await self._record_xfetch_early()
+            except Exception as exc:
+                logger.warning("XFetch envelope parsing failed for key '%s': %s. Recomputing.", key, exc)
+        else:
+            # Hard Miss: Key not present in Redis
+            await self._record_xfetch_miss()
+
+        # Compute fresh value and measure execution duration
+        start_t = time.perf_counter()
+        try:
+            fresh_val = await compute_func()
+        finally:
+            # Release recompute lock if it was acquired
+            try:
+                await self._redis.delete(f"lock:{key}:recompute")
+            except Exception as exc:
+                logger.debug("Failed to release recompute lock for key '%s': %s", key, exc)
+
+        delta = max(time.perf_counter() - start_t, 0.001)
+
+        logical_expiry = current_time + ttl
+        physical_ttl = int(ttl + max(delta * 2.0, 10.0))
+
+        fresh_envelope = XFetchEnvelope(
+            val=fresh_val,
+            delta=delta,
+            expiry=logical_expiry,
+        )
+
+        try:
+            await self.set_str(key, fresh_envelope.to_json(), expire_seconds=physical_ttl)
+        except Exception as exc:
+            logger.warning("XFetch Redis write failed for key '%s': %s.", key, exc)
+
+        return fresh_val
+
+    async def _record_xfetch_hit(self) -> None:
+        """Record an XFetch normal hit."""
+        try:
+            await self._redis.incrby(METRICS_XFETCH_HITS_KEY, 1)
+        except Exception:
+            self._local_xfetch_hits += 1
+
+    async def _record_xfetch_early(self) -> None:
+        """Record an XFetch probabilistic early recomputation."""
+        try:
+            await self._redis.incrby(METRICS_XFETCH_EARLY_KEY, 1)
+        except Exception:
+            self._local_xfetch_early += 1
+
+    async def _record_xfetch_miss(self) -> None:
+        """Record an XFetch hard miss."""
+        try:
+            await self._redis.incrby(METRICS_XFETCH_MISSES_KEY, 1)
+        except Exception:
+            self._local_xfetch_misses += 1
+
+    async def get_xfetch_metrics(self) -> dict[str, Any]:
+        """Return real-time telemetry metrics for XFetch performance."""
+        hits = self._local_xfetch_hits
+        early = self._local_xfetch_early
+        misses = self._local_xfetch_misses
+        try:
+            raw_hits = await self._redis.get(METRICS_XFETCH_HITS_KEY)
+            if raw_hits is not None:
+                hits += int(raw_hits)
+            raw_early = await self._redis.get(METRICS_XFETCH_EARLY_KEY)
+            if raw_early is not None:
+                early += int(raw_early)
+            raw_misses = await self._redis.get(METRICS_XFETCH_MISSES_KEY)
+            if raw_misses is not None:
+                misses += int(raw_misses)
+        except Exception as exc:
+            logger.debug("Redis XFetch metrics read failed: %s", exc)
+
+        total = hits + early + misses
+        return {
+            "normal_hits": hits,
+            "early_recomputations": early,
+            "hard_misses": misses,
+            "total_requests": total,
+        }
+
+    async def reset_xfetch_metrics(self) -> None:
+        """Reset XFetch telemetry metrics in Redis and memory."""
+        try:
+            await self._redis.delete(
+                METRICS_XFETCH_HITS_KEY,
+                METRICS_XFETCH_EARLY_KEY,
+                METRICS_XFETCH_MISSES_KEY,
+            )
+        except Exception as exc:
+            logger.debug("Redis XFetch metrics reset failed: %s", exc)
+        self._local_xfetch_hits = 0
+        self._local_xfetch_early = 0
+        self._local_xfetch_misses = 0
 
 
 def get_cache_service(
