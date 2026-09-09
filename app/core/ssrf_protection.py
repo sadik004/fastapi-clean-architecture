@@ -47,14 +47,7 @@ FORBIDDEN_IP_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]
 
 def is_forbidden_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Evaluate whether an IP address belongs to any forbidden network in O(1) time."""
-    if (
-        ip.is_loopback
-        or ip.is_private
-        or ip.is_link_local
-        or ip.is_multicast
-        or ip.is_reserved
-        or ip.is_unspecified
-    ):
+    if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
         return True
 
     for net in FORBIDDEN_IP_NETWORKS:
@@ -90,9 +83,7 @@ def validate_safe_url(url: str) -> str:
 
     scheme = (parsed.scheme or "").lower()
     if scheme not in ("http", "https"):
-        raise SSRFSecurityException(
-            f"Prohibited URL scheme '{scheme}'. Only HTTP and HTTPS protocols are permitted."
-        )
+        raise SSRFSecurityException(f"Prohibited URL scheme '{scheme}'. Only HTTP and HTTPS protocols are permitted.")
 
     hostname = parsed.hostname
     if not hostname:
@@ -118,14 +109,10 @@ def validate_safe_url(url: str) -> str:
                 except ValueError:
                     continue
         except socket.gaierror as exc:
-            raise SSRFSecurityException(
-                f"Failed to resolve destination hostname '{hostname}': {exc}"
-            ) from exc
+            raise SSRFSecurityException(f"Failed to resolve destination hostname '{hostname}': {exc}") from exc
 
     if not resolved_ips:
-        raise SSRFSecurityException(
-            f"No valid IP addresses could be resolved for destination host '{hostname}'."
-        )
+        raise SSRFSecurityException(f"No valid IP addresses could be resolved for destination host '{hostname}'.")
 
     # Step 3: Inspect each resolved IP address
     for ip in resolved_ips:

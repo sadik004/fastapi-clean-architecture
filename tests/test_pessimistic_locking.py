@@ -232,12 +232,12 @@ async def test_concurrent_flash_sale_race_condition_zero_overselling() -> None:
         success_count = status_codes.count(200)
         failure_count = status_codes.count(400)
 
-        assert (
-            success_count == 5
-        ), f"Expected EXACTLY 5 successful checkouts (HTTP 200), got {success_count}. Statuses: {status_codes}"
-        assert (
-            failure_count == 10
-        ), f"Expected EXACTLY 10 rejections (HTTP 400), got {failure_count}. Statuses: {status_codes}"
+        assert success_count == 5, (
+            f"Expected EXACTLY 5 successful checkouts (HTTP 200), got {success_count}. Statuses: {status_codes}"
+        )
+        assert failure_count == 10, (
+            f"Expected EXACTLY 10 rejections (HTTP 400), got {failure_count}. Statuses: {status_codes}"
+        )
 
         # Verify final stock in the database is strictly 0
         final_res = await client.get(f"/products/{product_id}")

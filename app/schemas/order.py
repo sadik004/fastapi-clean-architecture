@@ -40,4 +40,6 @@ class OrderExtractedTimestampResponse(BaseModel):
 
     order_id: uuid.UUID = Field(..., description="The queried UUIDv7 identifier")
     extracted_timestamp_utc: datetime = Field(..., description="Extracted UTC datetime from 48-bit epoch timestamp")
-    time_difference_ms: float = Field(..., description="Delta in milliseconds between extracted timestamp and DB created_at")
+    time_difference_ms: float = Field(
+        ..., description="Delta in milliseconds between extracted timestamp and DB created_at"
+    )

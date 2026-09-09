@@ -150,9 +150,7 @@ def create_access_token(
 
     now = datetime.now(UTC)
     expire_duration = (
-        expires_delta
-        if expires_delta is not None
-        else timedelta(minutes=settings.jwt_access_token_expire_minutes)
+        expires_delta if expires_delta is not None else timedelta(minutes=settings.jwt_access_token_expire_minutes)
     )
     expire = now + expire_duration
 
@@ -204,9 +202,7 @@ def create_refresh_token(
 
     now = datetime.now(UTC)
     expire_duration = (
-        expires_delta
-        if expires_delta is not None
-        else timedelta(days=settings.jwt_refresh_token_expire_days)
+        expires_delta if expires_delta is not None else timedelta(days=settings.jwt_refresh_token_expire_days)
     )
     expire = now + expire_duration
     token_jti = uuid.uuid4().hex
@@ -277,4 +273,3 @@ def decode_jwt_token(
             )
 
     return payload
-

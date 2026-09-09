@@ -267,12 +267,12 @@ async def test_high_concurrency_race_condition_eliminates_lost_updates() -> None
         success_count = status_codes.count(200)
         conflict_count = status_codes.count(409)
 
-        assert (
-            success_count == 1
-        ), f"Expected EXACTLY 1 successful update (HTTP 200), got {success_count}. Statuses: {status_codes}"
-        assert (
-            conflict_count == 9
-        ), f"Expected EXACTLY 9 conflict rejections (HTTP 409), got {conflict_count}. Statuses: {status_codes}"
+        assert success_count == 1, (
+            f"Expected EXACTLY 1 successful update (HTTP 200), got {success_count}. Statuses: {status_codes}"
+        )
+        assert conflict_count == 9, (
+            f"Expected EXACTLY 9 conflict rejections (HTTP 409), got {conflict_count}. Statuses: {status_codes}"
+        )
 
         # Verify final state
         get_res = await client.get(f"/users/{user_id}")

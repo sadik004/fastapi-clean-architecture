@@ -138,8 +138,7 @@ async def test_concurrent_multi_node_race_exact_one_winner(fake_redis: Any) -> N
     """
     concurrency_count = 10
     workers = [
-        DistributedLock(redis=fake_redis, name="exclusive_gold_ticket", ttl_ms=5000)
-        for _ in range(concurrency_count)
+        DistributedLock(redis=fake_redis, name="exclusive_gold_ticket", ttl_ms=5000) for _ in range(concurrency_count)
     ]
 
     # Fire all 10 acquire attempts simultaneously

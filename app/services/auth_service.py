@@ -109,8 +109,7 @@ class AuthService:
             # Compromised token chain detected! A previously burned token was reused.
             await self._redis.delete(family_key)
             logger.warning(
-                "SECURITY ALERT: Refresh token reuse detected on family '%s'. "
-                "Revoking all sessions for user %s.",
+                "SECURITY ALERT: Refresh token reuse detected on family '%s'. Revoking all sessions for user %s.",
                 family_id,
                 user_id,
             )

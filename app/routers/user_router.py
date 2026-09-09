@@ -637,4 +637,3 @@ async def update_user_nid(
         nid_number=payload.nid_number,
     )
     return UserResponse.model_validate(updated)
-

@@ -86,9 +86,7 @@ class PolicyEngine:
         - If any matching rule evaluates to False, access is strictly DENIED (False).
         """
         registered = self._rules.get(resource.resource_type, [])
-        matching_rules = [
-            rule for rule in registered if rule.action == "*" or rule.action == action
-        ]
+        matching_rules = [rule for rule in registered if rule.action == "*" or rule.action == action]
 
         if not matching_rules:
             # Default-Deny: No explicit policy grants access
@@ -168,16 +166,9 @@ def policy_contextual_approval_gate(
     """
     if action == "approve":
         if resource.amount is not None and resource.amount > 10000.0:
-            return (
-                subject.department == "finance"
-                and environment.is_business_hours is True
-            )
+            return subject.department == "finance" and environment.is_business_hours is True
         # Standard approval threshold (<= 10,000)
-        return (
-            subject.department == "finance"
-            or subject.role == "admin"
-            or subject.user_id == resource.owner_id
-        )
+        return subject.department == "finance" or subject.role == "admin" or subject.user_id == resource.owner_id
     return True
 
 

@@ -41,9 +41,7 @@ def sanitize_file_path(filename: str, strict: bool = False) -> str:
 
     # Defense 1: Reject Null Byte injections
     if "\x00" in filename:
-        raise PathTraversalException(
-            "Security violation: Null byte injection (\\x00) detected in filename."
-        )
+        raise PathTraversalException("Security violation: Null byte injection (\\x00) detected in filename.")
 
     # Defense 2: Reject control characters (ASCII < 32)
     for ch in filename:

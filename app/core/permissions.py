@@ -24,12 +24,7 @@ ROLE_GUEST: int = Permission.READ.value  # 1
 ROLE_USER: int = (Permission.READ | Permission.WRITE).value  # 3
 ROLE_MODERATOR: int = (Permission.READ | Permission.WRITE | Permission.DELETE).value  # 7
 ROLE_ADMIN: int = (
-    Permission.READ
-    | Permission.WRITE
-    | Permission.DELETE
-    | Permission.ADMIN
-    | Permission.EXPORT
-    | Permission.BILLING
+    Permission.READ | Permission.WRITE | Permission.DELETE | Permission.ADMIN | Permission.EXPORT | Permission.BILLING
 ).value  # 63
 
 

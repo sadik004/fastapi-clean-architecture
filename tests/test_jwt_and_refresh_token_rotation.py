@@ -245,10 +245,7 @@ async def test_refresh_token_rotation_lifecycle_and_theft_detection(
             json={"refresh_token": refresh_token_1},
         )
         assert stolen_replay_resp.status_code == 401
-        assert (
-            "Refresh token reuse detected. All sessions revoked for security."
-            in stolen_replay_resp.text
-        )
+        assert "Refresh token reuse detected. All sessions revoked for security." in stolen_replay_resp.text
 
         # 4. Invariant: After theft detection, the ENTIRE token family is permanently revoked!
         # Even the legitimate holder of refresh_token_2 is now revoked!
@@ -333,10 +330,14 @@ async def test_asymmetric_rs256_cryptographic_lifecycle() -> None:
 
     # Verify with a different public key -> raises HTTP 401
     other_key_obj = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    other_pub_pem = other_key_obj.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode("utf-8")
+    other_pub_pem = (
+        other_key_obj.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("utf-8")
+    )
 
     with pytest.raises(Exception) as exc_info:
         decode_jwt_token(

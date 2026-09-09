@@ -231,4 +231,3 @@ class OrderNotFoundException(EntityNotFoundException):
             message=f"Order with ID '{order_id}' was not found.",
             code=code,
         )
-

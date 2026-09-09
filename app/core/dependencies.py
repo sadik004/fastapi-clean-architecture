@@ -751,4 +751,3 @@ def check_abac_permission(
         return resource
 
     return abac_dependency_guard
-

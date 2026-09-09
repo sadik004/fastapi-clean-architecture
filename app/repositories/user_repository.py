@@ -320,11 +320,7 @@ class InMemoryUserRepository:
                 "Resource was modified by another transaction. Stale version detected; please refresh and retry."
             )
 
-        data = (
-            update_data.model_dump(exclude_unset=True)
-            if hasattr(update_data, "model_dump")
-            else dict(update_data)
-        )
+        data = update_data.model_dump(exclude_unset=True) if hasattr(update_data, "model_dump") else dict(update_data)
         if "email" in data and data["email"] != user.email:
             self._email_index.pop(user.email, None)
             self._email_index[data["email"]] = user.id

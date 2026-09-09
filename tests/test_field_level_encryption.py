@@ -23,13 +23,12 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 from app.core.database import async_session_factory
-from app.core.encryption import EncryptedString, FernetEngine, get_fernet_engine
+from app.core.encryption import get_fernet_engine
 from app.core.exceptions import EncryptionTamperingException, UserNotFoundException
 from app.main import app
 from app.models.user import UserModel
 from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.repositories.user_repository import InMemoryUserRepository
-from app.schemas.user import UserCreate
 from app.services.user_service import UserService
 
 # ============================================================================
@@ -180,9 +179,7 @@ async def test_database_ciphertext_tampering_detection() -> None:
 
         # Mutate single character
         mutated_ciphertext = (
-            original_ciphertext[:20]
-            + ("Z" if original_ciphertext[20] != "Z" else "A")
-            + original_ciphertext[21:]
+            original_ciphertext[:20] + ("Z" if original_ciphertext[20] != "Z" else "A") + original_ciphertext[21:]
         )
 
         await session.execute(

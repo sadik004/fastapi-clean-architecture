@@ -217,7 +217,9 @@ async def test_dynamic_permission_mutation(
 
         # 2. User initially fails to delete (403 Forbidden)
         user_token = create_access_token(user_id=candidate_id, role="user", permissions=ROLE_USER)
-        res_del_fail = await ac.delete(f"/users/{candidate_target_id}", headers={"Authorization": f"Bearer {user_token}"})
+        res_del_fail = await ac.delete(
+            f"/users/{candidate_target_id}", headers={"Authorization": f"Bearer {user_token}"}
+        )
         assert res_del_fail.status_code == 403
 
         # 3. Admin grants DELETE permission to candidate user
