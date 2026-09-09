@@ -30,6 +30,7 @@ from app.core.redis import (
 )
 from app.repositories.user_repository import SqlAlchemyUserRepository
 from app.routers.auth_router import router as auth_router
+from app.routers.document_router import router as document_router
 from app.routers.job_router import router as job_router
 from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
@@ -88,6 +89,7 @@ app.include_router(metrics_router)
 app.include_router(leaderboard_router)
 app.include_router(product_router)
 app.include_router(payment_router)
+app.include_router(document_router)
 
 
 @app.get("/health", tags=["Health"])

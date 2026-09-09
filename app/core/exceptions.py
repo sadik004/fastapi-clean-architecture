@@ -133,6 +133,21 @@ class PlayerNotFoundException(EntityNotFoundException):
         )
 
 
+class DocumentNotFoundException(EntityNotFoundException):
+    """Raised when a requested document entity is not found (HTTP 404)."""
+
+    def __init__(
+        self,
+        doc_id: int,
+        code: str = "DOCUMENT_NOT_FOUND",
+    ) -> None:
+        self.doc_id = doc_id
+        super().__init__(
+            message=f"Document with ID {doc_id} was not found.",
+            code=code,
+        )
+
+
 class InsufficientStockException(BusinessRuleViolationException):
     """Raised when an inventory deduction request exceeds available stock (HTTP 400)."""
 

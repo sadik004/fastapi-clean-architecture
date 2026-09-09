@@ -69,7 +69,7 @@ Tracking Legend:
 ---
 
 ## Phase 4: Authentication, Authorization & Security Hardening (Days 46–60)
-- [ ] **Day 46**: Password Hashing with Argon2 / Bcrypt
+- [x] **Day 46**: Attribute-Based Access Control (ABAC) Architecture & Policy-Driven Permission Engine
 - [ ] **Day 47**: OAuth2 Password Flow & JWT Token Issuance
 - [ ] **Day 48**: JWT Verification, Claims & Stateless User Authentication
 - [ ] **Day 49**: Refresh Token Rotation & Token Blacklisting

@@ -2,7 +2,8 @@ import math
 import secrets
 import time
 import uuid
-from collections.abc import Generator, Sequence
+from collections.abc import Awaitable, Callable, Generator, Sequence
+from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any
 from unittest.mock import AsyncMock
@@ -11,6 +12,13 @@ from fastapi import Depends, Header, HTTPException, Path, Request, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.abac import (
+    EnvironmentContext,
+    PolicyEngine,
+    ResourceContext,
+    SubjectContext,
+    get_default_policy_engine,
+)
 from app.core.config import Settings, get_settings
 from app.core.database import apply_migrations as apply_migrations
 from app.core.database import get_db_pool_status as get_db_pool_status
@@ -34,6 +42,7 @@ from app.schemas.user import UserRole
 from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.cache_service import CacheService, get_cache_service
+from app.services.document_service import DocumentService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
 from app.services.rate_limiter_service import RateLimiterService
@@ -636,3 +645,102 @@ class TokenBucketGuard:
         request.state.token_bucket_client = client_id
         request.state.token_bucket_remaining = remaining_tokens
         request.state.token_bucket_capacity = self.capacity
+
+
+_document_service = DocumentService()
+
+
+def get_document_service() -> DocumentService:
+    """Dependency provider yielding DocumentService instance."""
+    return _document_service
+
+
+async def get_document_resource(
+    doc_id: Annotated[int, Path(description="The document ID", ge=1)],
+    service: Annotated[DocumentService, Depends(get_document_service)],
+) -> ResourceContext:
+    """Dynamic resource loader resolving Document into ResourceContext."""
+    doc = await service.get_document(doc_id)
+    return ResourceContext(
+        resource_type="document",
+        resource_id=doc.id,
+        owner_id=doc.owner_id,
+        tenant_id=doc.tenant_id,
+        department=doc.department,
+        status=doc.status,
+        amount=doc.amount,
+    )
+
+
+def check_abac_permission(
+    action: str,
+    resource_loader: Callable[..., Awaitable[ResourceContext]],
+    engine: PolicyEngine | None = None,
+) -> Any:
+    """Declarative FastAPI dependency guard evaluating ABAC policies for action and resource."""
+
+    async def abac_dependency_guard(
+        request: Request,
+        resource: Annotated[ResourceContext, Depends(resource_loader)],
+        user: Annotated[AuthenticatedUserResponse, Depends(get_current_authenticated_user)],
+        x_department: Annotated[
+            str | None,
+            Header(alias="X-Department", description="Actor department for ABAC"),
+        ] = None,
+        x_tenant_id: Annotated[
+            str | None,
+            Header(alias="X-Tenant-ID", description="Actor tenant ID for ABAC"),
+        ] = None,
+        x_client_ip: Annotated[
+            str | None,
+            Header(alias="X-Client-IP", description="Client IP override for ABAC"),
+        ] = None,
+        x_business_hours: Annotated[
+            str | None,
+            Header(alias="X-Business-Hours", description="Business hours override for ABAC"),
+        ] = None,
+    ) -> ResourceContext:
+        policy_eng = engine or get_default_policy_engine()
+
+        # SubjectContext Resolution
+        department = getattr(user, "department", None) or x_department
+        tenant_id = getattr(user, "tenant_id", None) or x_tenant_id
+
+        subject = SubjectContext(
+            user_id=user.user_id,
+            role=user.role,
+            department=department,
+            tenant_id=tenant_id,
+        )
+
+        # EnvironmentContext Resolution
+        client_ip = x_client_ip or (request.client.host if request.client else "127.0.0.1")
+        if x_business_hours is not None:
+            is_business_hours = x_business_hours.lower() in ("true", "1", "yes")
+        else:
+            now = datetime.now()
+            is_business_hours = (now.weekday() < 5) and (9 <= now.hour < 17)
+
+        environment = EnvironmentContext(
+            current_time=datetime.now(),
+            client_ip=client_ip,
+            is_business_hours=is_business_hours,
+        )
+
+        allowed = policy_eng.evaluate(
+            subject=subject,
+            resource=resource,
+            action=action,
+            environment=environment,
+        )
+
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: ABAC policy authorization failed.",
+            )
+
+        return resource
+
+    return abac_dependency_guard
+
