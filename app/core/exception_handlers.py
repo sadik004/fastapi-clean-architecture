@@ -27,6 +27,7 @@ from app.core.exceptions import (
     EntityConflictException,
     EntityNotFoundException,
     SecurityViolationException,
+    ServiceUnavailableException,
 )
 from app.schemas.error import ErrorDetail, ErrorResponse
 
@@ -42,6 +43,7 @@ _HTTP_STATUS_CODE_MAP: dict[int, str] = {
     409: "CONFLICT",
     422: "UNPROCESSABLE_ENTITY",
     429: "RATE_LIMITED",
+    503: "SERVICE_UNAVAILABLE",
 }
 
 
@@ -57,6 +59,8 @@ def _resolve_domain_status_code(exc: BaseDomainException) -> int:
         return 400
     if isinstance(exc, BusinessRuleViolationException):
         return 400
+    if isinstance(exc, ServiceUnavailableException):
+        return 503
     return 400
 
 
@@ -89,9 +93,14 @@ async def domain_exception_handler(
         trace_id,
     )
 
+    headers: dict[str, str] = {}
+    if isinstance(exc, ServiceUnavailableException) and exc.retry_after is not None:
+        headers["Retry-After"] = str(exc.retry_after)
+
     return JSONResponse(
         status_code=status_code,
         content=error_response.model_dump(mode="json"),
+        headers=headers if headers else None,
     )
 
 

@@ -231,3 +231,35 @@ class OrderNotFoundException(EntityNotFoundException):
             message=f"Order with ID '{order_id}' was not found.",
             code=code,
         )
+
+
+class ServiceUnavailableException(BaseDomainException):
+    """Raised when a downstream or external dependency is unavailable (HTTP 503)."""
+
+    def __init__(
+        self,
+        message: str = "Downstream service is temporarily unavailable. Please retry later.",
+        code: str = "SERVICE_UNAVAILABLE",
+        retry_after: float | int | None = None,
+    ) -> None:
+        self.retry_after = retry_after
+        super().__init__(message=message, code=code)
+
+
+class CircuitBreakerOpenException(ServiceUnavailableException):
+    """Raised when calls fail-fast because the circuit breaker is in OPEN state (HTTP 503)."""
+
+    def __init__(
+        self,
+        message: str = "Downstream service is unavailable. Circuit breaker is OPEN. Please retry later.",
+        code: str = "CIRCUIT_BREAKER_OPEN",
+        recovery_timeout: float = 30.0,
+    ) -> None:
+        self.recovery_timeout = recovery_timeout
+        retry_after_val = int(recovery_timeout) if recovery_timeout.is_integer() else recovery_timeout
+        super().__init__(
+            message=message,
+            code=code,
+            retry_after=retry_after_val,
+        )
+
