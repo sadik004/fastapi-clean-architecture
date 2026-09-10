@@ -32,6 +32,7 @@ def _clean_database() -> None:
                         "products",
                         "catalog_items",
                         "audit_logs",
+                        "searchable_products",
                     ]:
                         try:
                             conn.execute(f"DELETE FROM {table}")  # noqa: S608

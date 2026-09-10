@@ -80,6 +80,28 @@ async def test_migration_bidirectional_reversibility() -> None:
     # Ensure current head is applied
     apply_migrations(revision="head")
 
+    # Roll back by 1 revision (searchable_products table dropped, audit_logs, catalog_items, outbox_events, nid_number, orders, products, version, posts & users remain)
+    rollback_migration(revision="-1")
+
+    async with engine.connect() as conn:
+
+        def check_after_rollback_search(sync_conn: Connection) -> tuple[list[str], list[str]]:
+            insp = inspect(sync_conn)
+            tbls = insp.get_table_names()
+            cols = [c["name"] for c in insp.get_columns("users")] if "users" in tbls else []
+            return tbls, cols
+
+        tables_after_search, user_cols_after_search = await conn.run_sync(check_after_rollback_search)
+        assert "searchable_products" not in tables_after_search
+        assert "audit_logs" in tables_after_search
+        assert "catalog_items" in tables_after_search
+        assert "outbox_events" in tables_after_search
+        assert "orders" in tables_after_search
+        assert "products" in tables_after_search
+        assert "users" in tables_after_search
+        assert "posts" in tables_after_search
+        assert "nid_number" in user_cols_after_search
+
     # Roll back by 1 revision (audit_logs table dropped, catalog_items, outbox_events, nid_number, orders, products, version, posts & users remain)
     rollback_migration(revision="-1")
 
@@ -252,6 +274,7 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "outbox_events" not in tables_after_rollback_base
         assert "catalog_items" not in tables_after_rollback_base
         assert "audit_logs" not in tables_after_rollback_base
+        assert "searchable_products" not in tables_after_rollback_base
 
     # Re-apply migrations to head
     apply_migrations(revision="head")
@@ -273,6 +296,7 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "outbox_events" in tables_after_reupgrade
         assert "catalog_items" in tables_after_reupgrade
         assert "audit_logs" in tables_after_reupgrade
+        assert "searchable_products" in tables_after_reupgrade
         assert "version" in user_cols_after_reupgrade
         assert "permissions" in user_cols_after_reupgrade
         assert "nid_number" in user_cols_after_reupgrade
