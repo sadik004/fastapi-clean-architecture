@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -124,3 +125,79 @@ class BulkheadMetricsResponse(BaseModel):
     )
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# =============================================================================
+# Exponential Backoff & Jitter Schemas
+# =============================================================================
+
+
+class BackoffSimulationRequest(BaseModel):
+    """Payload to simulate retrying a transient failing operation with backoff."""
+
+    target_id: str = Field(
+        default="external_payment_gateway",
+        min_length=2,
+        max_length=100,
+        description="Identifier of the target downstream service",
+    )
+    failures_before_success: int = Field(
+        default=2,
+        ge=0,
+        le=10,
+        description="Simulated number of failures before returning success",
+    )
+    max_retries: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum retry attempts allowed",
+    )
+    base_delay: float = Field(
+        default=0.05,
+        ge=0.001,
+        le=10.0,
+        description="Initial base delay in seconds",
+    )
+    max_delay: float = Field(
+        default=1.0,
+        ge=0.01,
+        le=60.0,
+        description="Maximum backoff ceiling cap in seconds",
+    )
+    strategy: str = Field(
+        default="full_jitter",
+        description="Jitter strategy: 'full_jitter', 'equal_jitter', 'decorrelated_jitter', or 'no_jitter'",
+    )
+
+
+class BackoffSimulationResponse(BaseModel):
+    """Result of the backoff retry simulation."""
+
+    target_id: str = Field(..., description="Target service identifier")
+    success: bool = Field(..., description="Whether the operation ultimately succeeded")
+    attempts_made: int = Field(..., description="Total execution attempts (initial + retries)")
+    retries_count: int = Field(..., description="Number of retries triggered")
+    delays: list[float] = Field(..., description="List of individual delay durations (seconds) between retries")
+    total_delay_seconds: float = Field(..., description="Sum of sleep delays incurred across retries")
+    result: dict[str, Any] = Field(..., description="Payload returned by the downstream operation")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BackoffDistributionResponse(BaseModel):
+    """Statistical distribution of calculated jittered delays for verification."""
+
+    attempt: int = Field(..., description="Attempt index evaluated")
+    strategy: str = Field(..., description="Backoff strategy used")
+    base_delay: float = Field(..., description="Base delay configured")
+    max_delay: float = Field(..., description="Max delay ceiling configured")
+    upper_bound: float = Field(..., description="Theoretical exponential upper bound: min(max_delay, base * 2^attempt)")
+    samples: int = Field(..., description="Number of delay samples generated")
+    min_delay: float = Field(..., description="Minimum observed delay among samples")
+    max_calculated_delay: float = Field(..., description="Maximum observed delay among samples")
+    mean_delay: float = Field(..., description="Mean/average delay across samples")
+    delays: list[float] = Field(..., description="Sample of calculated delays")
+
+    model_config = ConfigDict(from_attributes=True)
+

@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
+from app.core.resilience.backoff import calculate_backoff
 from app.schemas.resilience import (
+    BackoffDistributionResponse,
+    BackoffSimulationRequest,
+    BackoffSimulationResponse,
     BulkheadJobRequest,
     BulkheadJobResponse,
     BulkheadMetricsResponse,
@@ -22,8 +26,12 @@ from app.services.resilient_report_service import (
     ResilientReportService,
     get_resilient_report_service,
 )
+from app.services.resilient_third_party_service import (
+    ResilientThirdPartyService,
+    get_resilient_third_party_service,
+)
 
-router = APIRouter(tags=["Resilience & Circuit Breaker"])
+router = APIRouter(tags=["Resilience, Circuit Breaker & Backoff"])
 
 
 @router.post(
@@ -129,6 +137,86 @@ async def get_bulkhead_metrics_endpoint(
     """Return live active, waiting, and rejected metrics for all bulkhead compartments."""
     metrics = report_service.get_metrics()
     return BulkheadMetricsResponse(**metrics)
+
+
+@router.post(
+    "/resilience/backoff/simulate-retry",
+    response_model=BackoffSimulationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Simulate transient downstream call with Exponential Backoff and Jitter",
+    description=(
+        "Simulates a downstream failure sequence recovering via randomized jittered retries, "
+        "demonstrating autonomous recovery and traffic stampede elimination."
+    ),
+)
+async def simulate_backoff_retry_endpoint(
+    payload: BackoffSimulationRequest,
+    service: Annotated[ResilientThirdPartyService, Depends(get_resilient_third_party_service)],
+) -> BackoffSimulationResponse:
+    """Execute simulated external call with customizable backoff and jitter strategy."""
+    result = await service.execute_simulated_call(
+        target_id=payload.target_id,
+        failures_before_success=payload.failures_before_success,
+        max_retries=payload.max_retries,
+        base_delay=payload.base_delay,
+        max_delay=payload.max_delay,
+        strategy=payload.strategy,
+    )
+    return BackoffSimulationResponse(**result)
+
+
+@router.get(
+    "/resilience/backoff/distribution",
+    response_model=BackoffDistributionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate statistical delay sample distribution for a specific retry attempt",
+    description=(
+        "Computes N delay samples using the requested backoff/jitter strategy, "
+        "verifying randomization bounds and variance."
+    ),
+)
+async def get_backoff_distribution_endpoint(
+    attempt: Annotated[int, Query(ge=0, le=30, description="Retry attempt index")] = 3,
+    base_delay: Annotated[float, Query(ge=0.001, le=10.0, description="Base delay seconds")] = 0.1,
+    max_delay: Annotated[float, Query(ge=0.01, le=60.0, description="Max delay ceiling seconds")] = 5.0,
+    strategy: Annotated[str, Query(description="Strategy: full_jitter, equal_jitter, decorrelated_jitter, no_jitter")] = "full_jitter",
+    samples: Annotated[int, Query(ge=1, le=1000, description="Sample count")] = 100,
+) -> BackoffDistributionResponse:
+    """Return statistical distribution of calculated delays for verification."""
+    delays: list[float] = []
+    prev_delay: float | None = None
+
+    for _ in range(samples):
+        delay = calculate_backoff(
+            attempt=attempt,
+            base_delay=base_delay,
+            max_delay=max_delay,
+            strategy=strategy,
+            previous_delay=prev_delay,
+        )
+        delays.append(round(delay, 6))
+        prev_delay = delay
+
+    safe_base = max(0.0001, base_delay)
+    safe_max = max(safe_base, max_delay)
+    upper_bound = min(safe_max, safe_base * (2 ** min(attempt, 30)))
+
+    min_delay = min(delays)
+    max_calculated_delay = max(delays)
+    mean_delay = sum(delays) / len(delays)
+
+    return BackoffDistributionResponse(
+        attempt=attempt,
+        strategy=strategy,
+        base_delay=base_delay,
+        max_delay=max_delay,
+        upper_bound=round(upper_bound, 6),
+        samples=samples,
+        min_delay=min_delay,
+        max_calculated_delay=max_calculated_delay,
+        mean_delay=round(mean_delay, 6),
+        delays=delays,
+    )
 
 
 __all__ = ["router"]
