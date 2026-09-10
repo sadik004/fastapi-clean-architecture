@@ -16,7 +16,7 @@ no_implicit_reexport = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["redis", "redis.*", "fakeredis", "fakeredis.*", "celery", "celery.*", "arq", "arq.*", "aio_pika", "aio_pika.*", "aiormq", "aiormq.*", "aiokafka", "aiokafka.*"]
+module = ["redis", "redis.*", "fakeredis", "fakeredis.*", "celery", "celery.*", "arq", "arq.*", "aio_pika", "aio_pika.*", "aiormq", "aiormq.*", "aiokafka", "aiokafka.*", "locust", "locust.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -63,4 +63,7 @@ ignore = [
 ]
 "alembic/*" = [
     "I001", # Allow migration-specific import ordering
+]
+"scripts/*" = [
+    "T201", # Allow print in CLI terminal utility scripts
 ]

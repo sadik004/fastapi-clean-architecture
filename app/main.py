@@ -51,6 +51,7 @@ from app.routers.outbox_router import router as outbox_router
 from app.routers.partition_router import router as partition_router
 from app.routers.payment_router import router as payment_router
 from app.routers.product_router import router as product_router
+from app.routers.profiling_router import router as profiling_router
 from app.routers.replica_router import router as replica_router
 from app.routers.resilience_router import router as resilience_router
 from app.routers.schedule_router import router as schedule_router
@@ -184,6 +185,7 @@ app.include_router(search_router)
 app.include_router(observability_router)
 app.include_router(tracing_router)
 app.include_router(security_audit_router)
+app.include_router(profiling_router)
 app.include_router(dashboard_router)
 app.include_router(health_router)
 
