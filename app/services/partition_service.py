@@ -401,7 +401,7 @@ class PartitionManagerService:
                 # Get count
                 if not _SAFE_IDENTIFIER_REGEX.match(str(r.partition_name)):
                     continue
-                count_res = await session.execute(text(f"SELECT count(*) FROM {r.partition_name}"))  # noqa: S608
+                count_res = await session.execute(text(f"SELECT count(*) FROM {r.partition_name}"))  # nosec B608 # noqa: S608
                 count_val = count_res.scalar() or 0
 
                 partitions.append(
@@ -425,7 +425,7 @@ class PartitionManagerService:
             for tbl in table_names:
                 if not _SAFE_IDENTIFIER_REGEX.match(str(tbl)):
                     continue
-                count_res = await session.execute(text(f"SELECT count(*) FROM {tbl}"))  # noqa: S608
+                count_res = await session.execute(text(f"SELECT count(*) FROM {tbl}"))  # nosec B608 # noqa: S608
                 count_val = count_res.scalar() or 0
 
                 from_b: str | None = None

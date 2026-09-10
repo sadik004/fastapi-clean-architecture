@@ -55,6 +55,7 @@ from app.routers.replica_router import router as replica_router
 from app.routers.resilience_router import router as resilience_router
 from app.routers.schedule_router import router as schedule_router
 from app.routers.search_router import router as search_router
+from app.routers.security_audit_router import router as security_audit_router
 from app.routers.security_router import router as security_router
 from app.routers.task_router import router as task_router
 from app.routers.tracing_router import router as tracing_router
@@ -182,6 +183,7 @@ app.include_router(partition_router)
 app.include_router(search_router)
 app.include_router(observability_router)
 app.include_router(tracing_router)
+app.include_router(security_audit_router)
 app.include_router(dashboard_router)
 app.include_router(health_router)
 

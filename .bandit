@@ -1,0 +1,7 @@
+[bandit]
+# Enterprise SAST Policy Configuration for Bandit AST Security Analyzer
+# Exclude test files, documentation, migrations, and local virtualenvs from scans
+exclude_dirs = /tests,/alembic,/docs,/scripts,/.agents,/.venv,/.git
+
+# Skips: B101 (assert used - only if needed, but we keep default active)
+targets = app

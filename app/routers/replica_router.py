@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_dual_db_pool_status
@@ -42,8 +42,7 @@ async def read_probe_endpoint(
     read_session: Annotated[AsyncSession, Depends(get_read_session)],
 ) -> DatabaseProbeResponse:
     """Execute read probe against replica engine."""
-    result = await read_session.execute(text("SELECT 1 AS probe_val"))
-    val = result.scalar()
+    val = await read_session.scalar(select(1))
 
     response.headers["X-Database-Engine"] = DatabaseRole.REPLICA.value
 

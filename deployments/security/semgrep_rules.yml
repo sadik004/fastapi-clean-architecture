@@ -1,0 +1,73 @@
+rules:
+  - id: fastapi-no-raw-sql-in-routers
+    patterns:
+      - pattern-either:
+          - pattern: $SESSION.execute(text(...))
+          - pattern: $CONN.execute(text(...))
+          - pattern: await $SESSION.execute(text(...))
+          - pattern: await $CONN.execute(text(...))
+    paths:
+      include:
+        - "**/app/routers/**"
+    message: "Architectural Violation: Direct raw SQL execution inside routers is strictly forbidden. Delegate all database access to repository layer (3-tier clean architecture)."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      category: architecture-boundary
+
+  - id: fastapi-no-insecure-random
+    patterns:
+      - pattern-either:
+          - pattern: random.random(...)
+          - pattern: random.choice(...)
+          - pattern: random.randint(...)
+          - pattern: random.randrange(...)
+    paths:
+      include:
+        - "**/app/**"
+      exclude:
+        - "**/tests/**"
+    message: "Security Vulnerability: Insecure pseudorandom number generator detected. Use Python standard library 'secrets' module (secrets.token_urlsafe, secrets.randbelow) for security-sensitive tokens and identifiers (CWE-338)."
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-338: Use of Cryptographically Weak Pseudo-Random Number Generator (PRNG)"
+      category: security
+
+  - id: fastapi-no-print-in-production
+    pattern: print(...)
+    paths:
+      include:
+        - "**/app/**"
+      exclude:
+        - "**/tests/**"
+        - "**/scripts/**"
+    message: "Code Hygiene Violation: Unstructured print() statement detected in application source code. Enforce production structured JSON logging via 'structlog' (get_logger)."
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-778: Insufficient Logging"
+      category: maintainability
+
+  - id: fastapi-no-hardcoded-secrets
+    patterns:
+      - pattern-either:
+          - pattern: $KEY = "..."
+          - pattern: $TOKEN = "..."
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: (?i)(api_key|secret_key|jwt_secret|private_key|auth_token|database_password)
+    paths:
+      include:
+        - "**/app/**"
+      exclude:
+        - "**/tests/**"
+        - "**/alembic/**"
+        - "**/app/core/config.py"
+    message: "Security Vulnerability: Detected potential hardcoded secret or token assignment. Use pydantic-settings environment variable injection via get_settings() instead."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      category: security
