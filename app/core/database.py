@@ -16,34 +16,55 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-# Engine-level connection arguments (SQLite multi-thread compatibility)
-connect_args: dict[str, Any] = {}
-if settings.database_url.startswith("sqlite"):
-    connect_args["check_same_thread"] = False
+# Engine-level connection arguments & pool configuration helper
+def _build_engine_and_pool_kwargs(
+    url: str, is_replica: bool = False
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    connect_args: dict[str, Any] = {}
+    if url.startswith("sqlite"):
+        connect_args["check_same_thread"] = False
 
-# Connection pool configuration
-# Universal parameters: pool_pre_ping and pool_recycle apply across all dialects and pool classes
-pool_kwargs: dict[str, Any] = {
-    "pool_pre_ping": settings.db_pool_pre_ping,
-    "pool_recycle": settings.db_pool_recycle,
-}
+    pool_kwargs: dict[str, Any] = {
+        "pool_pre_ping": settings.db_pool_pre_ping,
+        "pool_recycle": settings.db_pool_recycle,
+    }
+    is_sqlite_memory = ":memory:" in url or "mode=memory" in url
+    if not is_sqlite_memory:
+        pool_kwargs["pool_size"] = (
+            settings.db_replica_pool_size if is_replica else settings.db_pool_size
+        )
+        pool_kwargs["max_overflow"] = (
+            settings.db_replica_max_overflow if is_replica else settings.db_max_overflow
+        )
+        pool_kwargs["pool_timeout"] = settings.db_pool_timeout
+    return connect_args, pool_kwargs
 
-# QueuePool parameters (pool_size, max_overflow, pool_timeout):
-# Supported by PostgreSQL, MySQL, and file-based SQLite (AsyncAdaptedQueuePool).
-# StaticPool (:memory:) does not accept queue size bounds.
-is_sqlite_memory = ":memory:" in settings.database_url or "mode=memory" in settings.database_url
-if not is_sqlite_memory:
-    pool_kwargs["pool_size"] = settings.db_pool_size
-    pool_kwargs["max_overflow"] = settings.db_max_overflow
-    pool_kwargs["pool_timeout"] = settings.db_pool_timeout
 
-# Global asynchronous engine with enterprise connection pooling
-engine: AsyncEngine = create_async_engine(
+# Primary / Writer Asynchronous Engine
+primary_connect_args, primary_pool_kwargs = _build_engine_and_pool_kwargs(
+    settings.database_url, is_replica=False
+)
+primary_engine: AsyncEngine = create_async_engine(
     settings.database_url,
     echo=settings.db_echo,
-    connect_args=connect_args,
-    **pool_kwargs,
+    connect_args=primary_connect_args,
+    **primary_pool_kwargs,
 )
+
+# Read Replica Asynchronous Engine (defaults to Primary if unset)
+replica_url = settings.database_read_replica_url or settings.database_url
+replica_connect_args, replica_pool_kwargs = _build_engine_and_pool_kwargs(
+    replica_url, is_replica=True
+)
+replica_engine: AsyncEngine = create_async_engine(
+    replica_url,
+    echo=settings.db_echo,
+    connect_args=replica_connect_args,
+    **replica_pool_kwargs,
+)
+
+# Backwards-compatible primary engine alias
+engine: AsyncEngine = primary_engine
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -56,15 +77,23 @@ class Base(AsyncAttrs, DeclarativeBase):
     pass
 
 
-# Asynchronous session factory configured with expire_on_commit=False
-# CRITICAL ARCHITECTURAL RULE: expire_on_commit=False is mandatory in async
-# SQLAlchemy to prevent implicit synchronous lazy loading and MissingGreenlet crashes.
-async_session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
-    bind=engine,
+# Primary & Replica Session Factories
+PrimaryAsyncSession: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    bind=primary_engine,
     class_=AsyncSession,
     expire_on_commit=False,
     autoflush=False,
 )
+
+ReplicaAsyncSession: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    bind=replica_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False,
+)
+
+# Backwards-compatible session factory alias
+async_session_factory: async_sessionmaker[AsyncSession] = PrimaryAsyncSession
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession]:
@@ -87,18 +116,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession]:
         await session.close()
 
 
-def get_db_pool_status() -> dict[str, Any]:
-    """Inspect and return current database connection pool telemetry.
-
-    Extracts active metrics from the underlying pool in O(1) time:
-    - pool_type: Clean class name of the pool (e.g. QueuePool).
-    - pool_size: Maximum baseline configured pool size.
-    - checked_in_connections: Idle warm connections currently waiting in the pool.
-    - checked_out_connections: Connections currently acquired by active requests/sessions.
-    - overflow_connections: Active connections allocated beyond pool_size.
-    - total_open_connections: Sum of checked-in and checked-out connections.
-    """
-    pool = engine.pool
+def _extract_pool_metrics(target_engine: AsyncEngine) -> dict[str, Any]:
+    """Extract real-time telemetry metrics from a targeted database connection pool."""
+    pool = target_engine.pool
     pool_name = type(pool).__name__
     clean_pool_type = "QueuePool" if "QueuePool" in pool_name else pool_name
 
@@ -115,6 +135,19 @@ def get_db_pool_status() -> dict[str, Any]:
         "checked_out_connections": checked_out,
         "overflow_connections": overflow_conns,
         "total_open_connections": checked_in + checked_out,
+    }
+
+
+def get_db_pool_status() -> dict[str, Any]:
+    """Inspect and return current primary database connection pool telemetry."""
+    return _extract_pool_metrics(primary_engine)
+
+
+def get_dual_db_pool_status() -> dict[str, Any]:
+    """Inspect and return operational telemetry for both Primary and Replica connection pools."""
+    return {
+        "primary": _extract_pool_metrics(primary_engine),
+        "replica": _extract_pool_metrics(replica_engine),
     }
 
 

@@ -19,9 +19,12 @@ class Settings(BaseSettings):
 
     # Database Configuration (SQLAlchemy 2.0 Async)
     database_url: str = "sqlite+aiosqlite:///./app.db"
+    database_read_replica_url: str | None = None
     db_echo: bool = False
     db_pool_size: int = 20
     db_max_overflow: int = 10
+    db_replica_pool_size: int = 30
+    db_replica_max_overflow: int = 20
     db_pool_timeout: float = 30.0
     db_pool_recycle: int = 1800
     db_pool_pre_ping: bool = True

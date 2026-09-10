@@ -48,6 +48,7 @@ from app.routers.order_router import router as order_router
 from app.routers.outbox_router import router as outbox_router
 from app.routers.payment_router import router as payment_router
 from app.routers.product_router import router as product_router
+from app.routers.replica_router import router as replica_router
 from app.routers.resilience_router import router as resilience_router
 from app.routers.schedule_router import router as schedule_router
 from app.routers.security_router import router as security_router
@@ -148,6 +149,7 @@ app.include_router(kafka_consumer_router)
 app.include_router(dlq_router)
 app.include_router(outbox_router)
 app.include_router(resilience_router)
+app.include_router(replica_router)
 
 
 @app.get("/health", tags=["Health"])

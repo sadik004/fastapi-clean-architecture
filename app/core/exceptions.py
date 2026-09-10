@@ -283,3 +283,15 @@ class BulkheadFullException(ServiceUnavailableException):
         )
 
 
+class ReadOnlyReplicaMutationException(BusinessRuleViolationException):
+    """Raised when an INSERT, UPDATE, or DELETE is routed to a read replica (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Mutating operations (INSERT/UPDATE/DELETE) are strictly prohibited on read replica engines.",
+        code: str = "READ_REPLICA_MUTATION_FORBIDDEN",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+
