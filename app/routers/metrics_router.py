@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from redis.asyncio import Redis
 
 from app.core.dependencies import (
@@ -15,6 +15,7 @@ from app.core.dependencies import (
 )
 from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.sliding_window import SlidingWindowLog
+from app.core.metrics import generate_metrics_payload
 from app.core.redis import get_redis
 from app.schemas.metrics import (
     BloomFilterCheckResponse,
@@ -30,6 +31,22 @@ from app.services.cache_service import CacheService, get_cache_service
 from app.services.rate_limiter_service import RateLimiterService
 
 router = APIRouter(prefix="/metrics", tags=["Metrics & Observability"])
+
+
+@router.get(
+    "",
+    summary="Prometheus metrics scraping endpoint",
+    description="Exposes application time-series metrics formatted in Prometheus text/OpenMetrics format.",
+)
+@router.get(
+    "/",
+    include_in_schema=False,
+)
+async def get_prometheus_metrics() -> Response:
+    """Scrape and export Prometheus time-series metrics."""
+    content, media_type = generate_metrics_payload()
+    return Response(content=content, media_type=media_type)
+
 
 # Dedicated rate limiter for integration testing (5 requests per 10 seconds)
 _test_endpoint_limiter = SlidingWindowLog(window_seconds=10.0, max_requests=5)

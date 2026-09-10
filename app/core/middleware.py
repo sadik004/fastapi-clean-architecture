@@ -1,7 +1,7 @@
-"""Custom ASGI Middleware for request latency tracking, correlation IDs, W3C Distributed Tracing, and OWASP security headers.
+"""Custom ASGI Middleware for request latency tracking, correlation IDs, W3C Distributed Tracing, Prometheus Metrics, and OWASP security headers.
 
-Ensures strict perimeter defense, OpenTelemetry W3C traceparent propagation, RFC 9562 UUIDv7 correlation ID binding,
-and microsecond-precision structured logging across all incoming HTTP requests and outgoing responses in O(1) time complexity.
+Ensures strict perimeter defense, OpenTelemetry W3C traceparent propagation, Prometheus time-series metrics collection,
+RFC 9562 UUIDv7 correlation ID binding, and microsecond-precision structured logging across all HTTP transactions in O(1) time complexity.
 """
 
 from __future__ import annotations
@@ -17,17 +17,19 @@ from starlette.responses import Response
 from app.core.context import reset_correlation_id, set_correlation_id
 from app.core.identifiers import generate_uuidv7
 from app.core.logging import get_logger
+from app.core.metrics import get_metrics, normalize_path
 from app.core.tracing import format_span_id, format_trace_id, get_propagator, get_tracer
 
 logger = get_logger("app.middleware")
 
 
 class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
-    """Global ASGI perimeter middleware for observability, distributed tracing, and security hardening.
+    """Global ASGI perimeter middleware for observability, distributed tracing, metrics, and security hardening.
 
     Interception Pipeline:
     1. Pre-execution:
        - Captures high-precision start timestamp via time.perf_counter().
+       - Increments Prometheus 'http_requests_in_flight' gauge.
        - Resolves client-supplied 'X-Request-ID' or 'X-Correlation-ID', or creates fresh RFC 9562 UUIDv7.
        - Extracts incoming W3C 'traceparent' and 'tracestate' via TraceContextTextMapPropagator.
        - Starts root SERVER span ('HTTP {method} {path}').
@@ -43,12 +45,18 @@ class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
        - Injects observability headers: 'X-Process-Time-Ms', 'X-Request-ID', 'X-Correlation-ID', and 'traceparent'.
        - Injects OWASP defense-in-depth security headers.
     4. Teardown:
+       - Decrements Prometheus 'http_requests_in_flight' gauge.
+       - Normalizes endpoint route to prevent Prometheus label cardinality explosion.
+       - Records execution latency in Prometheus 'http_request_duration_seconds' histogram.
+       - Increments Prometheus 'http_requests_total' counter.
        - Clears structlog contextvars and resets contextvars token to prevent cross-task leakage.
        - Root span context is cleanly closed.
     """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         start_time = time.perf_counter()
+        prom_metrics = get_metrics()
+        prom_metrics.http_requests_in_flight.inc()
 
         # Extract client correlation ID or generate time-ordered RFC 9562 UUIDv7
         incoming_id = request.headers.get("X-Correlation-ID") or request.headers.get("X-Request-ID")
@@ -62,6 +70,7 @@ class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
         tracer = get_tracer("app.middleware")
 
         span_name = f"HTTP {request.method} {request.url.path}"
+        status_code = 500
 
         with tracer.start_as_current_span(
             span_name,
@@ -101,6 +110,7 @@ class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
 
             try:
                 response = await call_next(request)
+                status_code = response.status_code
                 duration_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
 
                 # Record response telemetry on root span
@@ -136,6 +146,7 @@ class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
 
                 return response
             except Exception as exc:
+                status_code = 500
                 duration_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
                 root_span.record_exception(exc)
                 root_span.set_status(StatusCode.ERROR, str(exc))
@@ -150,5 +161,20 @@ class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
                 )
                 raise
             finally:
+                # Prometheus Metrics Collection
+                prom_metrics.http_requests_in_flight.dec()
+                total_duration_sec = time.perf_counter() - start_time
+                normalized_endpoint = normalize_path(request)
+                prom_metrics.http_request_duration_seconds.labels(
+                    method=request.method,
+                    endpoint=normalized_endpoint,
+                    status_code=str(status_code),
+                ).observe(total_duration_sec)
+                prom_metrics.http_requests_total.labels(
+                    method=request.method,
+                    endpoint=normalized_endpoint,
+                    status_code=str(status_code),
+                ).inc()
+
                 structlog.contextvars.clear_contextvars()
                 reset_correlation_id(token)
