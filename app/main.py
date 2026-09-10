@@ -40,6 +40,7 @@ from app.routers.arq_router import router as arq_router
 from app.routers.auth_router import router as auth_router
 from app.routers.broker_router import router as broker_router
 from app.routers.catalog_router import router as catalog_router
+from app.routers.dashboard_router import router as dashboard_router
 from app.routers.database_admin_router import router as database_admin_router
 from app.routers.dlq_router import router as dlq_router
 from app.routers.document_router import router as document_router
@@ -176,6 +177,7 @@ app.include_router(partition_router)
 app.include_router(search_router)
 app.include_router(observability_router)
 app.include_router(tracing_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health", tags=["Health"])
