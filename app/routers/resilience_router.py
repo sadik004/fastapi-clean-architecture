@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.core.resilience.backoff import calculate_backoff
+from app.core.resilience.fallback import DegradationLevel
 from app.schemas.resilience import (
     BackoffDistributionResponse,
     BackoffSimulationRequest,
@@ -17,6 +18,13 @@ from app.schemas.resilience import (
     CircuitBreakerChargeRequest,
     CircuitBreakerChargeResponse,
     CircuitBreakerMetricsResponse,
+    RecommendationResponse,
+    SeedCacheRequest,
+    SeedCacheResponse,
+)
+from app.services.recommendation_service import (
+    ProductRecommendationService,
+    get_recommendation_service,
 )
 from app.services.resilient_payment_service import (
     ResilientPaymentService,
@@ -31,7 +39,7 @@ from app.services.resilient_third_party_service import (
     get_resilient_third_party_service,
 )
 
-router = APIRouter(tags=["Resilience, Circuit Breaker & Backoff"])
+router = APIRouter(tags=["Resilience, Circuit Breaker, Backoff & Fallback"])
 
 
 @router.post(
@@ -216,6 +224,61 @@ async def get_backoff_distribution_endpoint(
         max_calculated_delay=max_calculated_delay,
         mean_delay=round(mean_delay, 6),
         delays=delays,
+    )
+
+
+@router.get(
+    "/resilience/recommendations/{user_id}",
+    response_model=RecommendationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Fetch personalized product recommendations with multi-tier graceful degradation",
+    description=(
+        "Returns personalized recommendations through a 3-tier fallback safety ladder: "
+        "Primary AI Service -> Stale Redis Cache -> Static Trending Default. "
+        "Injects HTTP telemetry headers X-Degraded-Mode and X-Degradation-Level, guaranteeing zero 500 errors."
+    ),
+)
+async def get_personalized_recommendations_endpoint(
+    user_id: int,
+    response: Response,
+    service: Annotated[ProductRecommendationService, Depends(get_recommendation_service)],
+    simulate_failure: Annotated[bool, Query(description="Simulate external AI service outage")] = False,
+) -> RecommendationResponse:
+    """Execute recommendation query protected by multi-tier FallbackEngine."""
+    result, level = await service.get_personalized_recommendations(
+        user_id=user_id,
+        simulate_failure=simulate_failure,
+    )
+
+    response.headers["X-Degraded-Mode"] = "FALSE" if level == DegradationLevel.PRIMARY else "TRUE"
+    response.headers["X-Degradation-Level"] = level.value
+
+    return RecommendationResponse(**result)
+
+
+@router.post(
+    "/resilience/recommendations/seed-cache",
+    response_model=SeedCacheResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Prime fallback Redis cache for recommendation graceful degradation testing",
+)
+async def seed_recommendations_cache_endpoint(
+    payload: SeedCacheRequest,
+    service: Annotated[ProductRecommendationService, Depends(get_recommendation_service)],
+) -> SeedCacheResponse:
+    """Seed user recommendation cache with predetermined items."""
+    raw_items = [item.model_dump() for item in payload.items]
+    cache_key = await service.seed_user_cache(
+        user_id=payload.user_id,
+        items=raw_items,
+        ttl_seconds=payload.ttl_seconds,
+    )
+    return SeedCacheResponse(
+        user_id=payload.user_id,
+        items_count=len(payload.items),
+        cache_key=cache_key,
+        ttl_seconds=payload.ttl_seconds,
+        status="seeded",
     )
 
 

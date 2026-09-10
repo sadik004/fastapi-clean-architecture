@@ -201,3 +201,53 @@ class BackoffDistributionResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+# =============================================================================
+# Graceful Degradation & Recommendation Schemas
+# =============================================================================
+
+
+class ProductItem(BaseModel):
+    """Product recommendation item."""
+
+    product_id: str = Field(..., description="Unique product identifier")
+    title: str = Field(..., description="Product title / name")
+    price: float = Field(..., ge=0.0, description="Product price in currency units")
+    category: str = Field(..., description="Product category taxonomy")
+    score: float = Field(..., ge=0.0, le=1.0, description="Recommendation confidence score")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RecommendationResponse(BaseModel):
+    """Response returned by the resilient recommendation service."""
+
+    user_id: int = Field(..., description="Target user identifier")
+    items: list[ProductItem] = Field(..., description="List of recommended product items")
+    degraded: bool = Field(..., description="Whether response was served in degraded mode")
+    degradation_level: str = Field(..., description="Degradation tier: PRIMARY, STALE_CACHE, or STATIC_DEFAULT")
+    served_at: datetime = Field(..., description="Timestamp when response was resolved")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SeedCacheRequest(BaseModel):
+    """Payload to prime the fallback Redis cache for recommendation testing."""
+
+    user_id: int = Field(..., ge=1, description="Target user identifier")
+    items: list[ProductItem] = Field(..., min_length=1, description="List of items to store in stale cache")
+    ttl_seconds: int = Field(default=3600, ge=1, le=86400, description="Cache TTL in seconds")
+
+
+class SeedCacheResponse(BaseModel):
+    """Response returned upon seeding the fallback cache."""
+
+    user_id: int = Field(..., description="Target user identifier")
+    items_count: int = Field(..., description="Number of items cached")
+    cache_key: str = Field(..., description="Redis key populated")
+    ttl_seconds: int = Field(..., description="TTL applied")
+    status: str = Field(default="seeded", description="Seeding status")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
