@@ -30,6 +30,7 @@ def _clean_database() -> None:
                     conn.execute("DELETE FROM posts")
                     conn.execute("DELETE FROM users")
                     conn.execute("DELETE FROM products")
+                    conn.execute("DELETE FROM catalog_items")
                     conn.commit()
             except sqlite3.OperationalError:
                 pass

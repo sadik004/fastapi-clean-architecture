@@ -84,3 +84,18 @@ class CatalogSearchByTagResponse(BaseModel):
     items: list[CatalogItemResponse]
     total: int
     plan_report: QueryPlanReport | None = None
+
+
+class OffsetComparisonResponse(BaseModel):
+    """Response containing items fetched via traditional SQL OFFSET and timing telemetry."""
+
+    items: list[CatalogItemResponse]
+    limit: int
+    offset: int
+    total_returned: int
+    execution_time_ms: float
+    scan_strategy: str = Field(
+        default="OFFSET_SCAN_O_N",
+        description="Data scanning archetype demonstrating O(N) degradation on deep pages.",
+    )
+    plan_report: QueryPlanReport | None = None

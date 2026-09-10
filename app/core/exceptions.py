@@ -305,5 +305,23 @@ class UnsafeQueryExecutionException(BusinessRuleViolationException):
         super().__init__(message=message, code=code)
 
 
+class ValidationException(BaseDomainException):
+    """Raised when client-supplied input violates domain or protocol validation invariants (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Input validation invariant failed.",
+        code: str = "VALIDATION_ERROR",
+    ) -> None:
+        super().__init__(message=message, code=code)
 
 
+class InvalidCursorException(ValidationException):
+    """Raised when a pagination cursor token is malformed, corrupted, or tampered with (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Invalid, malformed, or tampered pagination cursor token.",
+        code: str = "INVALID_CURSOR",
+    ) -> None:
+        super().__init__(message=message, code=code)

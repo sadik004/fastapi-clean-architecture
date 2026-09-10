@@ -28,6 +28,7 @@ from app.core.exceptions import (
     EntityNotFoundException,
     SecurityViolationException,
     ServiceUnavailableException,
+    ValidationException,
 )
 from app.schemas.error import ErrorDetail, ErrorResponse
 
@@ -55,9 +56,7 @@ def _resolve_domain_status_code(exc: BaseDomainException) -> int:
         return 409
     if isinstance(exc, AuthorizationException):
         return 403
-    if isinstance(exc, SecurityViolationException):
-        return 400
-    if isinstance(exc, BusinessRuleViolationException):
+    if isinstance(exc, SecurityViolationException | BusinessRuleViolationException | ValidationException):
         return 400
     if isinstance(exc, ServiceUnavailableException):
         return 503

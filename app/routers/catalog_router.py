@@ -2,24 +2,37 @@
 
 from __future__ import annotations
 
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import String, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.pagination.cursor import CursorCodec
 from app.core.routing_session import get_primary_session, get_read_session
 from app.models.catalog_item import CatalogItemModel
+from app.repositories.catalog_repository import (
+    CatalogRepositoryProtocol,
+    SqlAlchemyCatalogRepository,
+)
 from app.schemas.catalog import (
     CatalogItemCreate,
     CatalogItemResponse,
     CatalogSearchByTagResponse,
     ExplainQueryRequest,
+    OffsetComparisonResponse,
     QueryPlanReport,
 )
+from app.schemas.pagination import CursorPageResponse
 from app.services.query_plan_service import QueryPlanService
 
 router = APIRouter(prefix="/catalog", tags=["Catalog & Database Index Diagnostics"])
+
+
+def get_catalog_repository() -> CatalogRepositoryProtocol:
+    """Dependency provider returning CatalogRepository implementation."""
+    return SqlAlchemyCatalogRepository()
 
 
 @router.post(
@@ -50,6 +63,76 @@ async def create_catalog_item_endpoint(
     await primary_session.commit()
     await primary_session.refresh(new_item)
     return CatalogItemResponse.model_validate(new_item)
+
+
+@router.get(
+    "/items/keyset",
+    response_model=CursorPageResponse[CatalogItemResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Keyset / Cursor-based paginated catalog items",
+    description=(
+        "Retrieves a page of catalog items using deterministic composite tuple keyset seeking "
+        "(created_at DESC, id DESC). Executes in O(1) B-Tree seek time regardless of pagination depth."
+    ),
+)
+async def get_catalog_items_keyset_endpoint(
+    read_session: Annotated[AsyncSession, Depends(get_read_session)],
+    catalog_repo: Annotated[CatalogRepositoryProtocol, Depends(get_catalog_repository)],
+    cursor: Annotated[str | None, Query(description="Opaque Base64 cursor token")] = None,
+    limit: Annotated[int, Query(ge=1, le=100, description="Page limit (1-100)")] = 20,
+) -> CursorPageResponse[CatalogItemResponse]:
+    """Execute O(1) B-Tree seek keyset pagination."""
+    cursor_data = None
+    if cursor is not None:
+        cursor_data = CursorCodec.decode_cursor(cursor)
+
+    items, has_more, next_cursor = await catalog_repo.get_paginated_items_keyset(
+        session=read_session,
+        limit=limit,
+        cursor_data=cursor_data,
+    )
+
+    return CursorPageResponse(
+        items=[CatalogItemResponse.model_validate(i) for i in items],
+        next_cursor=next_cursor,
+        has_more=has_more,
+        total_returned=len(items),
+    )
+
+
+@router.get(
+    "/items/offset-comparison",
+    response_model=OffsetComparisonResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Legacy SQL OFFSET paginated catalog items (Benchmarking Diagnostics)",
+    description=(
+        "Retrieves a slice of catalog items using traditional SQL LIMIT / OFFSET. "
+        "Demonstrates O(N) database scan degradation on deep pages for benchmarking against keyset seeking."
+    ),
+)
+async def get_catalog_items_offset_endpoint(
+    read_session: Annotated[AsyncSession, Depends(get_read_session)],
+    catalog_repo: Annotated[CatalogRepositoryProtocol, Depends(get_catalog_repository)],
+    offset: Annotated[int, Query(ge=0, description="Number of rows to skip")] = 0,
+    limit: Annotated[int, Query(ge=1, le=100, description="Page size")] = 20,
+) -> OffsetComparisonResponse:
+    """Execute traditional O(N) SQL OFFSET query with latency telemetry."""
+    start_time = time.perf_counter()
+    items = await catalog_repo.get_paginated_items_offset(
+        session=read_session,
+        limit=limit,
+        offset=offset,
+    )
+    elapsed_ms = round((time.perf_counter() - start_time) * 1000, 3)
+
+    return OffsetComparisonResponse(
+        items=[CatalogItemResponse.model_validate(i) for i in items],
+        limit=limit,
+        offset=offset,
+        total_returned=len(items),
+        execution_time_ms=elapsed_ms,
+        scan_strategy="OFFSET_SCAN_O_N",
+    )
 
 
 @router.get(
