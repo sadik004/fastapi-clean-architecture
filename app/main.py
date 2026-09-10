@@ -33,6 +33,7 @@ from app.core.redis import (
     get_redis_pool_status,
     init_redis_pool,
 )
+from app.core.tracing import init_tracer, shutdown_tracer
 from app.events.handlers import register_default_event_handlers
 from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.routers.arq_router import router as arq_router
@@ -59,6 +60,7 @@ from app.routers.schedule_router import router as schedule_router
 from app.routers.search_router import router as search_router
 from app.routers.security_router import router as security_router
 from app.routers.task_router import router as task_router
+from app.routers.tracing_router import router as tracing_router
 from app.routers.user_router import router as user_router
 from app.services.user_service import seed_user_bloom_filter
 
@@ -93,7 +95,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         repo = SqlAlchemyUserRepository(session=session)
         await seed_user_bloom_filter(repo)
 
+    # Initialize OpenTelemetry distributed tracing provider
+    init_tracer(environment=settings.environment)
+
     yield
+    shutdown_tracer()
     await close_kafka_producer()
     await close_rabbitmq()
     await close_redis_pool()
@@ -115,6 +121,9 @@ settings = get_settings()
 # Initialize enterprise structured logging pipeline
 setup_logging(environment=settings.environment)
 
+# Initialize OpenTelemetry distributed tracing provider immediately
+init_tracer(environment=settings.environment)
+
 # Register global custom security and observability middleware
 app.add_middleware(CustomSecurityAndObservabilityMiddleware)
 
@@ -135,6 +144,8 @@ app.add_middleware(
         "Idempotency-Key",
         "X-Request-ID",
         "X-Correlation-ID",
+        "traceparent",
+        "tracestate",
     ],
 )
 
@@ -164,6 +175,7 @@ app.include_router(database_admin_router)
 app.include_router(partition_router)
 app.include_router(search_router)
 app.include_router(observability_router)
+app.include_router(tracing_router)
 
 
 @app.get("/health", tags=["Health"])
