@@ -37,6 +37,7 @@ from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.routers.arq_router import router as arq_router
 from app.routers.auth_router import router as auth_router
 from app.routers.broker_router import router as broker_router
+from app.routers.catalog_router import router as catalog_router
 from app.routers.dlq_router import router as dlq_router
 from app.routers.document_router import router as document_router
 from app.routers.job_router import router as job_router
@@ -150,6 +151,7 @@ app.include_router(dlq_router)
 app.include_router(outbox_router)
 app.include_router(resilience_router)
 app.include_router(replica_router)
+app.include_router(catalog_router)
 
 
 @app.get("/health", tags=["Health"])

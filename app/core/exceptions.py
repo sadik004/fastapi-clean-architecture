@@ -294,4 +294,16 @@ class ReadOnlyReplicaMutationException(BusinessRuleViolationException):
         super().__init__(message=message, code=code)
 
 
+class UnsafeQueryExecutionException(BusinessRuleViolationException):
+    """Raised when an EXPLAIN query contains mutating or prohibited SQL statements."""
+
+    def __init__(
+        self,
+        message: str = "Query plan diagnostics strictly forbid mutating or dangerous SQL statements.",
+        code: str = "UNSAFE_DIAGNOSTIC_QUERY",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+
 

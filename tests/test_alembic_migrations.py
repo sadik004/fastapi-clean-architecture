@@ -80,6 +80,26 @@ async def test_migration_bidirectional_reversibility() -> None:
     # Ensure current head is applied
     apply_migrations(revision="head")
 
+    # Roll back by 1 revision (catalog_items table dropped, outbox_events, nid_number, orders, products, version, posts & users remain)
+    rollback_migration(revision="-1")
+
+    async with engine.connect() as conn:
+
+        def check_after_rollback_catalog(sync_conn: Connection) -> tuple[list[str], list[str]]:
+            insp = inspect(sync_conn)
+            tbls = insp.get_table_names()
+            cols = [c["name"] for c in insp.get_columns("users")] if "users" in tbls else []
+            return tbls, cols
+
+        tables_after_catalog, user_cols_after_catalog = await conn.run_sync(check_after_rollback_catalog)
+        assert "catalog_items" not in tables_after_catalog
+        assert "outbox_events" in tables_after_catalog
+        assert "orders" in tables_after_catalog
+        assert "products" in tables_after_catalog
+        assert "users" in tables_after_catalog
+        assert "posts" in tables_after_catalog
+        assert "nid_number" in user_cols_after_catalog
+
     # Roll back by 1 revision (outbox_events table dropped, nid_number, orders, products, version, posts & users remain)
     rollback_migration(revision="-1")
 
@@ -209,11 +229,12 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "products" not in tables_after_rollback_base
         assert "orders" not in tables_after_rollback_base
         assert "outbox_events" not in tables_after_rollback_base
+        assert "catalog_items" not in tables_after_rollback_base
 
     # Re-apply migrations to head
     apply_migrations(revision="head")
 
-    # Verify all tables, version column, permissions, products table, orders, and outbox_events were successfully restored
+    # Verify all tables, version column, permissions, products table, orders, outbox_events, and catalog_items were successfully restored
     async with engine.connect() as conn:
 
         def check_after_reupgrade(sync_conn: Connection) -> tuple[list[str], list[str]]:
@@ -228,6 +249,7 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "products" in tables_after_reupgrade
         assert "orders" in tables_after_reupgrade
         assert "outbox_events" in tables_after_reupgrade
+        assert "catalog_items" in tables_after_reupgrade
         assert "version" in user_cols_after_reupgrade
         assert "permissions" in user_cols_after_reupgrade
         assert "nid_number" in user_cols_after_reupgrade
