@@ -1,0 +1,59 @@
+# Docker Build Context Exclusion Rules
+# Context hygiene prevents image bloat and secret leakage into image layers
+
+# Version Control & Agent Systems
+.git
+.gitignore
+.github
+.agents
+
+# Virtual Environments
+.venv
+venv
+env
+ENV
+
+# Python Bytecode & Cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Test & Linting Caches
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+.tox
+
+# Development & Test Suites
+tests
+docs
+*.md
+
+# Local Environment Secrets & Configuration
+.env
+.env*
+*.env
+*.local
+
+# Local SQLite Databases & Artifacts
+*.db
+*.sqlite
+*.sqlite3
+test_exhaustion.db
+app.db
+
+# Kubernetes & Local Deployment Specs
+deployments
+
+# IDE & OS Artifacts
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
