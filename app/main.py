@@ -24,6 +24,7 @@ from app.core.database import (
 from app.core.dependencies import RateLimitGuard, TokenBucketGuard
 from app.core.exception_handlers import register_exception_handlers
 from app.core.kafka import close_kafka_producer, init_kafka_producer
+from app.core.logging import setup_logging
 from app.core.middleware import CustomSecurityAndObservabilityMiddleware
 from app.core.rabbitmq import close_rabbitmq, init_rabbitmq
 from app.core.redis import (
@@ -46,6 +47,7 @@ from app.routers.kafka_consumer_router import router as kafka_consumer_router
 from app.routers.kafka_router import router as kafka_router
 from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
+from app.routers.observability_router import router as observability_router
 from app.routers.order_router import router as order_router
 from app.routers.outbox_router import router as outbox_router
 from app.routers.partition_router import router as partition_router
@@ -110,6 +112,9 @@ register_exception_handlers(app)
 
 settings = get_settings()
 
+# Initialize enterprise structured logging pipeline
+setup_logging(environment=settings.environment)
+
 # Register global custom security and observability middleware
 app.add_middleware(CustomSecurityAndObservabilityMiddleware)
 
@@ -158,6 +163,7 @@ app.include_router(catalog_router)
 app.include_router(database_admin_router)
 app.include_router(partition_router)
 app.include_router(search_router)
+app.include_router(observability_router)
 
 
 @app.get("/health", tags=["Health"])

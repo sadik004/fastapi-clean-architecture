@@ -6,11 +6,15 @@ import uuid
 from collections.abc import Sequence
 from datetime import datetime
 
+import structlog
+
 from app.core.exceptions import OrderNotFoundException, UserNotFoundException
 from app.core.identifiers import extract_timestamp_from_uuidv7
 from app.core.unit_of_work import UnitOfWorkProtocol
 from app.repositories.order_repository import OrderEntity
 from app.repositories.outbox_repository import OutboxEventEntity
+
+logger = structlog.get_logger(__name__)
 
 
 class OrderService:
@@ -42,6 +46,12 @@ class OrderService:
                 order_id=order_id,
             )
             await uow.commit()
+            logger.info(
+                "order_created",
+                order_id=str(order.id),
+                user_id=order.user_id,
+                total_amount=order.total_amount,
+            )
             return order
 
     async def create_order_with_outbox(
@@ -81,6 +91,13 @@ class OrderService:
                 },
             )
             await uow.commit()
+            logger.info(
+                "order_created_with_outbox",
+                order_id=str(order.id),
+                user_id=order.user_id,
+                total_amount=order.total_amount,
+                outbox_event_id=outbox_event.id,
+            )
             return order, outbox_event
 
     async def get_order_by_id(self, order_id: uuid.UUID) -> OrderEntity:
