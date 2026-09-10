@@ -1,0 +1,88 @@
+# ==============================================================================
+# Docker Compose Production Stack Orchestration
+# Services: FastAPI Application + PostgreSQL 15 + Redis 7 + Prometheus 2.45
+# Healthcheck Dependency Sequencing & Isolated Bridge Network
+# ==============================================================================
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: fastapi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: fastapi_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://appuser:apppassword@postgres:5432/appdb
+      REDIS_URL: redis://redis:6379/0
+      ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal_network
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: fastapi_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./deployments/docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - app
+    networks:
+      - internal_network
+
+volumes:
+  postgres_data:
+    name: fastapi_postgres_data
+  redis_data:
+    name: fastapi_redis_data
+  prometheus_data:
+    name: fastapi_prometheus_data
+
+networks:
+  internal_network:
+    name: fastapi_internal_network
+    driver: bridge
