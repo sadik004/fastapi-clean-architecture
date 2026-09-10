@@ -25,15 +25,28 @@ def _clean_database() -> None:
     if settings.database_url.startswith("sqlite"):
         db_path = settings.database_url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
         if db_path and db_path != ":memory:":
-            try:
                 with sqlite3.connect(db_path) as conn:
-                    conn.execute("DELETE FROM posts")
-                    conn.execute("DELETE FROM users")
-                    conn.execute("DELETE FROM products")
-                    conn.execute("DELETE FROM catalog_items")
+                    for table in [
+                        "posts",
+                        "users",
+                        "products",
+                        "catalog_items",
+                        "audit_logs",
+                    ]:
+                        try:
+                            conn.execute(f"DELETE FROM {table}")  # noqa: S608
+                        except sqlite3.OperationalError:
+                            pass
+                    for child in [
+                        "audit_logs_y2025",
+                        "audit_logs_y2026",
+                        "audit_logs_default",
+                    ]:
+                        try:
+                            conn.execute(f"DROP TABLE IF EXISTS {child}")  # noqa: S608
+                        except sqlite3.OperationalError:
+                            pass
                     conn.commit()
-            except sqlite3.OperationalError:
-                pass
 
 
 @pytest.fixture(autouse=True)

@@ -48,6 +48,7 @@ from app.routers.leaderboard_router import router as leaderboard_router
 from app.routers.metrics_router import router as metrics_router
 from app.routers.order_router import router as order_router
 from app.routers.outbox_router import router as outbox_router
+from app.routers.partition_router import router as partition_router
 from app.routers.payment_router import router as payment_router
 from app.routers.product_router import router as product_router
 from app.routers.replica_router import router as replica_router
@@ -154,6 +155,7 @@ app.include_router(resilience_router)
 app.include_router(replica_router)
 app.include_router(catalog_router)
 app.include_router(database_admin_router)
+app.include_router(partition_router)
 
 
 @app.get("/health", tags=["Health"])

@@ -80,6 +80,27 @@ async def test_migration_bidirectional_reversibility() -> None:
     # Ensure current head is applied
     apply_migrations(revision="head")
 
+    # Roll back by 1 revision (audit_logs table dropped, catalog_items, outbox_events, nid_number, orders, products, version, posts & users remain)
+    rollback_migration(revision="-1")
+
+    async with engine.connect() as conn:
+
+        def check_after_rollback_audit(sync_conn: Connection) -> tuple[list[str], list[str]]:
+            insp = inspect(sync_conn)
+            tbls = insp.get_table_names()
+            cols = [c["name"] for c in insp.get_columns("users")] if "users" in tbls else []
+            return tbls, cols
+
+        tables_after_audit, user_cols_after_audit = await conn.run_sync(check_after_rollback_audit)
+        assert "audit_logs" not in tables_after_audit
+        assert "catalog_items" in tables_after_audit
+        assert "outbox_events" in tables_after_audit
+        assert "orders" in tables_after_audit
+        assert "products" in tables_after_audit
+        assert "users" in tables_after_audit
+        assert "posts" in tables_after_audit
+        assert "nid_number" in user_cols_after_audit
+
     # Roll back by 1 revision (catalog_items table dropped, outbox_events, nid_number, orders, products, version, posts & users remain)
     rollback_migration(revision="-1")
 
@@ -230,6 +251,7 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "orders" not in tables_after_rollback_base
         assert "outbox_events" not in tables_after_rollback_base
         assert "catalog_items" not in tables_after_rollback_base
+        assert "audit_logs" not in tables_after_rollback_base
 
     # Re-apply migrations to head
     apply_migrations(revision="head")
@@ -250,6 +272,7 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "orders" in tables_after_reupgrade
         assert "outbox_events" in tables_after_reupgrade
         assert "catalog_items" in tables_after_reupgrade
+        assert "audit_logs" in tables_after_reupgrade
         assert "version" in user_cols_after_reupgrade
         assert "permissions" in user_cols_after_reupgrade
         assert "nid_number" in user_cols_after_reupgrade
