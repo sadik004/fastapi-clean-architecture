@@ -25,9 +25,12 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
     db_replica_pool_size: int = 30
     db_replica_max_overflow: int = 20
-    db_pool_timeout: float = 30.0
+    db_pool_timeout: float = 5.0
     db_pool_recycle: int = 1800
     db_pool_pre_ping: bool = True
+    db_statement_timeout_ms: int = 3000
+    db_idle_in_transaction_timeout_ms: int = 5000
+    db_lock_timeout_ms: int = 2000
 
     # Redis Configuration (redis.asyncio)
     redis_url: str = "redis://localhost:6379/0"
@@ -80,3 +83,7 @@ def get_settings() -> Settings:
     Guarantees O(1) retrieval after single-pass initialization across application lifetime.
     """
     return Settings()
+
+
+settings: Settings = get_settings()
+

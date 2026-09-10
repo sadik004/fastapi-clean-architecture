@@ -3,6 +3,7 @@
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncAttrs,
     AsyncEngine,
@@ -21,8 +22,19 @@ def _build_engine_and_pool_kwargs(
     url: str, is_replica: bool = False
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     connect_args: dict[str, Any] = {}
-    if url.startswith("sqlite"):
+    if url.startswith("postgresql"):
+        # Configure PostgreSQL server-side connection execution options:
+        # 1. statement_timeout: Hard kill runaway queries taking > db_statement_timeout_ms (3000ms)
+        # 2. idle_in_transaction_session_timeout: Hard kill sessions holding open transactions idle > 5000ms
+        # 3. lock_timeout: Rejects lock acquisitions waiting > 2000ms to prevent deadlocks
+        connect_args["server_settings"] = {
+            "statement_timeout": str(settings.db_statement_timeout_ms),
+            "idle_in_transaction_session_timeout": str(settings.db_idle_in_transaction_timeout_ms),
+            "lock_timeout": str(settings.db_lock_timeout_ms),
+        }
+    elif url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
+        connect_args["timeout"] = 5.0
 
     pool_kwargs: dict[str, Any] = {
         "pool_pre_ping": settings.db_pool_pre_ping,
@@ -135,6 +147,11 @@ def _extract_pool_metrics(target_engine: AsyncEngine) -> dict[str, Any]:
         "checked_out_connections": checked_out,
         "overflow_connections": overflow_conns,
         "total_open_connections": checked_in + checked_out,
+        "statement_timeout_ms": settings.db_statement_timeout_ms,
+        "idle_in_transaction_timeout_ms": settings.db_idle_in_transaction_timeout_ms,
+        "lock_timeout_ms": settings.db_lock_timeout_ms,
+        "pool_timeout_seconds": settings.db_pool_timeout,
+        "pool_recycle_seconds": settings.db_pool_recycle,
     }
 
 
@@ -149,6 +166,23 @@ def get_dual_db_pool_status() -> dict[str, Any]:
         "primary": _extract_pool_metrics(primary_engine),
         "replica": _extract_pool_metrics(replica_engine),
     }
+
+
+# Register SQLite dialect test compatibility hooks
+@event.listens_for(primary_engine.sync_engine, "connect")
+def _register_sqlite_functions(dbapi_connection: Any, connection_record: Any) -> None:
+    if hasattr(dbapi_connection, "create_function"):
+        import time
+
+        dbapi_connection.create_function("pg_sleep", 1, time.sleep)
+
+
+@event.listens_for(replica_engine.sync_engine, "connect")
+def _register_replica_sqlite_functions(dbapi_connection: Any, connection_record: Any) -> None:
+    if hasattr(dbapi_connection, "create_function"):
+        import time
+
+        dbapi_connection.create_function("pg_sleep", 1, time.sleep)
 
 
 def apply_migrations(alembic_ini_path: str = "alembic.ini", revision: str = "head") -> None:

@@ -24,6 +24,8 @@ from app.core.exceptions import (
     AuthorizationException,
     BaseDomainException,
     BusinessRuleViolationException,
+    ConnectionPoolExhaustedException,
+    DatabaseQueryTimeoutException,
     EntityConflictException,
     EntityNotFoundException,
     SecurityViolationException,
@@ -45,6 +47,7 @@ _HTTP_STATUS_CODE_MAP: dict[int, str] = {
     422: "UNPROCESSABLE_ENTITY",
     429: "RATE_LIMITED",
     503: "SERVICE_UNAVAILABLE",
+    504: "GATEWAY_TIMEOUT",
 }
 
 
@@ -58,7 +61,9 @@ def _resolve_domain_status_code(exc: BaseDomainException) -> int:
         return 403
     if isinstance(exc, SecurityViolationException | BusinessRuleViolationException | ValidationException):
         return 400
-    if isinstance(exc, ServiceUnavailableException):
+    if isinstance(exc, DatabaseQueryTimeoutException):
+        return 504
+    if isinstance(exc, ConnectionPoolExhaustedException | ServiceUnavailableException):
         return 503
     return 400
 
@@ -93,8 +98,9 @@ async def domain_exception_handler(
     )
 
     headers: dict[str, str] = {}
-    if isinstance(exc, ServiceUnavailableException) and exc.retry_after is not None:
-        headers["Retry-After"] = str(exc.retry_after)
+    retry_after_val = getattr(exc, "retry_after", None)
+    if retry_after_val is not None:
+        headers["Retry-After"] = str(retry_after_val)
 
     return JSONResponse(
         status_code=status_code,

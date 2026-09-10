@@ -325,3 +325,34 @@ class InvalidCursorException(ValidationException):
         code: str = "INVALID_CURSOR",
     ) -> None:
         super().__init__(message=message, code=code)
+
+
+class DatabaseQueryTimeoutException(BaseDomainException):
+    """Raised when database query execution exceeds the statement timeout threshold (HTTP 504)."""
+
+    def __init__(
+        self,
+        message: str = "Database query execution exceeded statement timeout and was terminated.",
+        code: str = "DATABASE_QUERY_TIMEOUT",
+        timeout_ms: int | None = None,
+        query: str | None = None,
+    ) -> None:
+        self.timeout_ms = timeout_ms
+        self.query = query
+        if timeout_ms is not None:
+            message = f"Database query execution exceeded statement timeout ({timeout_ms}ms) and was terminated."
+        super().__init__(message=message, code=code)
+
+
+class ConnectionPoolExhaustedException(BaseDomainException):
+    """Raised when the database connection pool is completely saturated and pool timeout expires (HTTP 503)."""
+
+    def __init__(
+        self,
+        message: str = "Database connection pool is fully saturated. Please retry later.",
+        code: str = "CONNECTION_POOL_EXHAUSTED",
+        retry_after: float | int = 5,
+    ) -> None:
+        self.retry_after = retry_after
+        super().__init__(message=message, code=code)
+
