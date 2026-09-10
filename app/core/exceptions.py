@@ -263,3 +263,23 @@ class CircuitBreakerOpenException(ServiceUnavailableException):
             retry_after=retry_after_val,
         )
 
+
+class BulkheadFullException(ServiceUnavailableException):
+    """Raised when an operation is rejected because the target bulkhead compartment is saturated (HTTP 503)."""
+
+    def __init__(
+        self,
+        compartment: str = "default",
+        message: str | None = None,
+        code: str = "BULKHEAD_CAPACITY_EXCEEDED",
+        retry_after: float | int = 5,
+    ) -> None:
+        self.compartment = compartment
+        msg = message or f"Bulkhead capacity for compartment '{compartment}' exceeded. Please retry later."
+        super().__init__(
+            message=msg,
+            code=code,
+            retry_after=int(retry_after) if isinstance(retry_after, float) and retry_after.is_integer() else retry_after,
+        )
+
+
