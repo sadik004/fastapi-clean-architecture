@@ -14,10 +14,13 @@ from app.core.config import get_settings
 from app.core.database import (
     async_session_factory,
     engine,
+    primary_engine,
+    replica_engine,
 )
 from app.core.dependencies import RateLimitGuard, TokenBucketGuard
 from app.core.exception_handlers import register_exception_handlers
 from app.core.kafka import close_kafka_producer, init_kafka_producer
+from app.core.lifecycle import get_shutdown_manager
 from app.core.logging import setup_logging
 from app.core.middleware import CustomSecurityAndObservabilityMiddleware
 from app.core.rabbitmq import close_rabbitmq, init_rabbitmq
@@ -92,12 +95,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # Initialize OpenTelemetry distributed tracing provider
     init_tracer(environment=settings.environment)
 
+    # Register POSIX signal handlers for graceful shutdown
+    shutdown_mgr = get_shutdown_manager()
+    shutdown_mgr.register_signal_handlers()
+
     yield
+    # Phase 2: Wait for in-flight requests to complete before closing connection pools
+    await shutdown_mgr.wait_for_drain()
+
+    # Phase 3: State and pool disposal
     shutdown_tracer()
     await close_kafka_producer()
     await close_rabbitmq()
     await close_redis_pool()
-    await engine.dispose()
+    await primary_engine.dispose()
+    await replica_engine.dispose()
 
 
 app = FastAPI(

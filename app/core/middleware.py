@@ -16,6 +16,7 @@ from starlette.responses import Response
 
 from app.core.context import reset_correlation_id, set_correlation_id
 from app.core.identifiers import generate_uuidv7
+from app.core.lifecycle import get_shutdown_manager
 from app.core.logging import get_logger
 from app.core.metrics import get_metrics, normalize_path
 from app.core.tracing import format_span_id, format_trace_id, get_propagator, get_tracer
@@ -55,6 +56,8 @@ class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         start_time = time.perf_counter()
+        shutdown_mgr = get_shutdown_manager()
+        shutdown_mgr.increment_in_flight()
         prom_metrics = get_metrics()
         prom_metrics.http_requests_in_flight.inc()
 
@@ -128,6 +131,10 @@ class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
                     latency_ms=duration_ms,
                 )
 
+                # Graceful Shutdown header injection (prompt client to close keep-alive TCP socket)
+                if shutdown_mgr.is_shutting_down:
+                    response.headers["Connection"] = "close"
+
                 # Observability headers
                 response.headers["X-Process-Time-Ms"] = f"{duration_ms:.2f}"
                 response.headers["X-Request-ID"] = correlation_id
@@ -161,6 +168,9 @@ class CustomSecurityAndObservabilityMiddleware(BaseHTTPMiddleware):
                 )
                 raise
             finally:
+                # Decrement in-flight counter for graceful shutdown draining
+                shutdown_mgr.decrement_in_flight()
+
                 # Prometheus Metrics Collection
                 prom_metrics.http_requests_in_flight.dec()
                 total_duration_sec = time.perf_counter() - start_time

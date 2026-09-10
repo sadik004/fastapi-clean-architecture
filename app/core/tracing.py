@@ -54,8 +54,11 @@ def get_in_memory_exporter() -> InMemorySpanExporter:
 
 
 def clear_in_memory_spans() -> None:
-    """Clear all recorded spans from the in-memory exporter."""
+    """Clear all recorded spans from the in-memory exporter and ensure exporter is active."""
     _in_memory_exporter.clear()
+    if getattr(_in_memory_exporter, "_stopped", False):
+        _in_memory_exporter._stopped = False
+        init_tracer()
 
 
 def init_tracer(
@@ -71,6 +74,10 @@ def init_tracer(
     Returns:
         The configured TracerProvider.
     """
+    global _in_memory_exporter
+    if getattr(_in_memory_exporter, "_stopped", False):
+        _in_memory_exporter._stopped = False
+
     resource = Resource.create({
         "service.name": service_name,
         "service.version": "1.0.0",
@@ -99,6 +106,9 @@ def get_tracer(name: str = "fastapi-clean-architecture") -> trace.Tracer:
     Returns:
         trace.Tracer instance.
     """
+    provider = get_tracer_provider()
+    if isinstance(provider, TracerProvider) and getattr(provider, "_is_shutdown", False):
+        init_tracer()
     return trace.get_tracer(name)
 
 

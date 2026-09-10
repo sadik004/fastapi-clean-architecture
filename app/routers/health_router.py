@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_pool_status, get_db_session
+from app.core.lifecycle import get_shutdown_manager
 from app.core.redis import get_redis, get_redis_pool_status
 from app.services.health_service import HealthCheckService, get_health_service
 
@@ -70,6 +71,15 @@ async def readiness_probe(
     service: HealthCheckService = Depends(get_health_service),
 ) -> dict[str, Any]:
     """Execute Kubernetes Readiness probe."""
+    shutdown_mgr = get_shutdown_manager()
+    if shutdown_mgr.is_shutting_down:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {
+            "status": "unready",
+            "reason": "Server is draining in-flight connections for graceful shutdown",
+            "in_flight_requests": shutdown_mgr.in_flight_requests,
+        }
+
     is_ready, payload = await service.check_readiness(session=session, redis=redis)
     if not is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
@@ -148,3 +158,20 @@ async def redis_health(
         "ping_ms": ping_ms,
         "pool": get_redis_pool_status(),
     }
+
+
+@router.get(
+    "/shutdown-status",
+    summary="Shutdown & Draining Diagnostics",
+    description="Exposes current server shutdown state and active in-flight request count.",
+    response_model=dict[str, Any],
+)
+async def shutdown_status() -> dict[str, Any]:
+    """Diagnostic probe for active shutdown and connection draining telemetry."""
+    mgr = get_shutdown_manager()
+    return {
+        "is_shutting_down": mgr.is_shutting_down,
+        "in_flight_requests": mgr.in_flight_requests,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+
