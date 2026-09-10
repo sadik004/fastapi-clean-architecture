@@ -2,24 +2,18 @@
 
 from __future__ import annotations
 
-import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from redis.asyncio import Redis
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import (
     async_session_factory,
     engine,
-    get_db_pool_status,
-    get_db_session,
 )
 from app.core.dependencies import RateLimitGuard, TokenBucketGuard
 from app.core.exception_handlers import register_exception_handlers
@@ -29,8 +23,6 @@ from app.core.middleware import CustomSecurityAndObservabilityMiddleware
 from app.core.rabbitmq import close_rabbitmq, init_rabbitmq
 from app.core.redis import (
     close_redis_pool,
-    get_redis,
-    get_redis_pool_status,
     init_redis_pool,
 )
 from app.core.tracing import init_tracer, shutdown_tracer
@@ -44,6 +36,7 @@ from app.routers.dashboard_router import router as dashboard_router
 from app.routers.database_admin_router import router as database_admin_router
 from app.routers.dlq_router import router as dlq_router
 from app.routers.document_router import router as document_router
+from app.routers.health_router import router as health_router
 from app.routers.job_router import router as job_router
 from app.routers.kafka_consumer_router import router as kafka_consumer_router
 from app.routers.kafka_router import router as kafka_router
@@ -178,15 +171,7 @@ app.include_router(search_router)
 app.include_router(observability_router)
 app.include_router(tracing_router)
 app.include_router(dashboard_router)
-
-
-@app.get("/health", tags=["Health"])
-async def health_check() -> dict[str, str]:
-    """Non-blocking health check endpoint to verify service liveness and responsiveness."""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now(UTC).isoformat(),
-    }
+app.include_router(health_router)
 
 
 @app.get(
@@ -217,55 +202,6 @@ async def token_bucket_test_root(request: Request) -> dict[str, Any]:
         "client_id": getattr(request.state, "token_bucket_client", "unknown"),
         "remaining_tokens": getattr(request.state, "token_bucket_remaining", 0.0),
         "capacity": getattr(request.state, "token_bucket_capacity", 5.0),
-    }
-
-
-@app.get("/health/db", tags=["Health"])
-async def db_health_check(
-    session: AsyncSession = Depends(get_db_session),
-) -> dict[str, Any]:
-    """Database connectivity verification endpoint executing an async raw query.
-
-    Executes 'SELECT 1' against the async engine, measures round-trip ping latency,
-    and returns database status.
-    """
-    start_time = time.perf_counter()
-    result = await session.scalar(select(1))
-    latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-    return {
-        "status": "healthy",
-        "database": "connected",
-        "latency_ms": latency_ms,
-        "scalar_result": result,
-    }
-
-
-@app.get("/health/db/pool", tags=["Health"])
-async def db_pool_health_check() -> dict[str, Any]:
-    """Database connection pool telemetry probe for observability and alerting.
-
-    Returns pool utilization metrics including pool size, active checked-out connections,
-    idle checked-in connections, and overflow capacity.
-    """
-    return get_db_pool_status()
-
-
-@app.get("/health/redis", tags=["Health"])
-async def redis_health_check(
-    redis: Redis = Depends(get_redis),
-) -> dict[str, Any]:
-    """Redis connectivity verification endpoint executing an async ping.
-
-    Measures round-trip ping latency in milliseconds and returns connection pool status.
-    """
-    start_time = time.perf_counter()
-    await redis.ping()
-    ping_ms = round((time.perf_counter() - start_time) * 1000, 2)
-    return {
-        "status": "healthy",
-        "redis": "connected",
-        "ping_ms": ping_ms,
-        "pool": get_redis_pool_status(),
     }
 
 

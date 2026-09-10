@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi-backend
+  namespace: production
+  labels:
+    app: fastapi-backend
+    tier: api
+    env: production
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: fastapi-backend
+  template:
+    metadata:
+      labels:
+        app: fastapi-backend
+        tier: api
+        env: production
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: fastapi-backend
+          image: ghcr.io/sadik004/fastapi-clean-architecture:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              value: "production"
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+
+          # 1. Startup Probe: Allows slow cold-starts (DB migrations, cache priming)
+          # Max initialization budget: 30 * 2s = 60 seconds before pod is restarted.
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: 8000
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 30
+            successThreshold: 1
+
+          # 2. Liveness Probe: O(1) in-memory check to verify process liveness.
+          # STRICT ANTI-PATTERN: NEVER CHECK DOWNSTREAM DATABASES HERE!
+          # If database fails, only Readiness drops; Liveness continues returning 200,
+          # completely eliminating catastrophic CrashLoopBackOff restart storms.
+          livenessProbe:
+            httpGet:
+              path: /health/liveness
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+
+          # 3. Readiness Probe: Checks downstream Postgres & Redis dependencies.
+          # When any dependency fails, pod is removed from Service/Ingress endpoints
+          # without terminating the container.
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: 8000
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+            successThreshold: 1

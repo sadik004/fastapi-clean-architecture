@@ -105,7 +105,7 @@ Tracking Legend:
 - [x] **Day 72**: Distributed Tracing Architecture with OpenTelemetry (Spans, Tracer Providers & W3C Trace Context Propagation)
 - [x] **Day 73**: Production Prometheus Metrics Architecture (Counters, Gauges, Histogram Latency Buckets & OpenMetrics)
 - [x] **Day 74**: Declarative Grafana Dashboards as Code & PromQL Time-Series Metrics Visualization
-- [ ] **Day 75**: Algorithmic Accelerator Engine with Redis & Custom Data Structures
+- [x] **Day 75**: Kubernetes Probes Architecture (Liveness, Readiness, Startup Probes & Self-Healing Service Lifecycles)
 - [ ] **Day 76**: Asynchronous Task Queues with Celery / ARQ
 - [ ] **Day 77**: Event-Driven Communication with Message Brokers (RabbitMQ / Kafka)
 - [ ] **Day 78**: WebSockets in FastAPI for Real-Time Event Broadcasting
