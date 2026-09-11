@@ -15,6 +15,7 @@ from app.repositories.order_repository import OrderRepositoryProtocol
 from app.repositories.outbox_repository import OutboxRepositoryProtocol
 from app.repositories.post_repository import PostRepositoryProtocol
 from app.repositories.product_repository import ProductRepositoryProtocol
+from app.repositories.reconciliation_repository import ReconciliationRepositoryProtocol
 from app.repositories.user_repository import UserRepositoryProtocol
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "OutboxRepositoryProtocol",
     "PostRepositoryProtocol",
     "ProductRepositoryProtocol",
+    "ReconciliationRepositoryProtocol",
     "UnitOfWorkProtocol",
     "UserRepositoryProtocol",
 ]

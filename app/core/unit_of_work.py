@@ -39,6 +39,12 @@ from app.repositories.product_repository import (
     ProductRepositoryProtocol,
     SqlAlchemyProductRepository,
 )
+from app.repositories.reconciliation_repository import (
+    InMemoryReconciliationRepository,
+    ReconciliationBatchEntity,
+    ReconciliationRepositoryProtocol,
+    SqlAlchemyReconciliationRepository,
+)
 from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.repositories.user_repository import (
     InMemoryUserRepository,
@@ -78,6 +84,11 @@ class UnitOfWorkProtocol(Protocol):
     @property
     def ledger(self) -> LedgerRepositoryProtocol:
         """Ledger repository operating on the shared transaction."""
+        ...
+
+    @property
+    def reconciliation(self) -> ReconciliationRepositoryProtocol:
+        """Reconciliation repository operating on the shared transaction."""
         ...
 
     async def __aenter__(self) -> Self:
@@ -123,6 +134,7 @@ class SqlAlchemyUnitOfWork:
         self._orders: SqlAlchemyOrderRepository | None = None
         self._outbox: SqlAlchemyOutboxRepository | None = None
         self._ledger: SqlAlchemyLedgerRepository | None = None
+        self._reconciliation: SqlAlchemyReconciliationRepository | None = None
 
     @property
     def users(self) -> UserRepositoryProtocol:
@@ -160,6 +172,12 @@ class SqlAlchemyUnitOfWork:
             raise RuntimeError("UnitOfWork is not open. Access repositories within 'async with uow:' block.")
         return self._ledger
 
+    @property
+    def reconciliation(self) -> ReconciliationRepositoryProtocol:
+        if self._reconciliation is None:
+            raise RuntimeError("UnitOfWork is not open. Access repositories within 'async with uow:' block.")
+        return self._reconciliation
+
     async def __aenter__(self) -> Self:
         self.session = self._session_factory()
         self._users = SqlAlchemyUserRepository(session=self.session)
@@ -168,6 +186,7 @@ class SqlAlchemyUnitOfWork:
         self._orders = SqlAlchemyOrderRepository(session=self.session)
         self._outbox = SqlAlchemyOutboxRepository(session=self.session)
         self._ledger = SqlAlchemyLedgerRepository(session=self.session)
+        self._reconciliation = SqlAlchemyReconciliationRepository(session=self.session)
         return self
 
     async def __aexit__(
@@ -189,6 +208,7 @@ class SqlAlchemyUnitOfWork:
                 self._orders = None
                 self._outbox = None
                 self._ledger = None
+                self._reconciliation = None
 
     async def commit(self) -> None:
         """Commit all pending operations in the active session."""
@@ -214,6 +234,7 @@ class InMemoryUnitOfWork:
         order_repo: InMemoryOrderRepository | None = None,
         outbox_repo: InMemoryOutboxRepository | None = None,
         ledger_repo: InMemoryLedgerRepository | None = None,
+        reconciliation_repo: InMemoryReconciliationRepository | None = None,
     ) -> None:
         self.users: InMemoryUserRepository = user_repo or InMemoryUserRepository()
         self.posts: InMemoryPostRepository = post_repo or InMemoryPostRepository()
@@ -221,6 +242,9 @@ class InMemoryUnitOfWork:
         self.orders: InMemoryOrderRepository = order_repo or InMemoryOrderRepository()
         self.outbox: InMemoryOutboxRepository = outbox_repo or InMemoryOutboxRepository()
         self.ledger: InMemoryLedgerRepository = ledger_repo or InMemoryLedgerRepository()
+        self.reconciliation: InMemoryReconciliationRepository = (
+            reconciliation_repo or InMemoryReconciliationRepository()
+        )
 
         # State snapshots for rollback restoration
         self._user_store_snapshot: dict[int, UserEntity] | None = None
@@ -242,6 +266,8 @@ class InMemoryUnitOfWork:
         self._ledger_entries_snapshot: dict[uuid.UUID, JournalEntryEntity] | None = None
         self._ledger_entries_by_ref_snapshot: dict[str, uuid.UUID] | None = None
         self._ledger_postings_snapshot: list[JournalPostingEntity] | None = None
+        self._reconciliation_batches_snapshot: dict[uuid.UUID, ReconciliationBatchEntity] | None = None
+        self._reconciliation_by_ref_snapshot: dict[str, uuid.UUID] | None = None
 
     async def __aenter__(self) -> Self:
         # Snapshot in-memory repositories state
@@ -263,6 +289,8 @@ class InMemoryUnitOfWork:
         self._ledger_entries_snapshot = dict(self.ledger._entries)
         self._ledger_entries_by_ref_snapshot = dict(self.ledger._entries_by_ref)
         self._ledger_postings_snapshot = list(self.ledger._postings)
+        self._reconciliation_batches_snapshot = dict(self.reconciliation._batches)
+        self._reconciliation_by_ref_snapshot = dict(self.reconciliation._by_reference)
         return self
 
     async def __aexit__(
@@ -291,6 +319,8 @@ class InMemoryUnitOfWork:
         self._ledger_entries_snapshot = None
         self._ledger_entries_by_ref_snapshot = None
         self._ledger_postings_snapshot = None
+        self._reconciliation_batches_snapshot = None
+        self._reconciliation_by_ref_snapshot = None
 
     async def commit(self) -> None:
         """Commit in-memory changes by discarding rollback snapshots."""
@@ -333,6 +363,10 @@ class InMemoryUnitOfWork:
             self.ledger._entries_by_ref = dict(self._ledger_entries_by_ref_snapshot)
         if self._ledger_postings_snapshot is not None:
             self.ledger._postings = list(self._ledger_postings_snapshot)
+        if self._reconciliation_batches_snapshot is not None:
+            self.reconciliation._batches = dict(self._reconciliation_batches_snapshot)
+        if self._reconciliation_by_ref_snapshot is not None:
+            self.reconciliation._by_reference = dict(self._reconciliation_by_ref_snapshot)
 
 
 __all__ = [

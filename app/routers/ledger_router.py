@@ -19,13 +19,14 @@ import uuid
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from app.core.dependencies import (
     get_distributed_lock,
     get_fraud_detection_service,
     get_fx_conversion_service,
     get_ledger_outbox_relay_service,
+    get_ledger_reconciliation_service,
     get_ledger_service,
     get_ledger_transfer_service,
 )
@@ -49,10 +50,15 @@ from app.schemas.ledger import (
     PendingOutboxEventResponse,
     PendingOutboxListResponse,
 )
+from app.schemas.reconciliation import (
+    ReconciliationBatchRequestDTO,
+    ReconciliationBatchResponseDTO,
+)
 from app.services.fraud_detection_service import FraudDetectionService
 from app.services.fx_conversion_service import FXConversionService
 from app.services.ledger_domain_service import LedgerDomainService
 from app.services.ledger_outbox_relay_service import LedgerOutboxRelayService
+from app.services.ledger_reconciliation_service import LedgerReconciliationService
 from app.services.ledger_transfer_service import LedgerTransferService
 
 router = APIRouter(prefix="/api/v1/ledger", tags=["Fintech Double-Entry Ledger"])
@@ -315,3 +321,42 @@ async def evaluate_fraud_endpoint(
         amount=payload.amount,
         currency=payload.currency,
     )
+
+
+@router.post(
+    "/reconciliation/run",
+    response_model=ReconciliationBatchResponseDTO,
+    status_code=status.HTTP_201_CREATED,
+    summary="Execute automated settlement feed reconciliation and drift recovery",
+)
+async def run_reconciliation_endpoint(
+    payload: ReconciliationBatchRequestDTO,
+    service: Annotated[LedgerReconciliationService, Depends(get_ledger_reconciliation_service)],
+) -> ReconciliationBatchResponseDTO:
+    """Audit external gateway settlement feed against internal ledger and auto-execute compensating entries."""
+    return await service.reconcile_settlement_feed(
+        batch_reference=payload.batch_reference,
+        gateway_name=payload.gateway_name,
+        settlement_items=payload.settlement_items,
+        auto_compensate=payload.auto_compensate,
+    )
+
+
+@router.get(
+    "/reconciliation/batches/{batch_id}",
+    response_model=ReconciliationBatchResponseDTO,
+    status_code=status.HTTP_200_OK,
+    summary="Inspect detailed discrepancy breakdown for a reconciliation batch",
+)
+async def get_reconciliation_batch_endpoint(
+    batch_id: Annotated[uuid.UUID, Path(description="Reconciliation batch UUID")],
+    service: Annotated[LedgerReconciliationService, Depends(get_ledger_reconciliation_service)],
+) -> ReconciliationBatchResponseDTO:
+    """Retrieve an executed reconciliation batch and its discrepancy audit records."""
+    batch = await service.get_reconciliation_batch(batch_id)
+    if batch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Reconciliation batch '{batch_id}' was not found.",
+        )
+    return batch

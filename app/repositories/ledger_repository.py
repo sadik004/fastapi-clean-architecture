@@ -97,6 +97,10 @@ class LedgerRepositoryProtocol(Protocol):
         """Retrieve a journal entry by its unique idempotency reference ID."""
         ...
 
+    async def get_journal_entries_by_references(self, reference_ids: Sequence[str]) -> Sequence[JournalEntryEntity]:
+        """Retrieve multiple journal entries matching reference IDs with child postings."""
+        ...
+
     async def get_journal_entry_by_id(self, entry_id: uuid.UUID) -> JournalEntryEntity | None:
         """Retrieve a journal entry by its primary key ID with all posting legs."""
         ...
@@ -220,6 +224,19 @@ class SqlAlchemyLedgerRepository:
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._entry_to_entity(model) if model else None
+
+    async def get_journal_entries_by_references(self, reference_ids: Sequence[str]) -> Sequence[JournalEntryEntity]:
+        """Retrieve multiple journal entries matching reference IDs with postings loaded."""
+        if not reference_ids:
+            return []
+        stmt = (
+            select(JournalEntryModel)
+            .options(selectinload(JournalEntryModel.postings))
+            .where(JournalEntryModel.reference_id.in_(reference_ids))
+        )
+        result = await self.session.execute(stmt)
+        models = result.scalars().all()
+        return [self._entry_to_entity(m) for m in models]
 
     async def get_journal_entry_by_id(self, entry_id: uuid.UUID) -> JournalEntryEntity | None:
         """Retrieve a journal entry by primary key ID with postings loaded."""
@@ -374,6 +391,14 @@ class InMemoryLedgerRepository:
     async def get_journal_entry_by_reference(self, reference_id: str) -> JournalEntryEntity | None:
         entry_id = self._entries_by_ref.get(reference_id)
         return self._entries.get(entry_id) if entry_id else None
+
+    async def get_journal_entries_by_references(self, reference_ids: Sequence[str]) -> Sequence[JournalEntryEntity]:
+        res: list[JournalEntryEntity] = []
+        for ref in reference_ids:
+            entry_id = self._entries_by_ref.get(ref)
+            if entry_id and entry_id in self._entries:
+                res.append(self._entries[entry_id])
+        return res
 
     async def get_journal_entry_by_id(self, entry_id: uuid.UUID) -> JournalEntryEntity | None:
         return self._entries.get(entry_id)

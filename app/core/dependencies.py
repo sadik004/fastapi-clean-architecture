@@ -55,6 +55,7 @@ from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
 from app.services.ledger_domain_service import LedgerDomainService
 from app.services.ledger_outbox_relay_service import LedgerOutboxRelayService
+from app.services.ledger_reconciliation_service import LedgerReconciliationService
 from app.services.ledger_transfer_service import LedgerTransferService
 from app.services.order_service import OrderService
 from app.services.outbox_relay_service import OutboxRelayService
@@ -165,6 +166,13 @@ def get_ledger_outbox_relay_service(
 ) -> LedgerOutboxRelayService:
     """Dependency provider yielding an active LedgerOutboxRelayService instance."""
     return LedgerOutboxRelayService(uow=uow, kafka_producer=kafka_producer)
+
+
+def get_ledger_reconciliation_service(
+    uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
+) -> LedgerReconciliationService:
+    """Dependency provider yielding an active LedgerReconciliationService instance."""
+    return LedgerReconciliationService(uow=uow)
 
 
 def get_cache_service(
