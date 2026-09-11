@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from app.core.dependencies import (
     get_distributed_lock,
     get_fx_conversion_service,
+    get_ledger_outbox_relay_service,
     get_ledger_service,
     get_ledger_transfer_service,
 )
@@ -38,9 +39,13 @@ from app.schemas.ledger import (
     LedgerAccountCreate,
     LedgerAccountResponse,
     LedgerLockStatusResponse,
+    OutboxRelayResponse,
+    PendingOutboxEventResponse,
+    PendingOutboxListResponse,
 )
 from app.services.fx_conversion_service import FXConversionService
 from app.services.ledger_domain_service import LedgerDomainService
+from app.services.ledger_outbox_relay_service import LedgerOutboxRelayService
 from app.services.ledger_transfer_service import LedgerTransferService
 
 router = APIRouter(prefix="/api/v1/ledger", tags=["Fintech Double-Entry Ledger"])
@@ -190,4 +195,54 @@ async def get_ledger_locks_status_endpoint(
         status="active",
         active_locks_count=len(locks),
         locks=locks,
+    )
+
+
+@router.post(
+    "/outbox/relay",
+    response_model=OutboxRelayResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Manually trigger and flush pending ledger outbox events to Kafka",
+)
+async def trigger_ledger_outbox_relay_endpoint(
+    service: Annotated[LedgerOutboxRelayService, Depends(get_ledger_outbox_relay_service)],
+    batch_size: Annotated[int, Query(ge=1, le=500, description="Batch size of events to relay")] = 50,
+) -> OutboxRelayResponse:
+    """Flush pending ledger audit records from outbox storage to Apache Kafka."""
+    dispatched = await service.publish_pending_events(batch_size=batch_size)
+    return OutboxRelayResponse(
+        status="SUCCESS",
+        dispatched_count=dispatched,
+        message=f"Successfully relayed {dispatched} ledger event(s) to Kafka.",
+    )
+
+
+@router.get(
+    "/outbox/pending",
+    response_model=PendingOutboxListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Diagnostic inspection of un-relayed ledger audit events",
+)
+async def get_pending_ledger_outbox_events_endpoint(
+    service: Annotated[LedgerOutboxRelayService, Depends(get_ledger_outbox_relay_service)],
+    limit: Annotated[int, Query(ge=1, le=100, description="Max pending events to return")] = 50,
+) -> PendingOutboxListResponse:
+    """Retrieve un-relayed pending ledger audit events from the transactional outbox."""
+    raw_events = await service.get_pending_audit_events(limit=limit)
+    events = [
+        PendingOutboxEventResponse(
+            id=e.id,
+            event_type=e.event_type,
+            topic=e.aggregate_type,
+            partition_key=e.aggregate_id,
+            status=e.status,
+            retry_count=e.retry_count,
+            created_at=e.created_at,
+            payload=e.payload,
+        )
+        for e in raw_events
+    ]
+    return PendingOutboxListResponse(
+        total_pending=len(events),
+        events=events,
     )

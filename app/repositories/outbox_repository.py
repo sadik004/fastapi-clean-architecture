@@ -28,9 +28,28 @@ class OutboxEventEntity:
     created_at: datetime
     published_at: datetime | None = None
 
+    @property
+    def topic(self) -> str:
+        """Alias for aggregate_type representing the message broker topic."""
+        return self.aggregate_type
+
+    @property
+    def partition_key(self) -> str:
+        """Alias for aggregate_id representing Kafka message partition key."""
+        return self.aggregate_id
+
+    @property
+    def processed_at(self) -> datetime | None:
+        """Alias for published_at representing when event relay processed this record."""
+        return self.published_at
+
 
 class OutboxRepositoryProtocol(Protocol):
     """Abstract protocol for Transactional Outbox persistence operations."""
+
+    async def create(self, event: OutboxEventModel | OutboxEventEntity) -> OutboxEventEntity:
+        """Persist an outbox event model or entity within the active transaction."""
+        ...
 
     async def record_event(
         self,
@@ -47,8 +66,8 @@ class OutboxRepositoryProtocol(Protocol):
         """Fetch un-published outbox events ordered monotonically by created_at."""
         ...
 
-    async def mark_published(self, event_id: uuid.UUID) -> OutboxEventEntity | None:
-        """Update event status to PUBLISHED with a UTC published_at timestamp."""
+    async def mark_published(self, event_id: uuid.UUID, status: str = "PUBLISHED") -> OutboxEventEntity | None:
+        """Update event status to PUBLISHED or PROCESSED with a UTC timestamp."""
         ...
 
     async def mark_failed(self, event_id: uuid.UUID, max_retries: int = 3) -> OutboxEventEntity | None:
@@ -82,6 +101,25 @@ class SqlAlchemyOutboxRepository:
             created_at=model.created_at,
             published_at=model.published_at,
         )
+
+    async def create(self, event: OutboxEventModel | OutboxEventEntity) -> OutboxEventEntity:
+        if isinstance(event, OutboxEventModel):
+            model = event
+        else:
+            model = OutboxEventModel(
+                id=event.id,
+                event_type=event.event_type,
+                aggregate_type=event.aggregate_type,
+                aggregate_id=event.aggregate_id,
+                payload=event.payload,
+                status=event.status,
+                retry_count=event.retry_count,
+                created_at=event.created_at,
+                published_at=event.published_at,
+            )
+        self._session.add(model)
+        await self._session.flush()
+        return self._to_entity(model)
 
     async def record_event(
         self,
@@ -117,11 +155,11 @@ class SqlAlchemyOutboxRepository:
         models = result.scalars().all()
         return [self._to_entity(m) for m in models]
 
-    async def mark_published(self, event_id: uuid.UUID) -> OutboxEventEntity | None:
+    async def mark_published(self, event_id: uuid.UUID, status: str = "PUBLISHED") -> OutboxEventEntity | None:
         model = await self._session.get(OutboxEventModel, event_id)
         if model is None:
             return None
-        model.status = "PUBLISHED"
+        model.status = status
         model.published_at = datetime.now(UTC)
         await self._session.flush()
         return self._to_entity(model)
@@ -155,6 +193,24 @@ class InMemoryOutboxRepository:
     def __init__(self) -> None:
         self._store: dict[uuid.UUID, OutboxEventEntity] = {}
 
+    async def create(self, event: OutboxEventModel | OutboxEventEntity) -> OutboxEventEntity:
+        if isinstance(event, OutboxEventModel):
+            entity = OutboxEventEntity(
+                id=event.id or generate_uuidv7(),
+                event_type=event.event_type,
+                aggregate_type=event.aggregate_type,
+                aggregate_id=event.aggregate_id,
+                payload=dict(event.payload),
+                status=event.status or "PENDING",
+                retry_count=event.retry_count or 0,
+                created_at=event.created_at or datetime.now(UTC),
+                published_at=event.published_at,
+            )
+        else:
+            entity = event
+        self._store[entity.id] = entity
+        return entity
+
     async def record_event(
         self,
         event_type: str,
@@ -183,7 +239,7 @@ class InMemoryOutboxRepository:
         pending.sort(key=lambda x: x.created_at)
         return pending[:batch_size]
 
-    async def mark_published(self, event_id: uuid.UUID) -> OutboxEventEntity | None:
+    async def mark_published(self, event_id: uuid.UUID, status: str = "PUBLISHED") -> OutboxEventEntity | None:
         entity = self._store.get(event_id)
         if entity is None:
             return None
@@ -193,7 +249,7 @@ class InMemoryOutboxRepository:
             aggregate_type=entity.aggregate_type,
             aggregate_id=entity.aggregate_id,
             payload=entity.payload,
-            status="PUBLISHED",
+            status=status,
             retry_count=entity.retry_count,
             created_at=entity.created_at,
             published_at=datetime.now(UTC),

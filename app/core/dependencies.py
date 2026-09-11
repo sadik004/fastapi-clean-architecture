@@ -28,6 +28,7 @@ from app.core.distributed_lock import AsyncDistributedLock
 from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.core.exceptions import UserNotFoundException
+from app.core.kafka import get_kafka_producer
 from app.core.permissions import ROLE_ADMIN, ROLE_USER, Permission, has_permission
 from app.core.redis import get_redis
 from app.core.security import decode_jwt_token
@@ -52,6 +53,7 @@ from app.services.fx_conversion_service import FXConversionService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
 from app.services.ledger_domain_service import LedgerDomainService
+from app.services.ledger_outbox_relay_service import LedgerOutboxRelayService
 from app.services.ledger_transfer_service import LedgerTransferService
 from app.services.order_service import OrderService
 from app.services.outbox_relay_service import OutboxRelayService
@@ -141,6 +143,14 @@ def get_ledger_transfer_service(
 ) -> LedgerTransferService:
     """Dependency provider yielding an active LedgerTransferService instance."""
     return LedgerTransferService(uow=uow, fx_service=fx_service, redis=redis_client)
+
+
+def get_ledger_outbox_relay_service(
+    uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
+    kafka_producer: Annotated[Any, Depends(get_kafka_producer)],
+) -> LedgerOutboxRelayService:
+    """Dependency provider yielding an active LedgerOutboxRelayService instance."""
+    return LedgerOutboxRelayService(uow=uow, kafka_producer=kafka_producer)
 
 
 def get_cache_service(

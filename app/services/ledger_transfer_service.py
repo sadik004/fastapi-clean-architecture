@@ -35,6 +35,7 @@ from app.core.exceptions import (
 )
 from app.core.money import Money
 from app.core.protocols import UnitOfWorkProtocol
+from app.models.outbox import OutboxEventModel
 from app.repositories.ledger_repository import LedgerAccountEntity
 from app.schemas.ledger import (
     AccountType,
@@ -42,6 +43,7 @@ from app.schemas.ledger import (
     PostingCreateDTO,
     PostingDirection,
 )
+from app.schemas.ledger_events import LedgerTransferCompletedEvent
 from app.services.fx_conversion_service import FXConversionService
 
 logger = logging.getLogger("app.services.ledger_transfer")
@@ -443,6 +445,26 @@ class LedgerTransferService:
             description=description,
             postings=postings,
         )
+
+        # Co-located Transactional Outbox Event Persistence (Zero Dual-Write)
+        event = LedgerTransferCompletedEvent.create(
+            reference_id=reference_id,
+            source_account_id=str(source_account_id),
+            destination_account_id=str(destination_account_id),
+            amount=amount,
+            currency=source_acc.currency,
+            fee_amount=fee_amount,
+            posted_at=entry.posted_at,
+        )
+        outbox_event = OutboxEventModel(
+            topic="ledger.transfers.v1",
+            event_type="ledger.transfer.completed.v1",
+            partition_key=str(source_account_id),
+            payload=event.model_dump(),
+            status="PENDING",
+        )
+        await self.uow.outbox.create(outbox_event)
+
         await self.uow.commit()
 
         # Post-Commit Dynamic Balances

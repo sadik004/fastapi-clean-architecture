@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -228,3 +229,31 @@ class LedgerLockStatusResponse(BaseModel):
     status: str = "active"
     active_locks_count: int
     locks: list[ActiveLockInfo]
+
+
+class OutboxRelayResponse(BaseModel):
+    """Telemetry response for manual or scheduled ledger outbox relay executions."""
+
+    status: str = "SUCCESS"
+    dispatched_count: int = Field(description="Number of outbox events successfully published to Kafka")
+    message: str = Field(description="Operational status summary")
+
+
+class PendingOutboxEventResponse(BaseModel):
+    """Inspection record for an un-relayed pending outbox audit event."""
+
+    id: UUID
+    event_type: str
+    topic: str
+    partition_key: str
+    status: str
+    retry_count: int
+    created_at: datetime
+    payload: dict[str, Any]
+
+
+class PendingOutboxListResponse(BaseModel):
+    """List container of pending outbox audit events awaiting Kafka dispatch."""
+
+    total_pending: int
+    events: list[PendingOutboxEventResponse]
