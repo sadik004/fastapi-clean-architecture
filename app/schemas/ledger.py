@@ -187,6 +187,11 @@ class FundTransferRequestDTO(BaseModel):
         max_length=255,
         description="Audit memo / transfer description",
     )
+    exchange_rate: Decimal | None = Field(
+        default=None,
+        gt=Decimal("0.0000"),
+        description="Explicit foreign exchange rate for cross-currency transfers (destination_currency / source_currency)",
+    )
 
 
 class FundTransferResponseDTO(BaseModel):
@@ -201,3 +206,9 @@ class FundTransferResponseDTO(BaseModel):
     source_new_balance: Decimal
     destination_new_balance: Decimal
     posted_at: datetime
+    source_currency: str = Field(default="USD", description="Currency of source account")
+    destination_currency: str = Field(default="USD", description="Currency of destination account")
+    exchange_rate: Decimal | None = Field(default=None, description="Applied exchange rate if cross-currency")
+    destination_amount: Decimal | None = Field(
+        default=None, description="Converted amount received in destination account currency"
+    )

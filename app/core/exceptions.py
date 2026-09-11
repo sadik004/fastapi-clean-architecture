@@ -453,3 +453,25 @@ class SelfTransferNotAllowedException(BusinessRuleViolationException):
         code: str = "SELF_TRANSFER_PROHIBITED",
     ) -> None:
         super().__init__(message=message, code=code)
+
+
+class CurrencyMismatchException(BusinessRuleViolationException):
+    """Raised when an operation combines incompatible ISO currencies without FX conversion (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Currency mismatch: Operations between different currencies require explicit FX conversion.",
+        code: str = "CURRENCY_MISMATCH",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+class InvalidFXRateException(BaseDomainException):
+    """Raised when an exchange rate is non-positive or invalid for foreign exchange conversion (HTTP 422)."""
+
+    def __init__(
+        self,
+        message: str = "Invalid FX rate: Exchange rate must be strictly greater than zero.",
+        code: str = "INVALID_FX_RATE",
+    ) -> None:
+        super().__init__(message=message, code=code)

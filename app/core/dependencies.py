@@ -47,6 +47,7 @@ from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.cache_service import CacheService
 from app.services.document_service import DocumentService
+from app.services.fx_conversion_service import FXConversionService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
 from app.services.ledger_domain_service import LedgerDomainService
@@ -120,11 +121,17 @@ def get_ledger_service(
     return LedgerDomainService(repo=repo)
 
 
+def get_fx_conversion_service() -> FXConversionService:
+    """Dependency provider yielding an active FXConversionService instance."""
+    return FXConversionService()
+
+
 def get_ledger_transfer_service(
     uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
+    fx_service: Annotated[FXConversionService, Depends(get_fx_conversion_service)],
 ) -> LedgerTransferService:
     """Dependency provider yielding an active LedgerTransferService instance."""
-    return LedgerTransferService(uow=uow)
+    return LedgerTransferService(uow=uow, fx_service=fx_service)
 
 
 def get_cache_service(

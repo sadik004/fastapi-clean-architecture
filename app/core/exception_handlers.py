@@ -26,10 +26,12 @@ from app.core.exceptions import (
     BaseDomainException,
     BusinessRuleViolationException,
     ConnectionPoolExhaustedException,
+    CurrencyMismatchException,
     DatabaseQueryTimeoutException,
     EntityConflictException,
     EntityNotFoundException,
     InsufficientFundsException,
+    InvalidFXRateException,
     SecurityViolationException,
     ServiceUnavailableException,
     UnbalancedJournalEntryException,
@@ -64,9 +66,12 @@ def _resolve_domain_status_code(exc: BaseDomainException) -> int:
         return 409
     if isinstance(exc, AuthorizationException):
         return 403
-    if isinstance(exc, UnbalancedJournalEntryException | InsufficientFundsException):
+    if isinstance(exc, UnbalancedJournalEntryException | InsufficientFundsException | InvalidFXRateException):
         return 422
-    if isinstance(exc, SecurityViolationException | BusinessRuleViolationException | ValidationException):
+    if isinstance(
+        exc,
+        CurrencyMismatchException | SecurityViolationException | BusinessRuleViolationException | ValidationException,
+    ):
         return 400
     if isinstance(exc, DatabaseQueryTimeoutException):
         return 504

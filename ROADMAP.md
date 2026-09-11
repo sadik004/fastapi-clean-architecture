@@ -119,8 +119,7 @@ Tracking Legend:
 ## Phase 8: Capstone Distributed Fintech Double-Entry Ledger System (Days 83–90)
 - [x] **Day 83**: Fintech Double-Entry Ledger Domain Modeling Architecture (Accounts, Journal Entries, Postings & Zero-Sum Balance Invariants)
 - [x] **Day 84**: Fintech Atomic Money Transfer Architecture (ACID Isolation, Multi-Leg Ledger Postings & Non-Negative Balance Invariants)
-
-- [ ] **Day 85**: Docker Compose Multi-Container Production Environment
+- [x] **Day 85**: Ledger Currency & Money Value Object Architecture (Arbitrary-Precision Decimals, Multi-Currency Safety & FX Conversion Engine)
 - [ ] **Day 86**: CI Pipeline Setup with GitHub Actions (Lint, Test, Type Check)
 - [ ] **Day 87**: Database Backup, Recovery & Disaster Scenarios
 - [ ] **Day 88**: Load Testing & Benchmarking with Locust (p95 / p99 Latency Tuning)

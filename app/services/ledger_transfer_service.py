@@ -4,8 +4,9 @@ Guarantees:
 1. ACID Isolation & Atomicity: All multi-leg postings execute within an atomic Unit of Work transaction boundary.
 2. Non-Negative Balance Invariant: The source account's real-time cleared balance is verified before posting legs.
 3. Zero-Sum Balance Invariant: Sum of all debits must strictly equal sum of all credits to 4 decimal places.
-4. Idempotency Protection: Replayed transaction reference IDs are rejected with HTTP 409 Conflict.
-5. Clean Architecture Decoupling: Injects UnitOfWorkProtocol; zero FastAPI or transport layer coupling.
+4. Multi-Currency 4-Leg Clearing Architecture: Cross-currency transfers execute via Treasury FX clearing accounts.
+5. Idempotency Protection: Replayed transaction reference IDs are rejected with HTTP 409 Conflict.
+6. Clean Architecture Decoupling: Injects UnitOfWorkProtocol; zero FastAPI or transport layer coupling.
 """
 
 from __future__ import annotations
@@ -18,18 +19,22 @@ from app.core.exceptions import (
     DuplicateReferenceException,
     InactiveLedgerAccountException,
     InsufficientFundsException,
+    InvalidFXRateException,
     LedgerAccountNotFoundException,
     SelfTransferNotAllowedException,
     UnbalancedJournalEntryException,
     ValidationException,
 )
+from app.core.money import Money
 from app.core.protocols import UnitOfWorkProtocol
+from app.repositories.ledger_repository import LedgerAccountEntity
 from app.schemas.ledger import (
     AccountType,
     FundTransferResponseDTO,
     PostingCreateDTO,
     PostingDirection,
 )
+from app.services.fx_conversion_service import FXConversionService
 
 logger = logging.getLogger("app.services.ledger_transfer")
 
@@ -37,8 +42,13 @@ logger = logging.getLogger("app.services.ledger_transfer")
 class LedgerTransferService:
     """Domain service orchestrating atomic multi-leg financial transfers across ledger accounts."""
 
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
+    def __init__(
+        self,
+        uow: UnitOfWorkProtocol,
+        fx_service: FXConversionService | None = None,
+    ) -> None:
         self.uow = uow
+        self.fx_service = fx_service or FXConversionService()
 
     async def transfer_funds(
         self,
@@ -49,20 +59,18 @@ class LedgerTransferService:
         description: str,
         fee_amount: Decimal = Decimal("0.0000"),
         fee_account_id: UUID | None = None,
+        exchange_rate: Decimal | None = None,
     ) -> FundTransferResponseDTO:
-        """Execute an atomic multi-leg fund transfer satisfying the non-negative and zero-sum balance invariants.
+        """Execute an atomic multi-leg fund transfer satisfying non-negative and zero-sum balance invariants.
 
-        Posting Structure:
-        - Asset-to-Asset:
-            Source Asset: CREDIT (amount + fee_amount) -> Balance decreases
-            Destination Asset: DEBIT (amount) -> Balance increases
-            Fee Asset (if fee > 0): DEBIT (fee_amount) -> Balance increases
-            Total Debits (amount + fee_amount) == Total Credits (amount + fee_amount)
-        - Liability-to-Liability:
-            Source Liability: DEBIT (amount + fee_amount) -> Balance decreases
-            Destination Liability: CREDIT (amount) -> Balance increases
-            Fee Revenue (if fee > 0): CREDIT (fee_amount) -> Balance increases
-            Total Debits (amount + fee_amount) == Total Credits (amount + fee_amount)
+        Supports both same-currency (2-leg/3-leg) and cross-currency FX transfers (4-leg/5-leg).
+
+        Posting Structure for Cross-Currency Transfer:
+        - Leg 1: Source User Account (Credit source currency total required)
+        - Leg 2: Treasury Source FX Clearing Account (Debit source currency amount)
+        - Leg 3: Treasury Target FX Clearing Account (Credit target currency converted amount)
+        - Leg 4: Destination User Account (Debit target currency converted amount)
+        - (Optional Leg 5: Platform Fee Account Debit fee amount in source currency)
         """
         # 1. Pre-flight Validation
         if source_account_id == destination_account_id:
@@ -123,6 +131,25 @@ class LedgerTransferService:
                         f"Fee ledger account '{fee_account_id}' is inactive and cannot collect fees."
                     )
 
+            # Check Currency and Handle FX Conversion
+            is_cross_currency = source_acc.currency != dest_acc.currency
+            destination_amount = amount
+            applied_rate: Decimal | None = None
+
+            if is_cross_currency:
+                if exchange_rate is None or exchange_rate <= Decimal("0.0000"):
+                    raise InvalidFXRateException(
+                        f"Cross-currency transfer from '{source_acc.currency}' to '{dest_acc.currency}' "
+                        "requires an explicit exchange rate strictly greater than zero."
+                    )
+                source_money = Money(amount=amount, currency=source_acc.currency)
+                target_money, applied_rate = self.fx_service.convert(
+                    money=source_money,
+                    target_currency=dest_acc.currency,
+                    exchange_rate=exchange_rate,
+                )
+                destination_amount = target_money.amount
+
             # Real-Time Source Balance & Non-Negative Invariant Guard
             src_debits, src_credits = await self.uow.ledger.get_account_balance_aggregates(source_account_id)
             if source_acc.account_type in (AccountType.ASSET, AccountType.EXPENSE):
@@ -150,56 +177,145 @@ class LedgerTransferService:
             # 3. Multi-Leg Posting Construction
             postings: list[PostingCreateDTO] = []
 
-            if source_acc.account_type in (AccountType.ASSET, AccountType.EXPENSE):
-                # Source Asset decreases with CREDIT
-                postings.append(
-                    PostingCreateDTO(
-                        account_id=source_account_id,
-                        amount=total_required,
-                        direction=PostingDirection.CREDIT,
-                    )
-                )
-                # Destination Asset increases with DEBIT
-                postings.append(
-                    PostingCreateDTO(
-                        account_id=destination_account_id,
-                        amount=amount,
-                        direction=PostingDirection.DEBIT,
-                    )
-                )
-                # Platform Fee Asset increases with DEBIT
-                if fee_amount > Decimal("0.0000") and fee_account_id is not None:
+            if not is_cross_currency:
+                # -------------------------------------------------------------
+                # Single-Currency Transfer (2-leg or 3-leg)
+                # -------------------------------------------------------------
+                if source_acc.account_type in (AccountType.ASSET, AccountType.EXPENSE):
+                    # Source Asset decreases with CREDIT
                     postings.append(
                         PostingCreateDTO(
-                            account_id=fee_account_id,
-                            amount=fee_amount,
+                            account_id=source_account_id,
+                            amount=total_required,
+                            direction=PostingDirection.CREDIT,
+                        )
+                    )
+                    # Destination Asset increases with DEBIT
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=destination_account_id,
+                            amount=amount,
                             direction=PostingDirection.DEBIT,
                         )
                     )
+                    # Platform Fee Asset increases with DEBIT
+                    if fee_amount > Decimal("0.0000") and fee_account_id is not None:
+                        postings.append(
+                            PostingCreateDTO(
+                                account_id=fee_account_id,
+                                amount=fee_amount,
+                                direction=PostingDirection.DEBIT,
+                            )
+                        )
+                else:
+                    # Source Liability decreases with DEBIT
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=source_account_id,
+                            amount=total_required,
+                            direction=PostingDirection.DEBIT,
+                        )
+                    )
+                    # Destination Liability increases with CREDIT
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=destination_account_id,
+                            amount=amount,
+                            direction=PostingDirection.CREDIT,
+                        )
+                    )
+                    # Platform Fee Revenue increases with CREDIT
+                    if fee_amount > Decimal("0.0000") and fee_account_id is not None:
+                        postings.append(
+                            PostingCreateDTO(
+                                account_id=fee_account_id,
+                                amount=fee_amount,
+                                direction=PostingDirection.CREDIT,
+                            )
+                        )
             else:
-                # Source Liability decreases with DEBIT
-                postings.append(
-                    PostingCreateDTO(
-                        account_id=source_account_id,
-                        amount=total_required,
-                        direction=PostingDirection.DEBIT,
+                # -------------------------------------------------------------
+                # Cross-Currency FX Transfer (4-leg or 5-leg)
+                # Orchestrates Treasury FX Clearing Accounts for strict isolation
+                # -------------------------------------------------------------
+                source_fx_acc = await self._get_or_create_treasury_fx_account(source_acc.currency)
+                dest_fx_acc = await self._get_or_create_treasury_fx_account(dest_acc.currency)
+
+                # Leg 1: Source User Account (Credit source currency total required for Asset)
+                if source_acc.account_type in (AccountType.ASSET, AccountType.EXPENSE):
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=source_account_id,
+                            amount=total_required,
+                            direction=PostingDirection.CREDIT,
+                        )
                     )
-                )
-                # Destination Liability increases with CREDIT
-                postings.append(
-                    PostingCreateDTO(
-                        account_id=destination_account_id,
-                        amount=amount,
-                        direction=PostingDirection.CREDIT,
+                    # Leg 2: Treasury Source FX Clearing Account (Debit source currency amount)
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=source_fx_acc.id,
+                            amount=amount,
+                            direction=PostingDirection.DEBIT,
+                        )
                     )
-                )
-                # Platform Fee Revenue increases with CREDIT
+                else:
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=source_account_id,
+                            amount=total_required,
+                            direction=PostingDirection.DEBIT,
+                        )
+                    )
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=source_fx_acc.id,
+                            amount=amount,
+                            direction=PostingDirection.CREDIT,
+                        )
+                    )
+
+                # Leg 3: Treasury Target FX Clearing Account (Credit target currency converted amount for Asset)
+                # Leg 4: Destination User Account (Debit target currency converted amount for Asset)
+                if dest_acc.account_type in (AccountType.ASSET, AccountType.EXPENSE):
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=dest_fx_acc.id,
+                            amount=destination_amount,
+                            direction=PostingDirection.CREDIT,
+                        )
+                    )
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=destination_account_id,
+                            amount=destination_amount,
+                            direction=PostingDirection.DEBIT,
+                        )
+                    )
+                else:
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=dest_fx_acc.id,
+                            amount=destination_amount,
+                            direction=PostingDirection.DEBIT,
+                        )
+                    )
+                    postings.append(
+                        PostingCreateDTO(
+                            account_id=destination_account_id,
+                            amount=destination_amount,
+                            direction=PostingDirection.CREDIT,
+                        )
+                    )
+
+                # Optional Leg 5: Platform Fee in Source Currency
                 if fee_amount > Decimal("0.0000") and fee_account_id is not None:
                     postings.append(
                         PostingCreateDTO(
                             account_id=fee_account_id,
                             amount=fee_amount,
-                            direction=PostingDirection.CREDIT,
+                            direction=PostingDirection.DEBIT
+                            if source_acc.account_type in (AccountType.ASSET, AccountType.EXPENSE)
+                            else PostingDirection.CREDIT,
                         )
                     )
 
@@ -245,13 +361,16 @@ class LedgerTransferService:
                 destination_new_balance = new_dst_credits - new_dst_debits
 
             logger.info(
-                "Successfully executed atomic transfer %s (ref=%s): %s -> %s (amount=%s, fee=%s)",
+                "Successfully executed atomic transfer %s (ref=%s): %s [%s] -> %s [%s] (amount=%s, fee=%s, fx_rate=%s)",
                 entry.id,
                 reference_id,
                 source_acc.account_number,
+                source_acc.currency,
                 dest_acc.account_number,
+                dest_acc.currency,
                 amount,
                 fee_amount,
+                applied_rate,
             )
 
             return FundTransferResponseDTO(
@@ -262,4 +381,23 @@ class LedgerTransferService:
                 source_new_balance=source_new_balance,
                 destination_new_balance=destination_new_balance,
                 posted_at=entry.posted_at,
+                source_currency=source_acc.currency,
+                destination_currency=dest_acc.currency,
+                exchange_rate=applied_rate,
+                destination_amount=destination_amount,
             )
+
+    async def _get_or_create_treasury_fx_account(self, currency: str) -> LedgerAccountEntity:
+        """Resolve or automatically provision a Treasury FX clearing account for the specified currency."""
+        clean_curr = currency.strip().upper()
+        acc_number = f"TREASURY-FX-{clean_curr}"
+        existing = await self.uow.ledger.get_account_by_number(acc_number)
+        if existing is not None:
+            return existing
+
+        return await self.uow.ledger.create_account(
+            account_number=acc_number,
+            name=f"Treasury FX Clearing ({clean_curr})",
+            account_type=AccountType.LIABILITY,
+            currency=clean_curr,
+        )

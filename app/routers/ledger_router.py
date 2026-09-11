@@ -16,11 +16,16 @@ Clean Architecture Boundary Invariants:
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from app.core.dependencies import get_ledger_service, get_ledger_transfer_service
+from app.core.dependencies import (
+    get_fx_conversion_service,
+    get_ledger_service,
+    get_ledger_transfer_service,
+)
 from app.schemas.ledger import (
     AccountBalanceResponse,
     FundTransferRequestDTO,
@@ -30,6 +35,7 @@ from app.schemas.ledger import (
     LedgerAccountCreate,
     LedgerAccountResponse,
 )
+from app.services.fx_conversion_service import FXConversionService
 from app.services.ledger_domain_service import LedgerDomainService
 from app.services.ledger_transfer_service import LedgerTransferService
 
@@ -140,4 +146,18 @@ async def transfer_funds_endpoint(
         fee_account_id=payload.fee_account_id,
         reference_id=payload.reference_id,
         description=payload.description,
+        exchange_rate=payload.exchange_rate,
     )
+
+
+@router.get(
+    "/fx/rates",
+    response_model=dict[str, Decimal],
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve supported currency pairs and simulation FX rates",
+)
+async def get_fx_rates_endpoint(
+    service: Annotated[FXConversionService, Depends(get_fx_conversion_service)],
+) -> dict[str, Decimal]:
+    """Retrieve supported currency pairs and reference foreign exchange rates."""
+    return service.get_supported_rates()
