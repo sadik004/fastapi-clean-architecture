@@ -49,6 +49,7 @@ from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.cache_service import CacheService
 from app.services.document_service import DocumentService
+from app.services.fraud_detection_service import FraudDetectionService
 from app.services.fx_conversion_service import FXConversionService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
@@ -136,13 +137,26 @@ def get_distributed_lock(
     return AsyncDistributedLock(redis=redis_client)
 
 
+def get_fraud_detection_service(
+    redis_client: Annotated[Redis, Depends(get_redis)],
+) -> FraudDetectionService:
+    """Dependency provider yielding an active FraudDetectionService instance."""
+    return FraudDetectionService(redis=redis_client)
+
+
 def get_ledger_transfer_service(
     uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
     fx_service: Annotated[FXConversionService, Depends(get_fx_conversion_service)],
     redis_client: Annotated[Redis, Depends(get_redis)],
+    fraud_service: Annotated[FraudDetectionService, Depends(get_fraud_detection_service)],
 ) -> LedgerTransferService:
     """Dependency provider yielding an active LedgerTransferService instance."""
-    return LedgerTransferService(uow=uow, fx_service=fx_service, redis=redis_client)
+    return LedgerTransferService(
+        uow=uow,
+        fx_service=fx_service,
+        redis=redis_client,
+        fraud_service=fraud_service,
+    )
 
 
 def get_ledger_outbox_relay_service(

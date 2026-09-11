@@ -64,6 +64,7 @@ class JournalEntryEntity:
     description: str
     posted_at: datetime
     postings: list[JournalPostingEntity] = field(default_factory=list)
+    is_flagged: bool = False
 
 
 class LedgerRepositoryProtocol(Protocol):
@@ -107,6 +108,7 @@ class LedgerRepositoryProtocol(Protocol):
         postings: Sequence[PostingCreateDTO],
         posted_at: datetime | None = None,
         entry_id: uuid.UUID | None = None,
+        is_flagged: bool = False,
     ) -> JournalEntryEntity:
         """Persist a journal entry header and all child posting legs atomically."""
         ...
@@ -161,6 +163,7 @@ class SqlAlchemyLedgerRepository:
             description=model.description,
             posted_at=model.posted_at,
             postings=posting_entities,
+            is_flagged=getattr(model, "is_flagged", False),
         )
 
     async def create_account(
@@ -236,6 +239,7 @@ class SqlAlchemyLedgerRepository:
         postings: Sequence[PostingCreateDTO],
         posted_at: datetime | None = None,
         entry_id: uuid.UUID | None = None,
+        is_flagged: bool = False,
     ) -> JournalEntryEntity:
         """Persist a journal entry header and child posting legs atomically."""
         now = posted_at or datetime.now(UTC)
@@ -246,6 +250,7 @@ class SqlAlchemyLedgerRepository:
             reference_id=reference_id,
             description=description,
             posted_at=now,
+            is_flagged=is_flagged,
         )
         self.session.add(entry_model)
         await self.session.flush()
@@ -280,6 +285,7 @@ class SqlAlchemyLedgerRepository:
             description=description,
             posted_at=now,
             postings=posting_entities,
+            is_flagged=is_flagged,
         )
 
     async def get_postings_by_account_id(self, account_id: uuid.UUID) -> Sequence[JournalPostingEntity]:
@@ -379,6 +385,7 @@ class InMemoryLedgerRepository:
         postings: Sequence[PostingCreateDTO],
         posted_at: datetime | None = None,
         entry_id: uuid.UUID | None = None,
+        is_flagged: bool = False,
     ) -> JournalEntryEntity:
         now = posted_at or datetime.now(UTC)
         entry_uuid = entry_id or generate_uuidv7()
@@ -403,6 +410,7 @@ class InMemoryLedgerRepository:
             description=description,
             posted_at=now,
             postings=posting_entities,
+            is_flagged=is_flagged,
         )
         self._entries[entry_uuid] = entry_entity
         self._entries_by_ref[reference_id] = entry_uuid

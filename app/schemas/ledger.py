@@ -133,6 +133,7 @@ class JournalEntryResponseDTO(BaseModel):
     description: str
     posted_at: datetime
     postings: list[PostingResponseDTO]
+    is_flagged: bool = False
 
 
 class AccountBalanceResponse(BaseModel):
@@ -213,6 +214,7 @@ class FundTransferResponseDTO(BaseModel):
     destination_amount: Decimal | None = Field(
         default=None, description="Converted amount received in destination account currency"
     )
+    is_flagged: bool = Field(default=False, description="Whether transaction was flagged for compliance review")
 
 
 class ActiveLockInfo(BaseModel):
@@ -257,3 +259,48 @@ class PendingOutboxListResponse(BaseModel):
 
     total_pending: int
     events: list[PendingOutboxEventResponse]
+
+
+class FraudAssessmentResult(BaseModel):
+    """Fraud risk assessment evaluation response."""
+
+    risk_score: int = Field(..., ge=0, description="Composite numeric risk score [0, inf)")
+    decision: str = Field(..., description="Decision policy: APPROVED, FLAGGED_FOR_REVIEW, or REJECTED")
+    violated_rules: list[str] = Field(default_factory=list, description="List of rule codes violated during evaluation")
+
+
+class BlacklistAccountRequestDTO(BaseModel):
+    """Payload for blacklisting a ledger account."""
+
+    account_id: UUID = Field(..., description="Ledger account ID to blacklist")
+    reason: str = Field(
+        default="Administrative fraud risk blacklist",
+        max_length=255,
+        description="Reason for blacklisting",
+    )
+
+
+class BlacklistAccountResponseDTO(BaseModel):
+    """Result of blacklisting a ledger account."""
+
+    account_id: UUID
+    is_blacklisted: bool
+    message: str
+
+
+class AccountVelocityResponseDTO(BaseModel):
+    """Telemetry inspection of sliding-window transfer velocity for an account."""
+
+    account_id: UUID
+    window_seconds: int
+    transfer_count: int
+    cumulative_amount: Decimal
+
+
+class EvaluateFraudRequestDTO(BaseModel):
+    """Diagnostic simulation payload to evaluate transfer fraud risk."""
+
+    source_account_id: UUID
+    destination_account_id: UUID
+    amount: Decimal = Field(..., gt=Decimal("0.0000"), description="Transfer amount")
+    currency: str = Field(default="USD", min_length=3, max_length=3, description="Currency code")

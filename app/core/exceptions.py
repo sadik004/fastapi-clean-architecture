@@ -503,3 +503,18 @@ class ConcurrentTransferInProgressException(BaseDomainException):
     ) -> None:
         self.reference_id = reference_id
         super().__init__(message=message, code=code)
+
+
+class FraudDetectedException(BaseDomainException):
+    """Raised when transfer fails real-time fraud and anomaly velocity screening (HTTP 403)."""
+
+    def __init__(
+        self,
+        message: str = "Transfer rejected due to high fraud risk assessment.",
+        risk_score: int = 100,
+        reasons: list[str] | None = None,
+        code: str = "FRAUD_RISK_REJECTED",
+    ) -> None:
+        self.risk_score = risk_score
+        self.reasons = reasons or []
+        super().__init__(message=message, code=code)

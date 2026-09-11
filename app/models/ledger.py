@@ -120,6 +120,12 @@ class JournalEntryModel(Base):
         nullable=False,
         comment="UTC timestamp when transaction was committed",
     )
+    is_flagged: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Flag indicating if transaction was flagged by fraud detection engine for compliance review",
+    )
 
     # Immutable posting legs comprising the double-entry transaction
     postings: Mapped[list[JournalPostingModel]] = relationship(

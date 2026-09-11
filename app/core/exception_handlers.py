@@ -31,6 +31,7 @@ from app.core.exceptions import (
     DatabaseQueryTimeoutException,
     EntityConflictException,
     EntityNotFoundException,
+    FraudDetectedException,
     InsufficientFundsException,
     InvalidFXRateException,
     LockAcquisitionTimeoutException,
@@ -66,7 +67,7 @@ def _resolve_domain_status_code(exc: BaseDomainException) -> int:
         return 404
     if isinstance(exc, EntityConflictException | ConcurrentTransferInProgressException):
         return 409
-    if isinstance(exc, AuthorizationException):
+    if isinstance(exc, AuthorizationException | FraudDetectedException):
         return 403
     if isinstance(exc, UnbalancedJournalEntryException | InsufficientFundsException | InvalidFXRateException):
         return 422
@@ -92,13 +93,22 @@ async def domain_exception_handler(
     status_code = _resolve_domain_status_code(exc)
     trace_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
 
+    details: list[dict[str, Any]] | None = None
+    if isinstance(exc, FraudDetectedException):
+        details = [
+            {
+                "risk_score": exc.risk_score,
+                "reasons": exc.reasons,
+            }
+        ]
+
     error_detail = ErrorDetail(
         code=exc.code,
         message=exc.message,
         status_code=status_code,
         timestamp=datetime.now(UTC),
         trace_id=trace_id,
-        details=None,
+        details=details,
     )
     error_response = ErrorResponse(
         error=error_detail,

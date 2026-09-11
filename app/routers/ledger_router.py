@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, Path, Query, status
 
 from app.core.dependencies import (
     get_distributed_lock,
+    get_fraud_detection_service,
     get_fx_conversion_service,
     get_ledger_outbox_relay_service,
     get_ledger_service,
@@ -31,7 +32,12 @@ from app.core.dependencies import (
 from app.core.distributed_lock import AsyncDistributedLock
 from app.schemas.ledger import (
     AccountBalanceResponse,
+    AccountVelocityResponseDTO,
     ActiveLockInfo,
+    BlacklistAccountRequestDTO,
+    BlacklistAccountResponseDTO,
+    EvaluateFraudRequestDTO,
+    FraudAssessmentResult,
     FundTransferRequestDTO,
     FundTransferResponseDTO,
     JournalEntryCreateDTO,
@@ -43,6 +49,7 @@ from app.schemas.ledger import (
     PendingOutboxEventResponse,
     PendingOutboxListResponse,
 )
+from app.services.fraud_detection_service import FraudDetectionService
 from app.services.fx_conversion_service import FXConversionService
 from app.services.ledger_domain_service import LedgerDomainService
 from app.services.ledger_outbox_relay_service import LedgerOutboxRelayService
@@ -245,4 +252,66 @@ async def get_pending_ledger_outbox_events_endpoint(
     return PendingOutboxListResponse(
         total_pending=len(events),
         events=events,
+    )
+
+
+@router.post(
+    "/fraud/blacklist",
+    response_model=BlacklistAccountResponseDTO,
+    status_code=status.HTTP_200_OK,
+    summary="Add an account to the destination fraud blacklist",
+)
+async def blacklist_account_endpoint(
+    payload: BlacklistAccountRequestDTO,
+    service: Annotated[FraudDetectionService, Depends(get_fraud_detection_service)],
+) -> BlacklistAccountResponseDTO:
+    """Add a specified ledger account ID to the destination fraud blacklist."""
+    await service.blacklist_account(account_id=payload.account_id, reason=payload.reason)
+    return BlacklistAccountResponseDTO(
+        account_id=payload.account_id,
+        is_blacklisted=True,
+        message=f"Account '{payload.account_id}' has been added to the fraud blacklist.",
+    )
+
+
+@router.get(
+    "/fraud/velocity/{account_id}",
+    response_model=AccountVelocityResponseDTO,
+    status_code=status.HTTP_200_OK,
+    summary="Telemetry inspection of sliding-window transfer velocity for an account",
+)
+async def get_account_velocity_endpoint(
+    account_id: Annotated[uuid.UUID, Path(description="Ledger account ID to inspect")],
+    service: Annotated[FraudDetectionService, Depends(get_fraud_detection_service)],
+    window_seconds: Annotated[int, Query(ge=1, le=86400, description="Sliding lookback window in seconds")] = 300,
+) -> AccountVelocityResponseDTO:
+    """Retrieve the transfer count and cumulative monetary amount within the sliding lookback window."""
+    count, cumulative_amount = await service.get_account_velocity(
+        account_id=account_id,
+        lookback_seconds=window_seconds,
+    )
+    return AccountVelocityResponseDTO(
+        account_id=account_id,
+        window_seconds=window_seconds,
+        transfer_count=count,
+        cumulative_amount=cumulative_amount,
+    )
+
+
+@router.post(
+    "/fraud/evaluate",
+    response_model=FraudAssessmentResult,
+    status_code=status.HTTP_200_OK,
+    summary="Diagnostic simulation endpoint returning risk assessment for hypothetical transfer",
+)
+async def evaluate_fraud_endpoint(
+    payload: EvaluateFraudRequestDTO,
+    service: Annotated[FraudDetectionService, Depends(get_fraud_detection_service)],
+) -> FraudAssessmentResult:
+    """Evaluate fraud risk and return composite risk score, decision, and violated rules without modifying ledger."""
+    return await service.evaluate_transfer(
+        source_account_id=payload.source_account_id,
+        destination_account_id=payload.destination_account_id,
+        amount=payload.amount,
+        currency=payload.currency,
     )

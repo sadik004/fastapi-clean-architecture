@@ -25,6 +25,7 @@ from app.core.distributed_lock import AsyncDistributedLock
 from app.core.exceptions import (
     ConcurrentTransferInProgressException,
     DuplicateReferenceException,
+    FraudDetectedException,
     InactiveLedgerAccountException,
     InsufficientFundsException,
     InvalidFXRateException,
@@ -44,6 +45,7 @@ from app.schemas.ledger import (
     PostingDirection,
 )
 from app.schemas.ledger_events import LedgerTransferCompletedEvent
+from app.services.fraud_detection_service import FraudDetectionService
 from app.services.fx_conversion_service import FXConversionService
 
 logger = logging.getLogger("app.services.ledger_transfer")
@@ -58,10 +60,12 @@ class LedgerTransferService:
         fx_service: FXConversionService | None = None,
         redis: Redis | None = None,
         lock_manager: AsyncDistributedLock | None = None,
+        fraud_service: FraudDetectionService | None = None,
     ) -> None:
         self.uow = uow
         self.fx_service = fx_service or FXConversionService()
         self.redis = redis
+        self.fraud_service = fraud_service or FraudDetectionService(redis=redis)
         self.lock_manager: AsyncDistributedLock | None
         if lock_manager is not None:
             self.lock_manager = lock_manager
@@ -165,6 +169,24 @@ class LedgerTransferService:
             lock_ctx = _noop_lock()
 
         try:
+            # 2.5 Real-Time Fraud & Anomaly Velocity Screening Hook (Step 1.5)
+            assessment = await self.fraud_service.evaluate_transfer(
+                source_account_id=source_account_id,
+                destination_account_id=destination_account_id,
+                amount=amount,
+                currency="USD",
+            )
+            if assessment.decision == "REJECTED":
+                raise FraudDetectedException(
+                    message=(
+                        f"Transfer rejected due to high fraud risk assessment (score={assessment.risk_score}). "
+                        f"Violated: {', '.join(assessment.violated_rules)}"
+                    ),
+                    risk_score=assessment.risk_score,
+                    reasons=assessment.violated_rules,
+                )
+            is_flagged = assessment.decision == "FLAGGED_FOR_REVIEW"
+
             async with lock_ctx:
                 async with self.uow:
                     response = await self._execute_transfer_in_uow(
@@ -177,7 +199,14 @@ class LedgerTransferService:
                         fee_account_id=fee_account_id,
                         exchange_rate=exchange_rate,
                         total_required=total_required,
+                        is_flagged=is_flagged,
                     )
+
+            # Record successfully committed transfer in velocity engine
+            await self.fraud_service.record_successful_transfer(
+                source_account_id=source_account_id,
+                amount=amount,
+            )
 
             if self.redis is not None:
                 await self.redis.set(
@@ -212,6 +241,7 @@ class LedgerTransferService:
         fee_account_id: UUID | None,
         exchange_rate: Decimal | None,
         total_required: Decimal,
+        is_flagged: bool = False,
     ) -> FundTransferResponseDTO:
         """Internal execution within active Unit of Work and distributed locks."""
         # Idempotency Check in DB
@@ -444,6 +474,7 @@ class LedgerTransferService:
             reference_id=reference_id,
             description=description,
             postings=postings,
+            is_flagged=is_flagged,
         )
 
         # Co-located Transactional Outbox Event Persistence (Zero Dual-Write)
@@ -481,9 +512,10 @@ class LedgerTransferService:
             destination_new_balance = new_dst_credits - new_dst_debits
 
         logger.info(
-            "Successfully executed atomic transfer %s (ref=%s): %s [%s] -> %s [%s] (amount=%s, fee=%s, fx_rate=%s)",
+            "Successfully executed atomic transfer %s (ref=%s, is_flagged=%s): %s [%s] -> %s [%s] (amount=%s, fee=%s, fx_rate=%s)",
             entry.id,
             reference_id,
+            entry.is_flagged,
             source_acc.account_number,
             source_acc.currency,
             dest_acc.account_number,
@@ -505,6 +537,7 @@ class LedgerTransferService:
             destination_currency=dest_acc.currency,
             exchange_rate=applied_rate,
             destination_amount=destination_amount,
+            is_flagged=entry.is_flagged,
         )
 
     async def _get_or_create_treasury_fx_account(self, currency: str) -> LedgerAccountEntity:
