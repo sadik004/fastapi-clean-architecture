@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.exceptions import (
+    AuthenticationException,
     AuthorizationException,
     BaseDomainException,
     BusinessRuleViolationException,
@@ -53,6 +54,8 @@ _HTTP_STATUS_CODE_MAP: dict[int, str] = {
 
 def _resolve_domain_status_code(exc: BaseDomainException) -> int:
     """Map domain exception hierarchy to appropriate HTTP status codes in O(1) time."""
+    if isinstance(exc, AuthenticationException):
+        return 401
     if isinstance(exc, EntityNotFoundException):
         return 404
     if isinstance(exc, EntityConflictException):
@@ -98,6 +101,9 @@ async def domain_exception_handler(
     )
 
     headers: dict[str, str] = {}
+    exc_headers = getattr(exc, "headers", None)
+    if isinstance(exc_headers, dict):
+        headers.update(exc_headers)
     retry_after_val = getattr(exc, "retry_after", None)
     if retry_after_val is not None:
         headers["Retry-After"] = str(retry_after_val)

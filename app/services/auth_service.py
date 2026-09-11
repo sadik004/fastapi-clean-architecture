@@ -5,10 +5,10 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import HTTPException, status
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.core.exceptions import AuthenticationException, AuthorizationException
 from app.core.security import create_access_token, create_refresh_token, decode_jwt_token
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.services.user_service import UserService
@@ -38,16 +38,14 @@ class AuthService:
             password=payload.password,
         )
         if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password",
+            raise AuthenticationException(
+                message="Invalid username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
         if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is inactive",
+            raise AuthorizationException(
+                message="User account is inactive",
             )
 
         role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
@@ -86,18 +84,16 @@ class AuthService:
         user_id = int(payload.get("sub", 0))
 
         if not family_id or not incoming_jti:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Malformed refresh token claims",
+            raise AuthenticationException(
+                message="Malformed refresh token claims",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
         family_key = f"{RTR_FAMILY_PREFIX}{family_id}"
         raw_state = await self._redis.get(family_key)
         if raw_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Refresh token expired or revoked",
+            raise AuthenticationException(
+                message="Refresh token expired or revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
@@ -113,9 +109,8 @@ class AuthService:
                 family_id,
                 user_id,
             )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Refresh token reuse detected. All sessions revoked for security.",
+            raise AuthenticationException(
+                message="Refresh token reuse detected. All sessions revoked for security.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 

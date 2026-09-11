@@ -31,9 +31,9 @@ from app.core.permissions import ROLE_ADMIN, ROLE_USER, Permission, has_permissi
 from app.core.redis import get_redis
 from app.core.security import decode_jwt_token
 from app.core.unit_of_work import SqlAlchemyUnitOfWork, UnitOfWorkProtocol
+from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.repositories.user_repository import (
     InMemoryUserRepository,
-    SqlAlchemyUserRepository,
     UserEntity,
     UserRepositoryProtocol,
 )
@@ -41,7 +41,7 @@ from app.schemas.auth import AuthenticatedUserResponse
 from app.schemas.user import UserRole
 from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
-from app.services.cache_service import CacheService, get_cache_service
+from app.services.cache_service import CacheService
 from app.services.document_service import DocumentService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
@@ -98,6 +98,13 @@ def get_outbox_relay_service(
 ) -> OutboxRelayService:
     """Dependency provider yielding an active OutboxRelayService instance."""
     return OutboxRelayService(uow=uow)
+
+
+def get_cache_service(
+    redis_client: Annotated[Redis, Depends(get_redis)],
+) -> CacheService:
+    """Dependency provider yielding an active CacheService instance."""
+    return CacheService(redis_client=redis_client)
 
 
 def get_user_service(

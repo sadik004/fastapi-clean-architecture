@@ -4,40 +4,36 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.exceptions import ProductNotFoundException
+from app.core.protocols import ProductRepositoryProtocol
 from app.core.routing_session import DatabaseRole, RoutingUnitOfWork
-from app.models.product import ProductModel
-from app.repositories.product_repository import ProductEntity, SqlAlchemyProductRepository
+from app.repositories.product_repository import ProductEntity
 
 
 class ProductService:
     """Service providing catalog queries via read replicas and mutations via primary master."""
 
-    __slots__ = ("_read_session", "_uow")
+    __slots__ = ("_repo", "_uow")
 
     def __init__(
         self,
-        read_session: AsyncSession | None = None,
+        repository: ProductRepositoryProtocol | None = None,
         uow: RoutingUnitOfWork | None = None,
     ) -> None:
-        self._read_session = read_session
+        self._repo = repository
         self._uow = uow or RoutingUnitOfWork()
 
     async def get_product(
         self, product_id: int
     ) -> tuple[ProductEntity, DatabaseRole]:
         """Fetch a product by ID from the Read Replica engine in O(1) time."""
-        if self._read_session is not None:
-            repo = SqlAlchemyProductRepository(session=self._read_session)
-            entity = await repo.get_by_id(product_id)
+        if self._repo is not None:
+            entity = await self._repo.get_by_id(product_id)
             if entity is None:
                 raise ProductNotFoundException(product_id=product_id)
             return entity, DatabaseRole.REPLICA
 
-        # Fallback to UoW read session if standalone session not provided
+        # Fallback to UoW read session if standalone repository not provided
         async with self._uow as uow:
             entity = await uow.products.get_by_id(product_id)
             if entity is None:
@@ -48,24 +44,19 @@ class ProductService:
         self, limit: int = 50
     ) -> tuple[list[dict[str, Any]], DatabaseRole]:
         """List products from the Read Replica engine."""
-        session = self._read_session
-        if session is not None:
-            stmt = select(ProductModel).limit(limit)
-            result = await session.execute(stmt)
-            models = result.scalars().all()
+        if self._repo is not None:
+            entities = await self._repo.list_all()
             items = [
-                {"id": m.id, "name": m.name, "stock": m.stock, "price": m.price}
-                for m in models
+                {"id": e.id, "name": e.name, "stock": e.stock, "price": e.price}
+                for e in entities[:limit]
             ]
             return items, DatabaseRole.REPLICA
 
         async with self._uow as uow:
-            stmt = select(ProductModel).limit(limit)
-            result = await uow.execute_read(stmt)
-            models = result.scalars().all()
+            entities = await uow.products.list_all()
             items = [
-                {"id": m.id, "name": m.name, "stock": m.stock, "price": m.price}
-                for m in models
+                {"id": e.id, "name": e.name, "stock": e.stock, "price": e.price}
+                for e in entities[:limit]
             ]
             return items, uow.current_read_target
 

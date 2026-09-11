@@ -464,15 +464,10 @@ class InMemoryUserRepository:
         self._current_id = 0
 
 
-# Re-export SqlAlchemyUserRepository for clean module namespace
-from app.repositories.sqlalchemy_user_repository import (  # noqa: E402
-    SqlAlchemyUserRepository as SqlAlchemyUserRepository,
-)
-
 __all__ = [
     "InMemoryUserRepository",
-    "SqlAlchemyUserRepository",
     "UserEntity",
     "UserRepositoryProtocol",
     "UserWithPostsEntity",
 ]
+

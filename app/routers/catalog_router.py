@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination.cursor import CursorCodec
 from app.core.routing_session import get_primary_session, get_read_session
-from app.models.catalog_item import CatalogItemModel
 from app.repositories.catalog_repository import (
     CatalogRepositoryProtocol,
     SqlAlchemyCatalogRepository,

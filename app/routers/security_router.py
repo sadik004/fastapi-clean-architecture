@@ -3,41 +3,16 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Query, status
-from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.sanitization import sanitize_file_path
 from app.core.ssrf_protection import validate_safe_url
+from app.schemas.security import (
+    FetchImageRequest,
+    FetchImageResponse,
+    FileDownloadResponse,
+)
 
 router = APIRouter(tags=["OWASP Security Hardening"])
-
-
-class FetchImageRequest(BaseModel):
-    """Payload for image proxy fetching."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    image_url: str = Field(..., min_length=1, description="Outbound URL of image to proxy")
-
-
-class FetchImageResponse(BaseModel):
-    """Response returned upon safe SSRF validation and simulated proxy download."""
-
-    model_config = ConfigDict(frozen=True)
-
-    status: str = "success"
-    url: str
-    message: str = "URL validated and verified safe from SSRF."
-
-
-class FileDownloadResponse(BaseModel):
-    """Response returned upon successful path traversal sanitization."""
-
-    model_config = ConfigDict(frozen=True)
-
-    status: str = "success"
-    filename: str
-    content: str
-    message: str = "Path sanitized and verified safe from directory traversal."
 
 
 @router.post(

@@ -60,11 +60,27 @@ class SqlAlchemyPostRepository:
 
         author_entity: UserEntity | None = None
         if include_author and getattr(model, "author", None) is not None:
-            from app.repositories.sqlalchemy_user_repository import (
-                SqlAlchemyUserRepository,
+            author = model.author
+            auth_created_at = author.created_at
+            if auth_created_at.tzinfo is None:
+                auth_created_at = auth_created_at.replace(tzinfo=UTC)
+            author_entity = UserEntity(
+                id=author.id,
+                email=author.email,
+                username=author.username,
+                password_hash=author.password_hash,
+                is_active=author.is_active,
+                created_at=auth_created_at,
+                version=getattr(author, "version", 1),
+                age=author.age,
+                role=author.role,
+                full_name=author.full_name,
+                phone_number=author.phone_number,
+                bio=author.bio,
+                company_name=author.company_name,
+                permissions=getattr(author, "permissions", 3),
+                nid_number=getattr(author, "nid_number", None),
             )
-
-            author_entity = SqlAlchemyUserRepository._to_entity(model.author)
 
         return PostEntity(
             id=model.id,

@@ -41,6 +41,19 @@ class EntityConflictException(BaseDomainException):
         super().__init__(message=message, code=code)
 
 
+class AuthenticationException(BaseDomainException):
+    """Raised when authentication credentials or token validation fails (HTTP 401)."""
+
+    def __init__(
+        self,
+        message: str = "Authentication failed: invalid credentials or expired token.",
+        code: str = "UNAUTHORIZED",
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        self.headers: dict[str, str] = headers or {"WWW-Authenticate": "Bearer"}
+        super().__init__(message=message, code=code)
+
+
 class AuthorizationException(BaseDomainException):
     """Raised when access is denied due to permission or ownership rules (HTTP 403)."""
 

@@ -7,11 +7,9 @@ import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Annotated, Any, cast
 
-from fastapi import Depends
 from redis.asyncio import Redis
 
 from app.core.dsa.xfetch import XFetchEnvelope, should_recompute
-from app.core.redis import get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -430,10 +428,3 @@ class CacheService:
         self._local_xfetch_hits = 0
         self._local_xfetch_early = 0
         self._local_xfetch_misses = 0
-
-
-def get_cache_service(
-    redis_client: Annotated[Redis, Depends(get_redis)],
-) -> CacheService:
-    """Dependency provider yielding an active CacheService instance."""
-    return CacheService(redis_client=redis_client)

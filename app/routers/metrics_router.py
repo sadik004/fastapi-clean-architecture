@@ -10,6 +10,7 @@ from app.core.dependencies import (
     TokenBucketGuard,
     check_sliding_window_rate_limit,
     get_analytics_service,
+    get_cache_service,
     get_global_rate_limiter,
     get_user_bloom_filter,
 )
@@ -27,7 +28,7 @@ from app.schemas.metrics import (
     XFetchMetricsResponse,
 )
 from app.services.analytics_service import AnalyticsService
-from app.services.cache_service import CacheService, get_cache_service
+from app.services.cache_service import CacheService
 from app.services.rate_limiter_service import RateLimiterService
 
 router = APIRouter(prefix="/metrics", tags=["Metrics & Observability"])
