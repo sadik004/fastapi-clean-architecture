@@ -25,6 +25,7 @@ from app.core.exceptions import (
     AuthorizationException,
     BaseDomainException,
     BusinessRuleViolationException,
+    ConcurrentTransferInProgressException,
     ConnectionPoolExhaustedException,
     CurrencyMismatchException,
     DatabaseQueryTimeoutException,
@@ -32,6 +33,7 @@ from app.core.exceptions import (
     EntityNotFoundException,
     InsufficientFundsException,
     InvalidFXRateException,
+    LockAcquisitionTimeoutException,
     SecurityViolationException,
     ServiceUnavailableException,
     UnbalancedJournalEntryException,
@@ -62,7 +64,7 @@ def _resolve_domain_status_code(exc: BaseDomainException) -> int:
         return 401
     if isinstance(exc, EntityNotFoundException):
         return 404
-    if isinstance(exc, EntityConflictException):
+    if isinstance(exc, EntityConflictException | ConcurrentTransferInProgressException):
         return 409
     if isinstance(exc, AuthorizationException):
         return 403
@@ -75,7 +77,9 @@ def _resolve_domain_status_code(exc: BaseDomainException) -> int:
         return 400
     if isinstance(exc, DatabaseQueryTimeoutException):
         return 504
-    if isinstance(exc, ConnectionPoolExhaustedException | ServiceUnavailableException):
+    if isinstance(
+        exc, ConnectionPoolExhaustedException | ServiceUnavailableException | LockAcquisitionTimeoutException
+    ):
         return 503
     return 400
 

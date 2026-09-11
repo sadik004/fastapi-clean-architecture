@@ -212,3 +212,19 @@ class FundTransferResponseDTO(BaseModel):
     destination_amount: Decimal | None = Field(
         default=None, description="Converted amount received in destination account currency"
     )
+
+
+class ActiveLockInfo(BaseModel):
+    """Telemetry information regarding an active distributed lock."""
+
+    key: str
+    resource: str
+    ttl_ms: int
+
+
+class LedgerLockStatusResponse(BaseModel):
+    """Operational telemetry envelope for active Redis distributed locks."""
+
+    status: str = "active"
+    active_locks_count: int
+    locks: list[ActiveLockInfo]

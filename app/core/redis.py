@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 _redis_pool: ConnectionPool | None = None
 _redis_client: Redis | None = None
 _is_fallback: bool = False
+_fallback_loop: asyncio.AbstractEventLoop | None = None
 
 
 async def init_redis_pool() -> None:
@@ -54,6 +55,10 @@ async def init_redis_pool() -> None:
             _redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
             _is_fallback = True
             _redis_pool = None
+            try:
+                _fallback_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                _fallback_loop = None
         except Exception as fallback_exc:
             logger.error("Failed to initialize FakeRedis fallback: %s", fallback_exc)
             raise exc from fallback_exc
@@ -97,7 +102,20 @@ async def get_redis() -> AsyncGenerator[Redis]:
     Guarantees that a single connection pool is reused across requests without
     re-creating sockets.
     """
-    global _redis_client
+    global _redis_client, _is_fallback, _fallback_loop
+    current_loop = asyncio.get_running_loop()
+
+    if _is_fallback and (
+        _redis_client is None
+        or _fallback_loop is None
+        or _fallback_loop is not current_loop
+        or _fallback_loop.is_closed()
+    ):
+        import fakeredis.aioredis
+
+        _redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+        _fallback_loop = current_loop
+
     if _redis_client is None:
         await init_redis_pool()
 

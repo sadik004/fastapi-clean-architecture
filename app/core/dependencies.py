@@ -24,6 +24,7 @@ from app.core.database import apply_migrations as apply_migrations
 from app.core.database import get_db_pool_status as get_db_pool_status
 from app.core.database import get_db_session as get_db_session
 from app.core.database import rollback_migration as rollback_migration
+from app.core.distributed_lock import AsyncDistributedLock
 from app.core.dsa.bloom_filter import BloomFilter
 from app.core.dsa.sliding_window import SlidingWindowLog
 from app.core.exceptions import UserNotFoundException
@@ -126,12 +127,20 @@ def get_fx_conversion_service() -> FXConversionService:
     return FXConversionService()
 
 
+def get_distributed_lock(
+    redis_client: Annotated[Redis, Depends(get_redis)],
+) -> AsyncDistributedLock:
+    """Dependency provider yielding an active AsyncDistributedLock instance."""
+    return AsyncDistributedLock(redis=redis_client)
+
+
 def get_ledger_transfer_service(
     uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
     fx_service: Annotated[FXConversionService, Depends(get_fx_conversion_service)],
+    redis_client: Annotated[Redis, Depends(get_redis)],
 ) -> LedgerTransferService:
     """Dependency provider yielding an active LedgerTransferService instance."""
-    return LedgerTransferService(uow=uow, fx_service=fx_service)
+    return LedgerTransferService(uow=uow, fx_service=fx_service, redis=redis_client)
 
 
 def get_cache_service(

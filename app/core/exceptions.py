@@ -475,3 +475,31 @@ class InvalidFXRateException(BaseDomainException):
         code: str = "INVALID_FX_RATE",
     ) -> None:
         super().__init__(message=message, code=code)
+
+
+class LockAcquisitionTimeoutException(BaseDomainException):
+    """Raised when a distributed lock cannot be acquired within the designated timeout (HTTP 503)."""
+
+    def __init__(
+        self,
+        message: str = "Unable to acquire distributed lock within timeout window. High lock contention detected.",
+        resource_key: str | None = None,
+        retry_after: int = 2,
+        code: str = "LOCK_TIMEOUT",
+    ) -> None:
+        self.resource_key = resource_key
+        self.retry_after = retry_after
+        super().__init__(message=message, code=code)
+
+
+class ConcurrentTransferInProgressException(BaseDomainException):
+    """Raised when an in-flight transfer with the same reference ID is currently executing (HTTP 409)."""
+
+    def __init__(
+        self,
+        message: str = "A concurrent transfer with this reference ID is currently in progress. Please wait.",
+        reference_id: str | None = None,
+        code: str = "CONCURRENT_TRANSFER_IN_PROGRESS",
+    ) -> None:
+        self.reference_id = reference_id
+        super().__init__(message=message, code=code)

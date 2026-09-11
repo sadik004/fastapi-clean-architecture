@@ -22,18 +22,22 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query, status
 
 from app.core.dependencies import (
+    get_distributed_lock,
     get_fx_conversion_service,
     get_ledger_service,
     get_ledger_transfer_service,
 )
+from app.core.distributed_lock import AsyncDistributedLock
 from app.schemas.ledger import (
     AccountBalanceResponse,
+    ActiveLockInfo,
     FundTransferRequestDTO,
     FundTransferResponseDTO,
     JournalEntryCreateDTO,
     JournalEntryResponseDTO,
     LedgerAccountCreate,
     LedgerAccountResponse,
+    LedgerLockStatusResponse,
 )
 from app.services.fx_conversion_service import FXConversionService
 from app.services.ledger_domain_service import LedgerDomainService
@@ -161,3 +165,29 @@ async def get_fx_rates_endpoint(
 ) -> dict[str, Decimal]:
     """Retrieve supported currency pairs and reference foreign exchange rates."""
     return service.get_supported_rates()
+
+
+@router.get(
+    "/locks/status",
+    response_model=LedgerLockStatusResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Inspect active distributed ledger locks",
+)
+async def get_ledger_locks_status_endpoint(
+    lock_manager: Annotated[AsyncDistributedLock, Depends(get_distributed_lock)],
+) -> LedgerLockStatusResponse:
+    """Retrieve operational telemetry and inspect active Redis locks on ledger accounts."""
+    raw_locks = await lock_manager.get_active_locks("lock:account:*")
+    locks = [
+        ActiveLockInfo(
+            key=item["key"],
+            resource=item["resource"],
+            ttl_ms=item["ttl_ms"],
+        )
+        for item in raw_locks
+    ]
+    return LedgerLockStatusResponse(
+        status="active",
+        active_locks_count=len(locks),
+        locks=locks,
+    )
