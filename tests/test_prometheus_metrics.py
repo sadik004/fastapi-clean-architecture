@@ -38,10 +38,13 @@ def test_http_requests_total_counter_increment() -> None:
     client = TestClient(app)
     metrics = get_metrics()
 
-    initial = metrics.registry.get_sample_value(
-        "http_requests_total",
-        {"method": "GET", "endpoint": "/health", "status_code": "200"},
-    ) or 0.0
+    initial = (
+        metrics.registry.get_sample_value(
+            "http_requests_total",
+            {"method": "GET", "endpoint": "/health", "status_code": "200"},
+        )
+        or 0.0
+    )
 
     response = client.get("/health")
     assert response.status_code == 200

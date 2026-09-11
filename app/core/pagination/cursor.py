@@ -72,21 +72,15 @@ class CursorCodec:
             raw_bytes = base64.urlsafe_b64decode(padded_cursor.encode("ascii"))
             payload: Any = json.loads(raw_bytes.decode("utf-8"))
         except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-            raise InvalidCursorException(
-                f"Invalid, malformed, or tampered pagination cursor token: {exc}"
-            ) from exc
+            raise InvalidCursorException(f"Invalid, malformed, or tampered pagination cursor token: {exc}") from exc
 
         if not isinstance(payload, list | tuple) or len(payload) != 2:
-            raise InvalidCursorException(
-                "Invalid cursor structure: expected composite tuple [created_at, id]."
-            )
+            raise InvalidCursorException("Invalid cursor structure: expected composite tuple [created_at, id].")
 
         iso_timestamp, raw_id = payload
 
         if not isinstance(iso_timestamp, str) or raw_id is None:
-            raise InvalidCursorException(
-                "Invalid cursor fields: timestamp must be string and id must not be null."
-            )
+            raise InvalidCursorException("Invalid cursor fields: timestamp must be string and id must not be null.")
 
         try:
             parsed_dt = datetime.fromisoformat(iso_timestamp)
@@ -95,8 +89,6 @@ class CursorCodec:
             else:
                 parsed_dt = parsed_dt.astimezone(UTC)
         except (ValueError, TypeError) as exc:
-            raise InvalidCursorException(
-                f"Invalid ISO-8601 timestamp in cursor: {exc}"
-            ) from exc
+            raise InvalidCursorException(f"Invalid ISO-8601 timestamp in cursor: {exc}") from exc
 
         return parsed_dt, raw_id

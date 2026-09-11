@@ -20,11 +20,13 @@ from opentelemetry.trace import StatusCode, get_tracer_provider, set_tracer_prov
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 # Service Resource Metadata
-SERVICE_RESOURCE = Resource.create({
-    "service.name": "fastapi-clean-architecture",
-    "service.version": "1.0.0",
-    "deployment.environment": "production",
-})
+SERVICE_RESOURCE = Resource.create(
+    {
+        "service.name": "fastapi-clean-architecture",
+        "service.version": "1.0.0",
+        "deployment.environment": "production",
+    }
+)
 
 # Global in-memory exporter for test isolation and diagnostics without external network dependencies
 _in_memory_exporter: InMemorySpanExporter = InMemorySpanExporter()
@@ -78,11 +80,13 @@ def init_tracer(
     if getattr(_in_memory_exporter, "_stopped", False):
         _in_memory_exporter._stopped = False
 
-    resource = Resource.create({
-        "service.name": service_name,
-        "service.version": "1.0.0",
-        "deployment.environment": environment,
-    })
+    resource = Resource.create(
+        {
+            "service.name": service_name,
+            "service.version": "1.0.0",
+            "deployment.environment": environment,
+        }
+    )
 
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(SimpleSpanProcessor(_in_memory_exporter))

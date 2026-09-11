@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping
-from typing import Annotated, Any, cast
+from typing import Any, cast
 
 from redis.asyncio import Redis
 

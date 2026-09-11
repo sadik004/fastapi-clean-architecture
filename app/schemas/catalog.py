@@ -72,7 +72,9 @@ class QueryPlanReport(BaseModel):
     execution_time_ms: float = Field(default=0.0, description="Execution engine runtime in milliseconds")
     shared_hit_blocks: int = Field(default=0, description="Buffer pool cache hits")
     shared_read_blocks: int = Field(default=0, description="Physical disk I/O block reads")
-    warnings: list[str] = Field(default_factory=list, description="Architectural warnings (e.g. Seq Scan on large table)")
+    warnings: list[str] = Field(
+        default_factory=list, description="Architectural warnings (e.g. Seq Scan on large table)"
+    )
     nodes: list[QueryPlanNode] = Field(default_factory=list, description="Flattened execution plan nodes")
     raw_plan: Any = Field(None, description="Original planner JSON or table representation")
 

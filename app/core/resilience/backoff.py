@@ -113,6 +113,7 @@ def retry_with_backoff(  # noqa: UP047
     @retry_with_backoff(max_retries=5, base_delay=0.05, strategy="full_jitter")
     async def foo(): ...
     """
+
     def decorator(fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
         @functools.wraps(fn)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:

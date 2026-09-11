@@ -25,12 +25,7 @@ from app.core.database import get_db_session
 from app.main import app
 from app.services.health_service import get_health_service
 
-_MANIFEST_PATH: Path = (
-    Path(__file__).resolve().parent.parent
-    / "deployments"
-    / "kubernetes"
-    / "fastapi-probes.yaml"
-)
+_MANIFEST_PATH: Path = Path(__file__).resolve().parent.parent / "deployments" / "kubernetes" / "fastapi-probes.yaml"
 
 
 @pytest.fixture
@@ -118,8 +113,10 @@ def test_readiness_failure_isolates_from_liveness(client: TestClient) -> None:
 
 def test_readiness_timeout_handling(client: TestClient) -> None:
     """Verify slow hanging dependency calls time out gracefully and report HTTP 503."""
+
     async def hanging_query(*args: Any, **kwargs: Any) -> None:
         import asyncio
+
         await asyncio.sleep(2.0)
 
     mock_hanging_session = AsyncMock(spec=AsyncSession)

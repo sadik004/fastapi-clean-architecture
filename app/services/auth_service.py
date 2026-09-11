@@ -140,6 +140,6 @@ class AuthService:
             family_id = payload.get("family_id")
             if family_id:
                 await self._redis.delete(f"{RTR_FAMILY_PREFIX}{family_id}")
-        except HTTPException:
+        except AuthenticationException:
             # If the token is already expired or malformed, revocation is a no-op
             pass

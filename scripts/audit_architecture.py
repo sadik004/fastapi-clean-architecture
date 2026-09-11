@@ -67,11 +67,7 @@ def run_audit(target_dir: str = "app", verbose: bool = False) -> int:
     elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
     all_violations: list[ArchitectureViolation] = (
-        rule1_violations
-        + rule2_violations
-        + rule3_violations
-        + rule4_violations
-        + rule5_violations
+        rule1_violations + rule2_violations + rule3_violations + rule4_violations + rule5_violations
     )
 
     print("\n" + sub_sep)
@@ -80,7 +76,14 @@ def run_audit(target_dir: str = "app", verbose: bool = False) -> int:
     print(format_table_row("Modules Audited (V)", f"{v_count} modules", 40, 30))
     print(format_table_row("Internal Import Dependencies (E)", f"{e_count} edges", 40, 30))
     print(format_table_row("Total AST Import Nodes Walked", f"{raw_imports} nodes", 40, 30))
-    print(format_table_row("Graph Cyclomatic Status", "Strict DAG (0 Cycles)" if not rule4_violations else f"FAILED ({len(rule4_violations)} cycles)", 40, 30))
+    print(
+        format_table_row(
+            "Graph Cyclomatic Status",
+            "Strict DAG (0 Cycles)" if not rule4_violations else f"FAILED ({len(rule4_violations)} cycles)",
+            40,
+            30,
+        )
+    )
     print(format_table_row("Audit Execution Duration", f"{elapsed_ms:.2f} ms", 40, 30))
     print(sub_sep)
 

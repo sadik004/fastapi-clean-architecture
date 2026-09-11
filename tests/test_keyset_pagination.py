@@ -273,7 +273,6 @@ class TestKeysetPaginationEndpoints:
         assert res_over.status_code == 422
 
 
-
 # ==============================================================================
 # 3. Offset Comparison Endpoint Tests
 # ==============================================================================

@@ -31,9 +31,9 @@ def test_rule_1_inward_layer_boundary_zero_model_leakage(app_linter: Architectur
     dependency boundary and leaks storage schemas to API clients.
     """
     violations = app_linter.check_rule_1_inward_boundary()
-    assert (
-        len(violations) == 0
-    ), f"Inward Boundary Breached: {len(violations)} router(s) directly import database models: {violations}"
+    assert len(violations) == 0, (
+        f"Inward Boundary Breached: {len(violations)} router(s) directly import database models: {violations}"
+    )
 
 
 def test_rule_2_transport_layer_isolation_zero_fastapi_coupling(app_linter: ArchitectureLinter) -> None:
@@ -44,9 +44,9 @@ def test_rule_2_transport_layer_isolation_zero_fastapi_coupling(app_linter: Arch
     and prevents running business logic across message brokers, Celery/Arq workers, or CLI tools.
     """
     violations = app_linter.check_rule_2_transport_isolation()
-    assert (
-        len(violations) == 0
-    ), f"Transport Layer Leakage: {len(violations)} service(s) import FastAPI transport objects: {violations}"
+    assert len(violations) == 0, (
+        f"Transport Layer Leakage: {len(violations)} service(s) import FastAPI transport objects: {violations}"
+    )
 
 
 def test_rule_3_dependency_inversion_services_inject_protocols(app_linter: ArchitectureLinter) -> None:
@@ -57,9 +57,9 @@ def test_rule_3_dependency_inversion_services_inject_protocols(app_linter: Archi
     with zero coupling to concrete SQLAlchemy or in-memory implementations.
     """
     violations = app_linter.check_rule_3_dependency_inversion()
-    assert (
-        len(violations) == 0
-    ), f"Dependency Inversion Breached: Concrete repositories injected into service(s): {violations}"
+    assert len(violations) == 0, (
+        f"Dependency Inversion Breached: Concrete repositories injected into service(s): {violations}"
+    )
 
 
 def test_rule_4_module_graph_acyclic_invariant_strict_dag(app_linter: ArchitectureLinter) -> None:
@@ -69,9 +69,9 @@ def test_rule_4_module_graph_acyclic_invariant_strict_dag(app_linter: Architectu
     source files in app/. Asserts exactly 0 circular import cycles exist in the codebase.
     """
     cycles = app_linter.detect_cycles()
-    assert (
-        len(cycles) == 0
-    ), f"Circular Dependency Cycles Detected ({len(cycles)} cycle(s)): {' | '.join(' -> '.join(c) for c in cycles)}"
+    assert len(cycles) == 0, (
+        f"Circular Dependency Cycles Detected ({len(cycles)} cycle(s)): {' | '.join(' -> '.join(c) for c in cycles)}"
+    )
 
 
 def test_rule_5_schema_autonomy_dtos_housed_in_schemas_package(app_linter: ArchitectureLinter) -> None:
@@ -81,15 +81,17 @@ def test_rule_5_schema_autonomy_dtos_housed_in_schemas_package(app_linter: Archi
     the app/schemas/ package to guarantee cross-boundary reusability and contract autonomy.
     """
     violations = app_linter.check_rule_5_schema_autonomy()
-    assert (
-        len(violations) == 0
-    ), f"Schema Autonomy Breached: {len(violations)} inline model(s) defined in routers/services: {violations}"
+    assert len(violations) == 0, (
+        f"Schema Autonomy Breached: {len(violations)} inline model(s) defined in routers/services: {violations}"
+    )
 
 
 def test_full_architecture_compliance_audit_passes(app_linter: ArchitectureLinter) -> None:
     """Invariant: Consolidated architecture audit across all 5 canonical rules yields ZERO violations."""
     violations = app_linter.check_all()
-    assert len(violations) == 0, f"Architecture Compliance Gate Failed with {len(violations)} violation(s): {violations}"
+    assert len(violations) == 0, (
+        f"Architecture Compliance Gate Failed with {len(violations)} violation(s): {violations}"
+    )
 
 
 def test_negative_control_detects_intentional_inward_boundary_violation(app_linter: ArchitectureLinter) -> None:
@@ -143,6 +145,8 @@ def test_cli_architecture_audit_script_execution() -> None:
         text=True,
         check=False,
     )
-    assert result.returncode == 0, f"Audit script failed with code {result.returncode}:\n{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"Audit script failed with code {result.returncode}:\n{result.stdout}\n{result.stderr}"
+    )
     assert "AUDIT PASSED: 100% CLEAN ARCHITECTURE COMPLIANCE VERIFIED" in result.stdout
     assert "Strict DAG (0 Cycles)" in result.stdout

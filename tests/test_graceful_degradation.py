@@ -79,9 +79,7 @@ async def test_fallback_engine_tier2_stale_cache_on_primary_failure(
 ) -> None:
     """Tier 2: Primary func fails, stale cached data is returned with STALE_CACHE level."""
     # Pre-seed cache
-    mock_redis._store["recs:user:2"] = (
-        '[{"product_id": "cached-1", "title": "Cached Mouse", "price": 49.99}]'
-    )
+    mock_redis._store["recs:user:2"] = '[{"product_id": "cached-1", "title": "Cached Mouse", "price": 49.99}]'
     engine = FallbackEngine(redis_client=mock_redis)
 
     async def failing_primary() -> list[dict[str, Any]]:
@@ -192,9 +190,7 @@ async def test_fallback_engine_without_cache_key() -> None:
 async def test_recommendation_service_primary_flow(mock_redis: AsyncMock) -> None:
     """ProductRecommendationService returns live personalized recommendations."""
     service = ProductRecommendationService(redis_client=mock_redis)
-    result, level = await service.get_personalized_recommendations(
-        user_id=101, simulate_failure=False
-    )
+    result, level = await service.get_personalized_recommendations(user_id=101, simulate_failure=False)
 
     assert level == DegradationLevel.PRIMARY
     assert result["degraded"] is False
@@ -218,9 +214,7 @@ async def test_recommendation_service_stale_cache_flow(mock_redis: AsyncMock) ->
     ]
     await service.seed_user_cache(user_id=102, items=seeded_items, ttl_seconds=600)
 
-    result, level = await service.get_personalized_recommendations(
-        user_id=102, simulate_failure=True
-    )
+    result, level = await service.get_personalized_recommendations(user_id=102, simulate_failure=True)
 
     assert level == DegradationLevel.STALE_CACHE
     assert result["degraded"] is True
@@ -235,9 +229,7 @@ async def test_recommendation_service_static_default_flow(
     """ProductRecommendationService falls back to DEFAULT_TRENDING_PRODUCTS when empty."""
     service = ProductRecommendationService(redis_client=mock_redis)
 
-    result, level = await service.get_personalized_recommendations(
-        user_id=999, simulate_failure=True
-    )
+    result, level = await service.get_personalized_recommendations(user_id=999, simulate_failure=True)
 
     assert level == DegradationLevel.STATIC_DEFAULT
     assert result["degraded"] is True
@@ -255,9 +247,7 @@ async def test_endpoint_recommendations_tier1_primary(fake_redis: Any) -> None:
     """GET /resilience/recommendations/{user_id} returns PRIMARY headers."""
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get(
-            "/resilience/recommendations/1", params={"simulate_failure": False}
-        )
+        response = await ac.get("/resilience/recommendations/1", params={"simulate_failure": False})
 
     assert response.status_code == 200
     assert response.headers.get("X-Degraded-Mode") == "FALSE"
@@ -287,16 +277,12 @@ async def test_endpoint_recommendations_tier2_stale_cache(fake_redis: Any) -> No
             ],
             "ttl_seconds": 1800,
         }
-        seed_resp = await ac.post(
-            "/resilience/recommendations/seed-cache", json=seed_payload
-        )
+        seed_resp = await ac.post("/resilience/recommendations/seed-cache", json=seed_payload)
         assert seed_resp.status_code == 200
         assert seed_resp.json()["status"] == "seeded"
 
         # 2. Query with simulate_failure=true
-        response = await ac.get(
-            "/resilience/recommendations/202", params={"simulate_failure": True}
-        )
+        response = await ac.get("/resilience/recommendations/202", params={"simulate_failure": True})
 
     assert response.status_code == 200
     assert response.headers.get("X-Degraded-Mode") == "TRUE"

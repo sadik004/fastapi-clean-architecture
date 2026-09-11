@@ -15,7 +15,9 @@ class OrderFlowRequest(BaseModel):
     item_id: str = Field(default="prod_laptop_01", description="Item product code")
     quantity: int = Field(default=1, ge=1, description="Quantity")
     amount: float = Field(default=1299.99, gt=0, description="Total monetary charge")
-    fail_at_step: str | None = Field(default=None, description="Optional step to fail ('inventory', 'payment', 'kafka')")
+    fail_at_step: str | None = Field(
+        default=None, description="Optional step to fail ('inventory', 'payment', 'kafka')"
+    )
 
 
 class SpanDetail(BaseModel):

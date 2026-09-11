@@ -292,7 +292,9 @@ class BulkheadFullException(ServiceUnavailableException):
         super().__init__(
             message=msg,
             code=code,
-            retry_after=int(retry_after) if isinstance(retry_after, float) and retry_after.is_integer() else retry_after,
+            retry_after=int(retry_after)
+            if isinstance(retry_after, float) and retry_after.is_integer()
+            else retry_after,
         )
 
 
@@ -368,4 +370,3 @@ class ConnectionPoolExhaustedException(BaseDomainException):
     ) -> None:
         self.retry_after = retry_after
         super().__init__(message=message, code=code)
-

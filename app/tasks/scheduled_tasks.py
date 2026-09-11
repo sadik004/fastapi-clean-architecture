@@ -27,9 +27,7 @@ def nightly_reconciliation_audit() -> dict[str, Any]:
     discrepancies = 0
     balanced = total_debits == total_credits
 
-    raw_audit_summary = (
-        f"AUDIT|ts={timestamp}|debits={total_debits}|credits={total_credits}|bal={balanced}"
-    )
+    raw_audit_summary = f"AUDIT|ts={timestamp}|debits={total_debits}|credits={total_credits}|bal={balanced}"
     checksum = hashlib.sha256(raw_audit_summary.encode("utf-8")).hexdigest()
     elapsed = round(time.time() - start_time, 4)
 

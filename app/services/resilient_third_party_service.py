@@ -62,8 +62,7 @@ class ResilientThirdPartyService:
             if current_call <= failures_before_success:
                 raise ServiceUnavailableException(
                     message=(
-                        f"Downstream service '{target_id}' failed on attempt "
-                        f"{current_call}/{failures_before_success}."
+                        f"Downstream service '{target_id}' failed on attempt {current_call}/{failures_before_success}."
                     ),
                     code="DOWNSTREAM_TEMPORARILY_UNAVAILABLE",
                     retry_after=base_delay,

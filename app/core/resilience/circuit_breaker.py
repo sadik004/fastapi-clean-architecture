@@ -277,6 +277,7 @@ class CircuitBreaker:
         func: Callable[P, Awaitable[R]],
     ) -> Callable[P, Awaitable[R]]:
         """Decorator to wrap async functions with this CircuitBreaker instance."""
+
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             return await self.execute_async(func, *args, **kwargs)

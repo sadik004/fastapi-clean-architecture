@@ -19,21 +19,23 @@ from app.core.exceptions import UnsafeQueryExecutionException
 from app.schemas.catalog import QueryPlanNode, QueryPlanReport
 
 # Mutating and dangerous SQL statements strictly prohibited in query plan analysis
-_FORBIDDEN_KEYWORDS = frozenset({
-    "INSERT",
-    "UPDATE",
-    "DELETE",
-    "DROP",
-    "ALTER",
-    "TRUNCATE",
-    "REPLACE",
-    "GRANT",
-    "REVOKE",
-    "CREATE",
-    "EXECUTE",
-    "CALL",
-    "MERGE",
-})
+_FORBIDDEN_KEYWORDS = frozenset(
+    {
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "DROP",
+        "ALTER",
+        "TRUNCATE",
+        "REPLACE",
+        "GRANT",
+        "REVOKE",
+        "CREATE",
+        "EXECUTE",
+        "CALL",
+        "MERGE",
+    }
+)
 
 _COMMENT_REGEX = re.compile(r"(--[^\n]*)|(/\*.*?\*/)", re.DOTALL)
 
@@ -141,8 +143,10 @@ class QueryPlanService:
             if isinstance(sub_plans, list):
                 queue.extend(sub_plans)
 
-        primary_scan = scan_types_found[0] if scan_types_found else (
-            flattened_nodes[0].node_type if flattened_nodes else "Execution Plan"
+        primary_scan = (
+            scan_types_found[0]
+            if scan_types_found
+            else (flattened_nodes[0].node_type if flattened_nodes else "Execution Plan")
         )
         total_cost = float(root_plan.get("Total Cost", 0.0))
 

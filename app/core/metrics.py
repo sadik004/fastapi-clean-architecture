@@ -40,9 +40,7 @@ LATENCY_BUCKETS: tuple[float, ...] = (
 )
 
 # Regular expressions for O(1) path normalization to defeat cardinality explosions
-_UUID_REGEX = re.compile(
-    r"/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-)
+_UUID_REGEX = re.compile(r"/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 _INTEGER_ID_REGEX = re.compile(r"/\d+")
 _HEX_ID_REGEX = re.compile(r"/[0-9a-fA-F]{24,64}")
 _ROUTE_PARAM_REGEX = re.compile(r"\{[a-zA-Z0-9_]+\}")

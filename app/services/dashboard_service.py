@@ -17,11 +17,7 @@ from app.core.exceptions import BaseDomainException
 
 # Default path to the Golden Signals dashboard specification
 _DASHBOARD_FILE_PATH: Path = (
-    Path(__file__).resolve().parent.parent
-    / "core"
-    / "observability"
-    / "dashboards"
-    / "fastapi_golden_signals.json"
+    Path(__file__).resolve().parent.parent / "core" / "observability" / "dashboards" / "fastapi_golden_signals.json"
 )
 
 # Regex to validate Prometheus lookback ranges (e.g., [1m], [5m], [30s])
@@ -81,9 +77,7 @@ class DashboardService:
         self._cached_dashboard = data
         return copy.deepcopy(data)
 
-    def validate_dashboard_schema(
-        self, dashboard: dict[str, Any] | None = None
-    ) -> bool:
+    def validate_dashboard_schema(self, dashboard: dict[str, Any] | None = None) -> bool:
         """Validate Grafana dashboard specification schema and PromQL queries in O(N) time.
 
         Enforces:
@@ -139,9 +133,7 @@ class DashboardService:
 
             panel_id = panel.get("id")
             if not isinstance(panel_id, int):
-                raise DashboardValidationError(
-                    f"Panel at index {idx} has invalid id: {panel_id}"
-                )
+                raise DashboardValidationError(f"Panel at index {idx} has invalid id: {panel_id}")
             if panel_id in seen_panel_ids:
                 raise DashboardValidationError(
                     f"Duplicate panel id detected: {panel_id}",
@@ -151,15 +143,11 @@ class DashboardService:
 
             panel_title = panel.get("title")
             if not panel_title or not isinstance(panel_title, str):
-                raise DashboardValidationError(
-                    f"Panel id {panel_id} must have a non-empty title"
-                )
+                raise DashboardValidationError(f"Panel id {panel_id} must have a non-empty title")
 
             panel_type = panel.get("type")
             if not panel_type or not isinstance(panel_type, str):
-                raise DashboardValidationError(
-                    f"Panel id {panel_id} must have a valid type string"
-                )
+                raise DashboardValidationError(f"Panel id {panel_id} must have a valid type string")
 
             targets = panel.get("targets")
             if not isinstance(targets, list) or len(targets) == 0:
@@ -170,15 +158,11 @@ class DashboardService:
             # 3. Target PromQL query validation
             for t_idx, target in enumerate(targets):
                 if not isinstance(target, dict):
-                    raise DashboardValidationError(
-                        f"Target {t_idx} in panel {panel_id} must be an object"
-                    )
+                    raise DashboardValidationError(f"Target {t_idx} in panel {panel_id} must be an object")
 
                 expr = target.get("expr")
                 if not expr or not isinstance(expr, str) or not expr.strip():
-                    raise DashboardValidationError(
-                        f"Target {t_idx} in panel {panel_id} has empty PromQL expr"
-                    )
+                    raise DashboardValidationError(f"Target {t_idx} in panel {panel_id} has empty PromQL expr")
 
                 # PromQL balanced parentheses check
                 if expr.count("(") != expr.count(")"):
@@ -218,9 +202,7 @@ class DashboardService:
 
         return True
 
-    def get_validation_summary(
-        self, dashboard: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    def get_validation_summary(self, dashboard: dict[str, Any] | None = None) -> dict[str, Any]:
         """Execute validation and return an operational diagnostic summary.
 
         Includes execution duration in milliseconds to verify sub-5ms performance.

@@ -82,9 +82,7 @@ def test_stateful_services_volume_persistence() -> None:
 
     # Verify redis mounts redis_data
     redis_volumes = compose["services"]["redis"].get("volumes", [])
-    assert any("redis_data:/data" in str(v) for v in redis_volumes), (
-        "redis must mount redis_data to /data"
-    )
+    assert any("redis_data:/data" in str(v) for v in redis_volumes), "redis must mount redis_data to /data"
 
     # Verify prometheus mounts prometheus_data
     prom_volumes = compose["services"]["prometheus"].get("volumes", [])
@@ -123,14 +121,10 @@ def test_network_isolation_and_port_exposure() -> None:
     assert "ports" not in services["postgres"], (
         "Security violation: postgres port must not be exposed to host in production"
     )
-    assert "ports" not in services["redis"], (
-        "Security violation: redis port must not be exposed to host in production"
-    )
+    assert "ports" not in services["redis"], "Security violation: redis port must not be exposed to host in production"
 
     # App exposes 8000 and Prometheus exposes 9090
-    assert any("8000:8000" in str(p) for p in services["app"].get("ports", [])), (
-        "app must expose port 8000:8000"
-    )
+    assert any("8000:8000" in str(p) for p in services["app"].get("ports", [])), "app must expose port 8000:8000"
     assert any("9090:9090" in str(p) for p in services["prometheus"].get("ports", [])), (
         "prometheus must expose port 9090:9090"
     )

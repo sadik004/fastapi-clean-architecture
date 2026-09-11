@@ -187,6 +187,7 @@ class Bulkhead:
 
         Supports both ``@bulkhead.decorate`` and ``@bulkhead.decorate()``.
         """
+
         def decorator(f: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
             @functools.wraps(f)
             async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:

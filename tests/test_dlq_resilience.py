@@ -107,6 +107,7 @@ async def test_poison_pill_quarantine_and_primary_queue_unblock() -> None:
 @pytest.mark.asyncio
 async def test_forensic_envelope_integrity() -> None:
     """Verify forensic envelope captures exact stack trace, error, unmutated payload, and timestamp."""
+
     async def failing_step(payload: dict[str, object]) -> None:
         raise KeyError("missing_required_attribute_xyz")
 
@@ -184,6 +185,7 @@ def test_api_dlq_management_endpoints() -> None:
             retry_count=3,
         )
         import asyncio
+
         asyncio.run(DLQService.route_to_dlq(env))
 
     # 2. GET /dlq/messages
@@ -215,6 +217,7 @@ def test_api_dlq_management_endpoints() -> None:
         retry_count=3,
     )
     import asyncio
+
     asyncio.run(DLQService.route_to_dlq(env2))
 
     res_purge = client.post("/dlq/purge", params={"queue_or_topic": "notifications.queue"})

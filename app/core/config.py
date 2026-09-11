@@ -86,4 +86,3 @@ def get_settings() -> Settings:
 
 
 settings: Settings = get_settings()
-

@@ -6,7 +6,6 @@ import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import String, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination.cursor import CursorCodec
@@ -47,9 +46,11 @@ def get_catalog_repository() -> CatalogRepositoryProtocol:
 async def create_catalog_item_endpoint(
     item_in: CatalogItemCreate,
     primary_session: Annotated[AsyncSession, Depends(get_primary_session)],
+    catalog_repo: Annotated[CatalogRepositoryProtocol, Depends(get_catalog_repository)],
 ) -> CatalogItemResponse:
     """Persist item to primary database engine."""
-    new_item = CatalogItemModel(
+    new_item = await catalog_repo.create_item(
+        session=primary_session,
         sku=item_in.sku,
         name=item_in.name,
         category=item_in.category,
@@ -58,9 +59,6 @@ async def create_catalog_item_endpoint(
         metadata_json=item_in.metadata_json,
         tags=item_in.tags,
     )
-    primary_session.add(new_item)
-    await primary_session.commit()
-    await primary_session.refresh(new_item)
     return CatalogItemResponse.model_validate(new_item)
 
 
@@ -147,18 +145,10 @@ async def get_catalog_items_offset_endpoint(
 async def search_catalog_by_tags_endpoint(
     tag: Annotated[str, Query(min_length=1, description="Tag to search")],
     read_session: Annotated[AsyncSession, Depends(get_read_session)],
+    catalog_repo: Annotated[CatalogRepositoryProtocol, Depends(get_catalog_repository)],
 ) -> CatalogSearchByTagResponse:
     """Query items by tag on read replica and return execution plan report."""
-    bind = read_session.bind
-    is_pg = bind is not None and bind.dialect.name == "postgresql"
-
-    if is_pg:
-        query = select(CatalogItemModel).where(CatalogItemModel.tags.contains([tag]))
-    else:
-        query = select(CatalogItemModel).where(CatalogItemModel.tags.cast(String).contains(tag))
-
-    result = await read_session.execute(query)
-    items = list(result.scalars().all())
+    items = await catalog_repo.search_by_tag(session=read_session, tag=tag)
 
     # Generate diagnostic report for the query pattern
     diagnostic_sql = "SELECT id, sku, name, tags FROM catalog_items WHERE category = :cat"

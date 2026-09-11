@@ -105,9 +105,7 @@ class ShutdownManager:
         )
         return True
 
-    def register_signal_handlers(
-        self, loop: asyncio.AbstractEventLoop | None = None
-    ) -> None:
+    def register_signal_handlers(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Register OS signal handlers for SIGTERM and SIGINT with cross-platform resilience."""
         target_loop: asyncio.AbstractEventLoop | None = None
         try:

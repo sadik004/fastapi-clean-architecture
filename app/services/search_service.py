@@ -196,11 +196,7 @@ class SearchService:
                         func.websearch_to_tsquery("english", clean_query),
                     ).label("rank_score"),
                 )
-                .where(
-                    SearchableProductModel.search_vector.op("@@")(
-                        func.websearch_to_tsquery("english", clean_query)
-                    )
-                )
+                .where(SearchableProductModel.search_vector.op("@@")(func.websearch_to_tsquery("english", clean_query)))
                 .order_by(text("rank_score DESC"), SearchableProductModel.created_at.desc())
                 .limit(limit)
             )

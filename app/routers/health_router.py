@@ -174,4 +174,3 @@ async def shutdown_status() -> dict[str, Any]:
         "in_flight_requests": mgr.in_flight_requests,
         "timestamp": datetime.now(UTC).isoformat(),
     }
-

@@ -6,11 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
-from app.schemas.profiling import (
-    BenchmarkReportResponse,
-    BenchmarkResultResponse,
-    PercentileStatsResponse,
-)
+from app.schemas.profiling import BenchmarkReportResponse
 from app.services.profiling_service import (
     BenchmarkReport,
     ProfilingService,

@@ -187,7 +187,9 @@ async def get_backoff_distribution_endpoint(
     attempt: Annotated[int, Query(ge=0, le=30, description="Retry attempt index")] = 3,
     base_delay: Annotated[float, Query(ge=0.001, le=10.0, description="Base delay seconds")] = 0.1,
     max_delay: Annotated[float, Query(ge=0.01, le=60.0, description="Max delay ceiling seconds")] = 5.0,
-    strategy: Annotated[str, Query(description="Strategy: full_jitter, equal_jitter, decorrelated_jitter, no_jitter")] = "full_jitter",
+    strategy: Annotated[
+        str, Query(description="Strategy: full_jitter, equal_jitter, decorrelated_jitter, no_jitter")
+    ] = "full_jitter",
     samples: Annotated[int, Query(ge=1, le=1000, description="Sample count")] = 100,
 ) -> BackoffDistributionResponse:
     """Return statistical distribution of calculated delays for verification."""

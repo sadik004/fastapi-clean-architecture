@@ -23,9 +23,7 @@ class ProductService:
         self._repo = repository
         self._uow = uow or RoutingUnitOfWork()
 
-    async def get_product(
-        self, product_id: int
-    ) -> tuple[ProductEntity, DatabaseRole]:
+    async def get_product(self, product_id: int) -> tuple[ProductEntity, DatabaseRole]:
         """Fetch a product by ID from the Read Replica engine in O(1) time."""
         if self._repo is not None:
             entity = await self._repo.get_by_id(product_id)
@@ -40,29 +38,19 @@ class ProductService:
                 raise ProductNotFoundException(product_id=product_id)
             return entity, uow.current_read_target
 
-    async def list_products(
-        self, limit: int = 50
-    ) -> tuple[list[dict[str, Any]], DatabaseRole]:
+    async def list_products(self, limit: int = 50) -> tuple[list[dict[str, Any]], DatabaseRole]:
         """List products from the Read Replica engine."""
         if self._repo is not None:
             entities = await self._repo.list_all()
-            items = [
-                {"id": e.id, "name": e.name, "stock": e.stock, "price": e.price}
-                for e in entities[:limit]
-            ]
+            items = [{"id": e.id, "name": e.name, "stock": e.stock, "price": e.price} for e in entities[:limit]]
             return items, DatabaseRole.REPLICA
 
         async with self._uow as uow:
             entities = await uow.products.list_all()
-            items = [
-                {"id": e.id, "name": e.name, "stock": e.stock, "price": e.price}
-                for e in entities[:limit]
-            ]
+            items = [{"id": e.id, "name": e.name, "stock": e.stock, "price": e.price} for e in entities[:limit]]
             return items, uow.current_read_target
 
-    async def create_product(
-        self, name: str, stock: int, price: float
-    ) -> tuple[ProductEntity, DatabaseRole]:
+    async def create_product(self, name: str, stock: int, price: float) -> tuple[ProductEntity, DatabaseRole]:
         """Persist a new product strictly via Primary / Writer master engine."""
         async with self._uow as uow:
             entity = await uow.products.create(name=name, stock=stock, price=price)

@@ -23,11 +23,7 @@ def test_multistage_builder_and_runner_stages() -> None:
     The compiler toolchain must be confined to the builder stage to eliminate image bloat.
     """
     content = DOCKERFILE_PATH.read_text(encoding="utf-8")
-    from_lines = [
-        line.strip()
-        for line in content.splitlines()
-        if line.strip().upper().startswith("FROM ")
-    ]
+    from_lines = [line.strip() for line in content.splitlines() if line.strip().upper().startswith("FROM ")]
 
     assert len(from_lines) >= 2, f"Expected at least 2 FROM instructions, found {len(from_lines)}"
     assert any("AS BUILDER" in line.upper() for line in from_lines), "Missing 'AS builder' stage"
@@ -76,11 +72,7 @@ def test_non_root_user_and_group_enforcement() -> None:
     assert "/sbin/nologin" in content, "Non-root user must be assigned a nologin shell"
 
     # Find the final active USER instruction
-    user_lines = [
-        line.strip()
-        for line in content.splitlines()
-        if line.strip().upper().startswith("USER ")
-    ]
+    user_lines = [line.strip() for line in content.splitlines() if line.strip().upper().startswith("USER ")]
     assert len(user_lines) >= 1, "Dockerfile must define an explicit USER instruction"
 
     final_user = user_lines[-1]
@@ -128,11 +120,7 @@ def test_healthcheck_directive_points_to_liveness_probe() -> None:
 def test_cmd_runs_uvicorn_production_server() -> None:
     """Invariant: Dockerfile CMD must start uvicorn targeting app.main:app."""
     content = DOCKERFILE_PATH.read_text(encoding="utf-8")
-    cmd_lines = [
-        line.strip()
-        for line in content.splitlines()
-        if line.strip().upper().startswith("CMD ")
-    ]
+    cmd_lines = [line.strip() for line in content.splitlines() if line.strip().upper().startswith("CMD ")]
     assert len(cmd_lines) >= 1, "Dockerfile must define a CMD instruction"
     final_cmd = cmd_lines[-1]
     assert "uvicorn" in final_cmd, f"CMD must run uvicorn: {final_cmd}"
@@ -145,9 +133,7 @@ def test_dockerignore_excludes_sensitive_files_and_caches() -> None:
     """Invariant: .dockerignore must strictly prevent secret leakage and cache pollution."""
     content = DOCKERIGNORE_PATH.read_text(encoding="utf-8")
     ignored_patterns = {
-        line.strip()
-        for line in content.splitlines()
-        if line.strip() and not line.strip().startswith("#")
+        line.strip() for line in content.splitlines() if line.strip() and not line.strip().startswith("#")
     }
 
     # Secrets protection

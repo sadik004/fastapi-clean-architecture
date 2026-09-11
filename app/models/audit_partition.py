@@ -31,9 +31,7 @@ class AuditLogPartitionModel(Base):
     """
 
     __tablename__ = "audit_logs"
-    __table_args__ = (
-        {"postgresql_partition_by": "RANGE (created_at)"},
-    )
+    __table_args__ = ({"postgresql_partition_by": "RANGE (created_at)"},)
 
     id: Mapped[uuid.UUID] = mapped_column(
         GUID(),

@@ -14,20 +14,22 @@ import structlog
 from structlog.types import EventDict, Processor
 
 # Pre-compiled frozenset for O(1) sensitive key identification
-SENSITIVE_KEY_NAMES: frozenset[str] = frozenset({
-    "password",
-    "token",
-    "secret",
-    "authorization",
-    "credit_card",
-    "access_token",
-    "refresh_token",
-    "api_key",
-    "client_secret",
-    "private_key",
-    "auth_token",
-    "user_password",
-})
+SENSITIVE_KEY_NAMES: frozenset[str] = frozenset(
+    {
+        "password",
+        "token",
+        "secret",
+        "authorization",
+        "credit_card",
+        "access_token",
+        "refresh_token",
+        "api_key",
+        "client_secret",
+        "private_key",
+        "auth_token",
+        "user_password",
+    }
+)
 
 SENSITIVE_SUFFIXES: tuple[str, ...] = (
     "_password",
@@ -142,7 +144,8 @@ def setup_logging(
     shared_processors, renderer = get_processors(environment=environment, force_json=force_json)
 
     structlog.configure(
-        processors=shared_processors + [
+        processors=shared_processors
+        + [
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),

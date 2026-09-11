@@ -10,7 +10,6 @@ Validates:
 6. HTTP Endpoints & Telemetry: Validates X-Database-Engine headers and dual pool status.
 """
 
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -56,9 +55,7 @@ async def test_replica_mutation_guard_blocks_insert() -> None:
     """Replica Mutation Shield: Mutating statements on replica engine trigger ReadOnlyReplicaMutationException."""
     async with ReplicaAsyncSession() as session:
         with pytest.raises(ReadOnlyReplicaMutationException) as exc_info:
-            await session.execute(
-                text("INSERT INTO products (name, stock, price) VALUES ('Illegal', 1, 10.0)")
-            )
+            await session.execute(text("INSERT INTO products (name, stock, price) VALUES ('Illegal', 1, 10.0)"))
         assert "strictly prohibited on read replica engine" in str(exc_info.value)
 
 

@@ -15,7 +15,9 @@ class ConnectionPoolMetrics(BaseModel):
     overflow: int = Field(..., description="Dynamic overflow connections allocated beyond pool_size")
     total_open: int = Field(..., description="Cumulative open physical database sockets")
     statement_timeout_ms: int = Field(..., description="Hard kill limit for runaway query execution in milliseconds")
-    idle_in_transaction_timeout_ms: int = Field(..., description="Idle transaction safety reaper timeout in milliseconds")
+    idle_in_transaction_timeout_ms: int = Field(
+        ..., description="Idle transaction safety reaper timeout in milliseconds"
+    )
     lock_timeout_ms: int = Field(..., description="Lock acquisition safety cutoff threshold in milliseconds")
     pool_timeout_seconds: float = Field(..., description="Maximum seconds to wait before raising PoolTimeout")
     pool_recycle_seconds: int = Field(..., description="Periodic connection recycling interval in seconds")

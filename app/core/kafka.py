@@ -112,9 +112,7 @@ class MockAIOKafkaProducer:
         if not self.is_started:
             raise RuntimeError("MockAIOKafkaProducer is not started. Call start() first.")
 
-        assigned_partition = (
-            partition if partition is not None else self._determine_partition(topic=topic, key=key)
-        )
+        assigned_partition = partition if partition is not None else self._determine_partition(topic=topic, key=key)
         partition_log = self.logs[topic][assigned_partition]
         current_offset = len(partition_log)
         now_ms = timestamp_ms if timestamp_ms is not None else int(time.time() * 1000)

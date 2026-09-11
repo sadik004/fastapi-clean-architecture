@@ -249,5 +249,3 @@ class SeedCacheResponse(BaseModel):
     status: str = Field(default="seeded", description="Seeding status")
 
     model_config = ConfigDict(from_attributes=True)
-
-

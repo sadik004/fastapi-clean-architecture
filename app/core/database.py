@@ -17,10 +17,9 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
 # Engine-level connection arguments & pool configuration helper
-def _build_engine_and_pool_kwargs(
-    url: str, is_replica: bool = False
-) -> tuple[dict[str, Any], dict[str, Any]]:
+def _build_engine_and_pool_kwargs(url: str, is_replica: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
     connect_args: dict[str, Any] = {}
     if url.startswith("postgresql"):
         # Configure PostgreSQL server-side connection execution options:
@@ -42,20 +41,14 @@ def _build_engine_and_pool_kwargs(
     }
     is_sqlite_memory = ":memory:" in url or "mode=memory" in url
     if not is_sqlite_memory:
-        pool_kwargs["pool_size"] = (
-            settings.db_replica_pool_size if is_replica else settings.db_pool_size
-        )
-        pool_kwargs["max_overflow"] = (
-            settings.db_replica_max_overflow if is_replica else settings.db_max_overflow
-        )
+        pool_kwargs["pool_size"] = settings.db_replica_pool_size if is_replica else settings.db_pool_size
+        pool_kwargs["max_overflow"] = settings.db_replica_max_overflow if is_replica else settings.db_max_overflow
         pool_kwargs["pool_timeout"] = settings.db_pool_timeout
     return connect_args, pool_kwargs
 
 
 # Primary / Writer Asynchronous Engine
-primary_connect_args, primary_pool_kwargs = _build_engine_and_pool_kwargs(
-    settings.database_url, is_replica=False
-)
+primary_connect_args, primary_pool_kwargs = _build_engine_and_pool_kwargs(settings.database_url, is_replica=False)
 primary_engine: AsyncEngine = create_async_engine(
     settings.database_url,
     echo=settings.db_echo,
@@ -65,9 +58,7 @@ primary_engine: AsyncEngine = create_async_engine(
 
 # Read Replica Asynchronous Engine (defaults to Primary if unset)
 replica_url = settings.database_read_replica_url or settings.database_url
-replica_connect_args, replica_pool_kwargs = _build_engine_and_pool_kwargs(
-    replica_url, is_replica=True
-)
+replica_connect_args, replica_pool_kwargs = _build_engine_and_pool_kwargs(replica_url, is_replica=True)
 replica_engine: AsyncEngine = create_async_engine(
     replica_url,
     echo=settings.db_echo,

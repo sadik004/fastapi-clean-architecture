@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 try:
     from aiokafka import ConsumerRecord, TopicPartition
 except ImportError:  # pragma: no cover
+
     @dataclass(frozen=True, slots=True)
     class TopicPartition:  # type: ignore[no-redef]
         """Topic partition identifier fallback."""

@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, Query, status
 from app.schemas.security_audit import (
     SecurityAuditDetailsResponse,
     SecurityAuditSummaryResponse,
-    SecurityIssueResponse,
 )
 from app.services.security_audit_service import (
     SecurityAuditService,

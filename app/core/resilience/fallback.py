@@ -55,9 +55,7 @@ class FallbackEngine:
                         sock = getattr(conn, "_socket", None)
                         if sock is not None and hasattr(sock, "responses"):
                             queue_loop = getattr(sock.responses, "_loop", None)
-                            if queue_loop is not None and (
-                                queue_loop.is_closed() or queue_loop is not current_loop
-                            ):
+                            if queue_loop is not None and (queue_loop.is_closed() or queue_loop is not current_loop):
                                 await redis_mod.init_redis_pool()
                                 return redis_mod._redis_client
                 return client

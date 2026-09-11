@@ -137,11 +137,7 @@ class ASTArchitecturalSecurityVisitor(ast.NodeVisitor):
             # Rule 1: No raw SQL in routers (session.execute(text(...)))
             if self.is_router and node.func.attr == "execute":
                 for arg in node.args:
-                    if (
-                        isinstance(arg, ast.Call)
-                        and isinstance(arg.func, ast.Name)
-                        and arg.func.id == "text"
-                    ):
+                    if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name) and arg.func.id == "text":
                         self.issues.append(
                             SecurityIssue(
                                 rule_id="fastapi-no-raw-sql-in-routers",

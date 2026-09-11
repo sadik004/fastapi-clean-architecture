@@ -196,11 +196,7 @@ def test_http_create_and_search_partitioned_audit_logs(client: TestClient) -> No
     assert "audit_logs_default" in partition_names
 
     # 4. Search audit logs for 2026 with partition pruning
-    search_url = (
-        "/audit/partitioned/search?"
-        "start_date=2026-01-01T00:00:00Z&"
-        "end_date=2026-12-31T23:59:59Z"
-    )
+    search_url = "/audit/partitioned/search?start_date=2026-01-01T00:00:00Z&end_date=2026-12-31T23:59:59Z"
     res_search = client.get(search_url)
     assert res_search.status_code == 200
     search_data = res_search.json()

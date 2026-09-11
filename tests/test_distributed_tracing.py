@@ -173,9 +173,7 @@ def test_trace_to_log_correlation(capture_logging_buffer: io.StringIO) -> None:
     assert response.status_code == 200
 
     records = _get_log_records(capture_logging_buffer)
-    middleware_records = [
-        r for r in records if r.get("event") in ("http_request_started", "http_request_completed")
-    ]
+    middleware_records = [r for r in records if r.get("event") in ("http_request_started", "http_request_completed")]
 
     assert len(middleware_records) >= 2
     for r in middleware_records:

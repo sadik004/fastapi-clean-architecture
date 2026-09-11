@@ -41,10 +41,7 @@ class DatabaseAdminService:
         if dialect_name == "postgresql":
             try:
                 result = await session.execute(
-                    text(
-                        "SELECT count(*) FROM pg_stat_activity "
-                        "WHERE state = 'active' AND pid != pg_backend_pid()"
-                    )
+                    text("SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND pid != pg_backend_pid()")
                 )
                 count_val = result.scalar()
                 if count_val is not None:

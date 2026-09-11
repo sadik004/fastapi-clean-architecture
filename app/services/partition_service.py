@@ -252,14 +252,22 @@ class PartitionManagerService:
                         scanned.append(p.name)
                 except Exception:
                     # Fallback on name heuristics if bound string isn't standard ISO
-                    if "2025" in p.name and not (end_date <= datetime(2025, 1, 1, tzinfo=UTC) or start_date >= datetime(2026, 1, 1, tzinfo=UTC)):
+                    if "2025" in p.name and not (
+                        end_date <= datetime(2025, 1, 1, tzinfo=UTC) or start_date >= datetime(2026, 1, 1, tzinfo=UTC)
+                    ):
                         scanned.append(p.name)
-                    elif "2026" in p.name and not (end_date <= datetime(2026, 1, 1, tzinfo=UTC) or start_date >= datetime(2027, 1, 1, tzinfo=UTC)):
+                    elif "2026" in p.name and not (
+                        end_date <= datetime(2026, 1, 1, tzinfo=UTC) or start_date >= datetime(2027, 1, 1, tzinfo=UTC)
+                    ):
                         scanned.append(p.name)
             else:
-                if "2025" in p.name and not (end_date <= datetime(2025, 1, 1, tzinfo=UTC) or start_date >= datetime(2026, 1, 1, tzinfo=UTC)):
+                if "2025" in p.name and not (
+                    end_date <= datetime(2025, 1, 1, tzinfo=UTC) or start_date >= datetime(2026, 1, 1, tzinfo=UTC)
+                ):
                     scanned.append(p.name)
-                elif "2026" in p.name and not (end_date <= datetime(2026, 1, 1, tzinfo=UTC) or start_date >= datetime(2027, 1, 1, tzinfo=UTC)):
+                elif "2026" in p.name and not (
+                    end_date <= datetime(2026, 1, 1, tzinfo=UTC) or start_date >= datetime(2027, 1, 1, tzinfo=UTC)
+                ):
                     scanned.append(p.name)
 
         pruned = [name for name in total_parts if name not in scanned]

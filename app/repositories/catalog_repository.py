@@ -40,6 +40,28 @@ class CatalogRepositoryProtocol(Protocol):
         """Fetch items using legacy SQL offset pagination."""
         ...
 
+    async def create_item(
+        self,
+        session: AsyncSession,
+        sku: str,
+        name: str,
+        category: str,
+        price: float,
+        barcode: str,
+        metadata_json: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
+    ) -> CatalogItemModel:
+        """Persist a new catalog item."""
+        ...
+
+    async def search_by_tag(
+        self,
+        session: AsyncSession,
+        tag: str,
+    ) -> list[CatalogItemModel]:
+        """Search catalog items containing a specific tag."""
+        ...
+
 
 class SqlAlchemyCatalogRepository:
     """SQLAlchemy 2.0 implementation of CatalogRepositoryProtocol."""
@@ -75,10 +97,7 @@ class SqlAlchemyCatalogRepository:
             )
 
         # Deterministic order with primary key tie-breaker
-        query = (
-            query.order_by(CatalogItemModel.created_at.desc(), CatalogItemModel.id.desc())
-            .limit(limit + 1)
-        )
+        query = query.order_by(CatalogItemModel.created_at.desc(), CatalogItemModel.id.desc()).limit(limit + 1)
 
         result = await session.execute(query)
         fetched_rows = list(result.scalars().all())
@@ -117,5 +136,50 @@ class SqlAlchemyCatalogRepository:
             .limit(limit)
             .offset(offset)
         )
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    async def create_item(
+        self,
+        session: AsyncSession,
+        sku: str,
+        name: str,
+        category: str,
+        price: float,
+        barcode: str,
+        metadata_json: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
+    ) -> CatalogItemModel:
+        """Persist a new catalog item."""
+        new_item = CatalogItemModel(
+            sku=sku,
+            name=name,
+            category=category,
+            price=price,
+            barcode=barcode,
+            metadata_json=metadata_json,
+            tags=tags,
+        )
+        session.add(new_item)
+        await session.commit()
+        await session.refresh(new_item)
+        return new_item
+
+    async def search_by_tag(
+        self,
+        session: AsyncSession,
+        tag: str,
+    ) -> list[CatalogItemModel]:
+        """Search catalog items containing a specific tag."""
+        bind = session.bind
+        is_pg = bind is not None and bind.dialect.name == "postgresql"
+
+        if is_pg:
+            query = select(CatalogItemModel).where(CatalogItemModel.tags.contains([tag]))
+        else:
+            from sqlalchemy import String
+
+            query = select(CatalogItemModel).where(CatalogItemModel.tags.cast(String).contains(tag))
+
         result = await session.execute(query)
         return list(result.scalars().all())
