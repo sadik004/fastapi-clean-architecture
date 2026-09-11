@@ -33,18 +33,12 @@ def _clean_database() -> None:
                     "catalog_items",
                     "audit_logs",
                     "searchable_products",
-                ]:
-                    try:
-                        conn.execute(f"DELETE FROM {table}")  # noqa: S608
-                    except sqlite3.OperationalError:
-                        pass
-                for child in [
                     "audit_logs_y2025",
                     "audit_logs_y2026",
                     "audit_logs_default",
                 ]:
                     try:
-                        conn.execute(f"DROP TABLE IF EXISTS {child}")  # noqa: S608
+                        conn.execute(f"DELETE FROM {table}")  # noqa: S608
                     except sqlite3.OperationalError:
                         pass
                 conn.commit()

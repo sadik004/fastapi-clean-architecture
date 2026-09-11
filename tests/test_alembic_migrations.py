@@ -80,6 +80,31 @@ async def test_migration_bidirectional_reversibility() -> None:
     # Ensure current head is applied
     apply_migrations(revision="head")
 
+    # Roll back by 1 revision (ledger tables dropped, searchable_products, audit_logs, catalog_items, etc. remain)
+    rollback_migration(revision="-1")
+
+    async with engine.connect() as conn:
+
+        def check_after_rollback_ledger(sync_conn: Connection) -> tuple[list[str], list[str]]:
+            insp = inspect(sync_conn)
+            tbls = insp.get_table_names()
+            cols = [c["name"] for c in insp.get_columns("users")] if "users" in tbls else []
+            return tbls, cols
+
+        tables_after_ledger, user_cols_after_ledger = await conn.run_sync(check_after_rollback_ledger)
+        assert "ledger_accounts" not in tables_after_ledger
+        assert "journal_entries" not in tables_after_ledger
+        assert "journal_postings" not in tables_after_ledger
+        assert "searchable_products" in tables_after_ledger
+        assert "audit_logs" in tables_after_ledger
+        assert "catalog_items" in tables_after_ledger
+        assert "outbox_events" in tables_after_ledger
+        assert "orders" in tables_after_ledger
+        assert "products" in tables_after_ledger
+        assert "users" in tables_after_ledger
+        assert "posts" in tables_after_ledger
+        assert "nid_number" in user_cols_after_ledger
+
     # Roll back by 1 revision (searchable_products table dropped, audit_logs, catalog_items, outbox_events, nid_number, orders, products, version, posts & users remain)
     rollback_migration(revision="-1")
 
@@ -297,6 +322,9 @@ async def test_migration_bidirectional_reversibility() -> None:
         assert "catalog_items" in tables_after_reupgrade
         assert "audit_logs" in tables_after_reupgrade
         assert "searchable_products" in tables_after_reupgrade
+        assert "ledger_accounts" in tables_after_reupgrade
+        assert "journal_entries" in tables_after_reupgrade
+        assert "journal_postings" in tables_after_reupgrade
         assert "version" in user_cols_after_reupgrade
         assert "permissions" in user_cols_after_reupgrade
         assert "nid_number" in user_cols_after_reupgrade
@@ -316,7 +344,19 @@ async def test_schema_drift_detection_reports_zero_differences() -> None:
     async with engine.connect() as conn:
 
         def check_drift(sync_conn: Connection) -> list[Any]:
-            migration_context = MigrationContext.configure(sync_conn)
+            def include_object(
+                object: Any,
+                name: str | None,
+                type_: str,
+                reflected: bool,
+                compare_to: Any,
+            ) -> bool:
+                # Exclude runtime SQLite-emulated partition shards from ORM metadata drift
+                if type_ == "table" and name and (name.startswith("audit_logs_y") or name == "audit_logs_default"):
+                    return False
+                return True
+
+            migration_context = MigrationContext.configure(sync_conn, opts={"include_object": include_object})
             # compare_metadata returns any differences between DB schema and declarative Base.metadata
             diff = compare_metadata(migration_context, Base.metadata)
             return list(diff)

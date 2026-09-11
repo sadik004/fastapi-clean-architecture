@@ -61,7 +61,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install mypy types-redis types-requests types-PyYAML
+          pip install mypy types-redis types-requests types-PyYAML pytest pytest-asyncio pytest-cov httpx locust fakeredis
 
       - name: Execute Strict Mypy Verification
         run: mypy --strict app tests alembic scripts
@@ -142,7 +142,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov httpx locust
+          pip install pytest pytest-asyncio pytest-cov httpx locust fakeredis
 
       - name: Run Test Suite
         env:

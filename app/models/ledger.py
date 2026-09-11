@@ -15,13 +15,20 @@ from decimal import Decimal
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.identifiers import generate_uuidv7
-from app.schemas.ledger import AccountType as AccountType, PostingDirection as PostingDirection
+from app.models.order import GUID
+from app.schemas.ledger import AccountType, PostingDirection
 
+__all__ = [
+    "AccountType",
+    "JournalEntryModel",
+    "JournalPostingModel",
+    "LedgerAccountModel",
+    "PostingDirection",
+]
 
 
 class LedgerAccountModel(Base):
@@ -35,7 +42,7 @@ class LedgerAccountModel(Base):
     __tablename__ = "ledger_accounts"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         primary_key=True,
         default=generate_uuidv7,
         comment="Monotonically increasing UUIDv7 identifier",
@@ -90,7 +97,7 @@ class JournalEntryModel(Base):
     __tablename__ = "journal_entries"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         primary_key=True,
         default=generate_uuidv7,
         comment="Monotonically increasing UUIDv7 identifier",
@@ -129,20 +136,20 @@ class JournalPostingModel(Base):
     __tablename__ = "journal_postings"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         primary_key=True,
         default=generate_uuidv7,
         comment="Monotonically increasing UUIDv7 identifier",
     )
     journal_entry_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("journal_entries.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="Parent journal entry header ID",
     )
     account_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("ledger_accounts.id"),
         nullable=False,
         index=True,

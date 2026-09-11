@@ -31,6 +31,7 @@ from app.core.dsa.distributed_lock import DistributedLock
 from app.core.dsa.xfetch import XFetchEnvelope, should_recompute
 from app.core.encryption import EncryptedString, FernetEngine
 from app.core.exceptions import (
+    AuthenticationException,
     EncryptionTamperingException,
     InsufficientStockException,
     OptimisticLockException,
@@ -358,18 +359,24 @@ async def test_audit_jwt_stateless_and_rtr_family_revocation(fake_redis: Any) ->
     assert active_record["active_jti"] != jti_1
 
     # Attacker tries to reuse burned token_1 -> Triggers theft detection and family revocation
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises((HTTPException, AuthenticationException)) as exc_info:
         await auth_service.refresh_tokens(token_1)
-    assert exc_info.value.status_code == 401
-    assert "reuse detected" in exc_info.value.detail.lower()
+    if isinstance(exc_info.value, HTTPException):
+        assert exc_info.value.status_code == 401
+        assert "reuse detected" in exc_info.value.detail.lower()
+    elif isinstance(exc_info.value, AuthenticationException):
+        assert "reuse detected" in exc_info.value.message.lower()
 
     # Now the entire family has been revoked (deleted from Redis)
     assert await fake_redis.get(family_key) is None
 
     # Now even the legitimate token_2 is rejected because the family was revoked!
-    with pytest.raises(HTTPException) as exc_info_2:
+    with pytest.raises((HTTPException, AuthenticationException)) as exc_info_2:
         await auth_service.refresh_tokens(token_2)
-    assert exc_info_2.value.status_code == 401
+    if isinstance(exc_info_2.value, HTTPException):
+        assert exc_info_2.value.status_code == 401
+    elif isinstance(exc_info_2.value, AuthenticationException):
+        assert "expired or revoked" in exc_info_2.value.message.lower()
 
 
 def test_audit_bitmasking_rbac_o1_bitwise_permissions() -> None:

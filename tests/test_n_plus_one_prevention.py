@@ -296,7 +296,19 @@ async def test_posts_table_schema_migration_lifecycle() -> None:
 
         # 2. Verify zero schema drift between target_metadata and database
         def check_drift(sync_conn: Connection) -> list[Any]:
-            migration_context = MigrationContext.configure(sync_conn)
+            def include_object(
+                object: Any,
+                name: str | None,
+                type_: str,
+                reflected: bool,
+                compare_to: Any,
+            ) -> bool:
+                # Exclude runtime SQLite-emulated partition shards from ORM metadata drift
+                if type_ == "table" and name and (name.startswith("audit_logs_y") or name == "audit_logs_default"):
+                    return False
+                return True
+
+            migration_context = MigrationContext.configure(sync_conn, opts={"include_object": include_object})
             return list(compare_metadata(migration_context, Base.metadata))
 
         drift = await conn.run_sync(check_drift)
