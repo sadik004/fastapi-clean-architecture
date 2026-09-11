@@ -20,15 +20,18 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from app.core.dependencies import get_ledger_service
+from app.core.dependencies import get_ledger_service, get_ledger_transfer_service
 from app.schemas.ledger import (
     AccountBalanceResponse,
+    FundTransferRequestDTO,
+    FundTransferResponseDTO,
     JournalEntryCreateDTO,
     JournalEntryResponseDTO,
     LedgerAccountCreate,
     LedgerAccountResponse,
 )
 from app.services.ledger_domain_service import LedgerDomainService
+from app.services.ledger_transfer_service import LedgerTransferService
 
 router = APIRouter(prefix="/api/v1/ledger", tags=["Fintech Double-Entry Ledger"])
 
@@ -116,3 +119,25 @@ async def get_journal_entry_endpoint(
 ) -> JournalEntryResponseDTO:
     """Retrieve a journal entry and its child posting legs."""
     return await service.get_journal_entry(entry_id)
+
+
+@router.post(
+    "/transfers",
+    response_model=FundTransferResponseDTO,
+    status_code=status.HTTP_201_CREATED,
+    summary="Execute an atomic multi-leg fund transfer",
+)
+async def transfer_funds_endpoint(
+    payload: FundTransferRequestDTO,
+    service: Annotated[LedgerTransferService, Depends(get_ledger_transfer_service)],
+) -> FundTransferResponseDTO:
+    """Execute an atomic multi-leg fund transfer satisfying the non-negative balance invariant."""
+    return await service.transfer_funds(
+        source_account_id=payload.source_account_id,
+        destination_account_id=payload.destination_account_id,
+        amount=payload.amount,
+        fee_amount=payload.fee_amount,
+        fee_account_id=payload.fee_account_id,
+        reference_id=payload.reference_id,
+        description=payload.description,
+    )

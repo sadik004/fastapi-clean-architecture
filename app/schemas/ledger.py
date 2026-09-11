@@ -146,3 +146,58 @@ class AccountBalanceResponse(BaseModel):
     total_credits: Decimal
     balance: Decimal
     normal_balance: str
+
+
+class FundTransferRequestDTO(BaseModel):
+    """Payload for executing an atomic multi-leg fund transfer."""
+
+    source_account_id: UUID = Field(
+        ...,
+        description="Originating source account ID to debit/credit funds from",
+    )
+    destination_account_id: UUID = Field(
+        ...,
+        description="Target destination account ID to receive transferred funds",
+    )
+    amount: Decimal = Field(
+        ...,
+        gt=Decimal("0.0000"),
+        decimal_places=4,
+        description="Positive monetary quantity to transfer (excluding fees)",
+    )
+    fee_amount: Decimal = Field(
+        default=Decimal("0.0000"),
+        ge=Decimal("0.0000"),
+        decimal_places=4,
+        description="Optional platform processing fee deducted in the same transaction",
+    )
+    fee_account_id: UUID | None = Field(
+        default=None,
+        description="Target ledger account to receive platform processing fees (required if fee_amount > 0)",
+    )
+    reference_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        description="Unique business transaction / idempotency reference ID",
+    )
+    description: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Audit memo / transfer description",
+    )
+
+
+class FundTransferResponseDTO(BaseModel):
+    """Public representation of an atomically committed fund transfer."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    journal_entry_id: UUID
+    reference_id: str
+    transferred_amount: Decimal
+    fee_deducted: Decimal
+    source_new_balance: Decimal
+    destination_new_balance: Decimal
+    posted_at: datetime

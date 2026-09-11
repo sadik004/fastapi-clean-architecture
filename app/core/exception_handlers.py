@@ -29,6 +29,7 @@ from app.core.exceptions import (
     DatabaseQueryTimeoutException,
     EntityConflictException,
     EntityNotFoundException,
+    InsufficientFundsException,
     SecurityViolationException,
     ServiceUnavailableException,
     UnbalancedJournalEntryException,
@@ -63,7 +64,7 @@ def _resolve_domain_status_code(exc: BaseDomainException) -> int:
         return 409
     if isinstance(exc, AuthorizationException):
         return 403
-    if isinstance(exc, UnbalancedJournalEntryException):
+    if isinstance(exc, UnbalancedJournalEntryException | InsufficientFundsException):
         return 422
     if isinstance(exc, SecurityViolationException | BusinessRuleViolationException | ValidationException):
         return 400

@@ -7,6 +7,14 @@ from typing import Protocol, Self
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.database import async_session_factory
+from app.repositories.ledger_repository import (
+    InMemoryLedgerRepository,
+    JournalEntryEntity,
+    JournalPostingEntity,
+    LedgerAccountEntity,
+    LedgerRepositoryProtocol,
+    SqlAlchemyLedgerRepository,
+)
 from app.repositories.order_repository import (
     InMemoryOrderRepository,
     OrderEntity,
@@ -67,6 +75,11 @@ class UnitOfWorkProtocol(Protocol):
         """Transactional outbox repository operating on the shared transaction."""
         ...
 
+    @property
+    def ledger(self) -> LedgerRepositoryProtocol:
+        """Ledger repository operating on the shared transaction."""
+        ...
+
     async def __aenter__(self) -> Self:
         """Open the transaction boundary and initialize repositories with the shared session."""
         ...
@@ -109,6 +122,7 @@ class SqlAlchemyUnitOfWork:
         self._products: SqlAlchemyProductRepository | None = None
         self._orders: SqlAlchemyOrderRepository | None = None
         self._outbox: SqlAlchemyOutboxRepository | None = None
+        self._ledger: SqlAlchemyLedgerRepository | None = None
 
     @property
     def users(self) -> UserRepositoryProtocol:
@@ -140,6 +154,12 @@ class SqlAlchemyUnitOfWork:
             raise RuntimeError("UnitOfWork is not open. Access repositories within 'async with uow:' block.")
         return self._outbox
 
+    @property
+    def ledger(self) -> LedgerRepositoryProtocol:
+        if self._ledger is None:
+            raise RuntimeError("UnitOfWork is not open. Access repositories within 'async with uow:' block.")
+        return self._ledger
+
     async def __aenter__(self) -> Self:
         self.session = self._session_factory()
         self._users = SqlAlchemyUserRepository(session=self.session)
@@ -147,6 +167,7 @@ class SqlAlchemyUnitOfWork:
         self._products = SqlAlchemyProductRepository(session=self.session)
         self._orders = SqlAlchemyOrderRepository(session=self.session)
         self._outbox = SqlAlchemyOutboxRepository(session=self.session)
+        self._ledger = SqlAlchemyLedgerRepository(session=self.session)
         return self
 
     async def __aexit__(
@@ -167,6 +188,7 @@ class SqlAlchemyUnitOfWork:
                 self._products = None
                 self._orders = None
                 self._outbox = None
+                self._ledger = None
 
     async def commit(self) -> None:
         """Commit all pending operations in the active session."""
@@ -191,12 +213,14 @@ class InMemoryUnitOfWork:
         product_repo: InMemoryProductRepository | None = None,
         order_repo: InMemoryOrderRepository | None = None,
         outbox_repo: InMemoryOutboxRepository | None = None,
+        ledger_repo: InMemoryLedgerRepository | None = None,
     ) -> None:
         self.users: InMemoryUserRepository = user_repo or InMemoryUserRepository()
         self.posts: InMemoryPostRepository = post_repo or InMemoryPostRepository()
         self.products: InMemoryProductRepository = product_repo or InMemoryProductRepository()
         self.orders: InMemoryOrderRepository = order_repo or InMemoryOrderRepository()
         self.outbox: InMemoryOutboxRepository = outbox_repo or InMemoryOutboxRepository()
+        self.ledger: InMemoryLedgerRepository = ledger_repo or InMemoryLedgerRepository()
 
         # State snapshots for rollback restoration
         self._user_store_snapshot: dict[int, UserEntity] | None = None
@@ -213,6 +237,12 @@ class InMemoryUnitOfWork:
         self._order_store_snapshot: dict[uuid.UUID, OrderEntity] | None = None
         self._outbox_store_snapshot: dict[uuid.UUID, OutboxEventEntity] | None = None
 
+        self._ledger_accounts_snapshot: dict[uuid.UUID, LedgerAccountEntity] | None = None
+        self._ledger_accounts_by_num_snapshot: dict[str, uuid.UUID] | None = None
+        self._ledger_entries_snapshot: dict[uuid.UUID, JournalEntryEntity] | None = None
+        self._ledger_entries_by_ref_snapshot: dict[str, uuid.UUID] | None = None
+        self._ledger_postings_snapshot: list[JournalPostingEntity] | None = None
+
     async def __aenter__(self) -> Self:
         # Snapshot in-memory repositories state
         self._user_store_snapshot = dict(self.users._store)
@@ -228,6 +258,11 @@ class InMemoryUnitOfWork:
 
         self._order_store_snapshot = dict(self.orders._store)
         self._outbox_store_snapshot = dict(self.outbox._store)
+        self._ledger_accounts_snapshot = dict(self.ledger._accounts)
+        self._ledger_accounts_by_num_snapshot = dict(self.ledger._accounts_by_number)
+        self._ledger_entries_snapshot = dict(self.ledger._entries)
+        self._ledger_entries_by_ref_snapshot = dict(self.ledger._entries_by_ref)
+        self._ledger_postings_snapshot = list(self.ledger._postings)
         return self
 
     async def __aexit__(
@@ -251,6 +286,11 @@ class InMemoryUnitOfWork:
         self._product_id_snapshot = None
         self._order_store_snapshot = None
         self._outbox_store_snapshot = None
+        self._ledger_accounts_snapshot = None
+        self._ledger_accounts_by_num_snapshot = None
+        self._ledger_entries_snapshot = None
+        self._ledger_entries_by_ref_snapshot = None
+        self._ledger_postings_snapshot = None
 
     async def commit(self) -> None:
         """Commit in-memory changes by discarding rollback snapshots."""
@@ -282,6 +322,17 @@ class InMemoryUnitOfWork:
 
         if self._outbox_store_snapshot is not None:
             self.outbox._store = dict(self._outbox_store_snapshot)
+
+        if self._ledger_accounts_snapshot is not None:
+            self.ledger._accounts = dict(self._ledger_accounts_snapshot)
+        if self._ledger_accounts_by_num_snapshot is not None:
+            self.ledger._accounts_by_number = dict(self._ledger_accounts_by_num_snapshot)
+        if self._ledger_entries_snapshot is not None:
+            self.ledger._entries = dict(self._ledger_entries_snapshot)
+        if self._ledger_entries_by_ref_snapshot is not None:
+            self.ledger._entries_by_ref = dict(self._ledger_entries_by_ref_snapshot)
+        if self._ledger_postings_snapshot is not None:
+            self.ledger._postings = list(self._ledger_postings_snapshot)
 
 
 __all__ = [

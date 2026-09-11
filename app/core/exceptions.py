@@ -425,3 +425,31 @@ class DuplicateReferenceException(EntityConflictException):
         code: str = "DUPLICATE_JOURNAL_REFERENCE",
     ) -> None:
         super().__init__(message=message, code=code)
+
+
+class InsufficientFundsException(BaseDomainException):
+    """Raised when an account does not hold sufficient cleared balance for a fund transfer (HTTP 422)."""
+
+    def __init__(
+        self,
+        message: str = "Insufficient funds: Account balance is lower than the requested transfer and fee amount.",
+        code: str = "INSUFFICIENT_FUNDS",
+        account_id: object = None,
+        current_balance: object = None,
+        required_amount: object = None,
+    ) -> None:
+        self.account_id = account_id
+        self.current_balance = current_balance
+        self.required_amount = required_amount
+        super().__init__(message=message, code=code)
+
+
+class SelfTransferNotAllowedException(BusinessRuleViolationException):
+    """Raised when a fund transfer specifies identical source and destination accounts (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Self-transfer is prohibited: Source and destination accounts must be distinct.",
+        code: str = "SELF_TRANSFER_PROHIBITED",
+    ) -> None:
+        super().__init__(message=message, code=code)

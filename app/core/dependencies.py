@@ -50,6 +50,7 @@ from app.services.document_service import DocumentService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
 from app.services.ledger_domain_service import LedgerDomainService
+from app.services.ledger_transfer_service import LedgerTransferService
 from app.services.order_service import OrderService
 from app.services.outbox_relay_service import OutboxRelayService
 from app.services.rate_limiter_service import RateLimiterService
@@ -117,6 +118,13 @@ def get_ledger_service(
 ) -> LedgerDomainService:
     """Dependency provider yielding an active LedgerDomainService instance."""
     return LedgerDomainService(repo=repo)
+
+
+def get_ledger_transfer_service(
+    uow: Annotated[UnitOfWorkProtocol, Depends(get_uow)],
+) -> LedgerTransferService:
+    """Dependency provider yielding an active LedgerTransferService instance."""
+    return LedgerTransferService(uow=uow)
 
 
 def get_cache_service(
