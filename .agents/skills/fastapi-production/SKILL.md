@@ -9,6 +9,72 @@ This skill codifies the architectural rules, DSA constraints, and engineering co
 
 ---
 
+## The 50 Master Architectural & Behavioral Guardrails (v3.0.0 Graduation Codex)
+
+### Quadrant 1: Cyber Security & Cryptography Defense (Rules 1–10)
+1. **Constant-Time Comparison for Secrets**: Always verify API keys, HMAC signatures, webhook secrets, and password hashes using `secrets.compare_digest()` to prevent side-channel timing attacks.
+2. **Log Injection & CRLF Neutralization**: Never log unsanitized user inputs or carriage returns (`\r\n`). Strip control characters or rely on structured `structlog` JSON rendering to prevent log forging and audit tampering.
+3. **ReDoS (Regular Expression Denial of Service) Prevention**: Never write catastrophic exponential backtracking regex patterns (e.g. `(a+)+$`). Use anchored, bounded length checks (`{1,255}`) and avoid nested greedy quantifiers.
+4. **Unbounded Request Payload Rejection**: Enforce strict HTTP body size limits at the perimeter middleware and reverse proxy level. Reject oversized JSON or multi-part file payloads immediately with HTTP 413.
+5. **Restrictive CORS Configuration**: Never deploy `allow_origins=["*"]` with `allow_credentials=True` in production. Strictly whitelist known, audited fully qualified domain names (FQDNs).
+6. **Mandatory HTTPS & HSTS Enforcement**: In production environments, reject plain HTTP connections and enforce `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` headers.
+7. **Zero Raw SQL in Router/Service Layers**: Parameterize all queries through SQLAlchemy 2.0 ORM expressions or explicitly bound text constructs (`text("... :param")`). Never use string interpolation (`f"SELECT ... {input}"`) for SQL.
+8. **Cryptographic PRNG Exclusivity**: Never use Python's pseudo-random `random` module for tokens, session cookies, nonces, or salt generation. Exclusively utilize `secrets` or OS-entropy sources (`os.urandom`).
+9. **Automated PII Redaction in Logging & Sentry**: Scrub personally identifiable information (passwords, JWTs, credit cards, bank account numbers, SSNs) at the log pipeline level using an $\mathcal{O}(1)$ key redaction processor.
+10. **Path Traversal Shielding**: When handling file downloads or disk paths, resolve and strictly verify that target canonical paths remain confined within designated sandboxed base directories (`resolved_path.is_relative_to(base_dir)`).
+
+### Quadrant 2: Code Quality, Memory & Concurrency Hygiene (Rules 11–20)
+11. **Zero Silent Exception Swallowing**: Never use bare `except: pass` or unlogged generic `except Exception: return None`. Either handle domain errors explicitly or wrap and propagate structured domain exceptions.
+12. **Prohibition of Mutable Default Arguments**: Never define mutable collections (`def fn(items: list = [], config: dict = {})`) as default parameters in Python function signatures. Always use `None` and instantiate defaults inside the body.
+13. **Strict Timezone-Aware UTC Datetimes**: Never use naive `datetime.now()` or deprecated `datetime.utcnow()`. Exclusively use `datetime.now(UTC)` or `datetime.now(timezone.utc)` for all persistence and comparisons.
+14. **Zero Magic Numbers & String Literals**: Define all domain constants, timeout thresholds, Redis key prefixes, and business limits as typed `Final` variables or Enum members inside centralized config/constants modules.
+15. **Arbitrary-Precision Decimal for Currency**: Never use IEEE 754 binary floating-point numbers (`float`) for financial amounts, ledger postings, or currency operations. Exclusively use `Decimal` with Banker's Rounding (`ROUND_HALF_EVEN`).
+16. **Zero Event Loop Blocking**: Never invoke blocking I/O (synchronous `time.sleep()`, synchronous `requests`, synchronous file reads) on the main asyncio event loop. Offload unavoidable legacy blocking calls to `asyncio.to_thread()`.
+17. **Zero Global Mutable State Across Requests**: Never store per-request context or mutable data in module-level global variables. Use ASGI `request.state` or `contextvars.ContextVar` to guarantee concurrency task isolation.
+18. **Explicit Socket & Client Lifecycle Disposal**: Always close HTTP client sessions (`httpx.AsyncClient`), Redis connection pools, and Kafka producers in FastAPI lifespan teardown handlers (`async with httpx.AsyncClient() as client:`).
+19. **Stream Backpressure & Bounded Memory Buffers**: When streaming large files or SSE/WebSocket messages, read chunks using bounded buffers (`yield chunk`) instead of loading entire multi-gigabyte payloads into application memory.
+20. **Clock Skew & Replay Attack Tolerance**: When evaluating time-based tokens, webhook timestamps, or distributed state, enforce strict bounded drift tolerance windows ($\pm 5\text{ seconds}$) to prevent replay attacks.
+
+### Quadrant 3: Database, Locking & Network Resilience (Rules 21–30)
+21. **Zero Database Locks Held Across Network I/O**: Never initiate third-party HTTP requests, payment gateway calls, or slow remote RPCs while holding open an active database transaction or row lock. Release database locks before network calls.
+22. **Lexicographical Distributed Lock Ordering**: When acquiring distributed locks across multiple resources (e.g. multi-account money transfers), always sort lock keys in deterministic lexicographical order (`sorted(keys)`) to prevent distributed deadlocks.
+23. **Zero-Downtime Backward-Compatible Migrations**: Structure schema changes into expand-and-contract phases. Never drop or rename active columns in a single migration without first rolling out backward-compatible application code.
+24. **Pessimistic Connection Pool Pre-Ping**: Configure `pool_pre_ping=True` and server-side timeouts (`statement_timeout`, `idle_in_transaction_session_timeout`) on database engines to detect and evict dropped or poisoned connections.
+25. **Prudent Indexing & Zero Over-Indexing**: Index foreign keys and high-frequency search predicates with B-Tree or GIN indexes. Avoid speculative indexes that inflate write overhead and write-ahead log (WAL) volume on high-throughput tables.
+26. **Mandatory Rollback on Query Cancellation**: When an asynchronous database query is canceled or times out, always invoke `await session.rollback()` before releasing the connection back to the pool to prevent connection poisoning.
+27. **Keyset / Cursor Pagination Over SQL OFFSET**: For large datasets ($> 10,000$ rows), use opaque Keyset/Cursor pagination with composite sort tuples (`created_at, id DESC`) instead of $\mathcal{O}(N)$ SQL `OFFSET`.
+28. **Defensive Eager Loading Against N+1 Queries**: Eagerly fetch relational dependencies using `selectinload()` or `joinedload()`, and set `lazy="raise"` on relationship definitions to fail fast during automated testing if an N+1 query is introduced.
+29. **Transactional Outbox for Broker Dual-Writes**: Never write to the database and publish to Kafka/RabbitMQ in uncoordinated separate steps. Persist events into an `outbox_events` table within the primary transaction and relay asynchronously.
+30. **Atomic Token Verification on Redis DEL**: Never release distributed locks using raw `redis.delete(key)` without verifying ownership token via atomic Lua script (`_RELEASE_LUA_SCRIPT`) to prevent lock hijacking.
+
+### Quadrant 4: AI Agent Behavioral Directives (Rules 31–40)
+31. **The 2-Strike RCA Escalation Rule**: If a test or command fails twice, immediately halt execution, perform a deep root-cause analysis (RCA), log to `docs/rca/`, and re-plan rather than making repetitive blind guesses.
+32. **Single-Task Scope Containment**: Focus exclusively on the prompt's defined task. Never introduce speculative refactors, unsolicited file rewrites, or scope creep outside the approved implementation plan.
+33. **Radical Anti-Sycophancy & Technical Honesty**: Deliver objective, mathematically rigorous engineering truth. Never flatter the user or agree with an architecturally flawed premise out of polite deference.
+34. **Mandatory Terminal Execution Verification**: Never declare a feature "completed" based on code generation alone. Always execute automated test suites and verify exit code 0 via the terminal before declaring success.
+35. **Proactive Context Refresh & Verification**: Inspect active files and verify existing imports, types, and schemas before writing integration code to prevent hallucinated signatures or missing attributes.
+36. **Zero Stubs, Placeholders, or TODO Slop**: Never ship unfinished code with `# TODO: implement later` or `pass` in production paths. Every implemented function must be fully realized, typed, and tested.
+37. **Transparent Ignorance Over Hallucination**: When a requirement is ambiguous or an external library interface is uncertain, inspect the source or consult documentation rather than inventing non-existent parameters.
+38. **The Doubling-Down Ban**: When corrected by the Lead Architect, immediately concede the error, understand the principle, log the RCA, and implement the correct pattern without defensive excuses.
+39. **Destructive Action Confirmation Gate**: Never delete database tables, truncate files, drop git branches, or force-push without explicit verification and confirmation from the Lead Architect.
+40. **Zero Token Padding & Concise Communication**: Communicate with high signal-to-noise ratio. Avoid repetitive boilerplate or restating the entire file contents in conversational text.
+
+### Quadrant 5: Optical Illusions & Deception Defense (Rules 41–45)
+41. **Zero Tautological Tests**: Never author tests that assert meaningless tautologies (e.g. `assert True`, `assert result is not None` when checking calculation correctness). Assert precise domain values, status codes, and side-effects.
+42. **The Falsy Zero Trap Guard**: Never treat `0` or `Decimal("0.0000")` as falsy when checking existence or balances (`if not balance:` vs `if balance is None:`). Falsy checks on numeric zeros cause catastrophic logic bypasses.
+43. **Explicit Boolean Operator Precedence**: Always use explicit parentheses in complex boolean conditionals (`(A and B) or (C and D)`) rather than relying on implicit operator precedence that obscures business intent.
+44. **Zero Variable Shadowing**: Never name local variables or parameters after built-in Python functions, modules, or outer-scope variables (`id`, `type`, `format`, `str`, `dict`, `input`).
+45. **Strictly Anchored Regex Validation**: When validating user inputs with regular expressions, always anchor both start and end (`^...$`) to prevent malicious payload bypasses via partial substring matches.
+
+### Quadrant 6: The 5 Supporting Fortress Layers (Rules 46–50)
+46. **Layer 1: IDE Editor Constraints**: Enforce project conventions through `.cursorrules` and IDE configuration, blocking non-standard practices before code is written.
+47. **Layer 2: Local CI Execution Harness**: Provide and maintain `scripts/run_ci_locally.sh` and `scripts/run_graduation_audit.sh` so engineers and agents can verify all quality gates in seconds with fail-fast `set -e`.
+48. **Layer 3: Pre-Commit Git Verification Hooks**: Prevent broken code, formatting errors, and uncommitted migrations from ever reaching the git staging area.
+49. **Layer 4: Self-Evolving RCA Postmortem Loop**: Transform every bug or architectural deviation into a permanent prevention rule documented in `docs/rca/` and codified into `SKILL.md`.
+50. **Layer 5: Strict Session Handover Contract**: Conclude every engineering day with structured documentation (`docs/days/`, `docs/days_bn/`), roadmap tracking, and atomic conventional commits (`feat(day-XX): ...`).
+
+---
+
 ## 1. Architectural Contract: 3-Tier Clean Architecture
 
 Every feature must strictly respect the separation of concerns across layers. Monolithic single-file implementations ("code slop") are strictly prohibited.
