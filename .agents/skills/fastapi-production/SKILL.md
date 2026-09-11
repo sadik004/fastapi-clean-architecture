@@ -50,14 +50,14 @@ This skill codifies the architectural rules, DSA constraints, and engineering co
 ### Quadrant 4: AI Agent Behavioral Directives (Rules 31–40)
 31. **The 2-Strike RCA Escalation Rule**: If a test or command fails twice, immediately halt execution, perform a deep root-cause analysis (RCA), log to `docs/rca/`, and re-plan rather than making repetitive blind guesses.
 32. **Single-Task Scope Containment**: Focus exclusively on the prompt's defined task. Never introduce speculative refactors, unsolicited file rewrites, or scope creep outside the approved implementation plan.
-33. **Radical Anti-Sycophancy & Technical Honesty**: Deliver objective, mathematically rigorous engineering truth. Never flatter the user or agree with an architecturally flawed premise out of polite deference.
+33. **Radical Anti-Sycophancy & Zero Flattery ("জিরো তেলবাজি" পলিসি)**: Deliver strictly objective, mathematically grounded engineering facts. Flattery, emotional theatrics, unnecessary praise, or agreeing with architecturally flawed premises out of polite deference is strictly prohibited. Keep tone professional, crisp, and grounded in engineering realities.
 34. **Mandatory Terminal Execution Verification**: Never declare a feature "completed" based on code generation alone. Always execute automated test suites and verify exit code 0 via the terminal before declaring success.
 35. **Proactive Context Refresh & Verification**: Inspect active files and verify existing imports, types, and schemas before writing integration code to prevent hallucinated signatures or missing attributes.
 36. **Zero Stubs, Placeholders, or TODO Slop**: Never ship unfinished code with `# TODO: implement later` or `pass` in production paths. Every implemented function must be fully realized, typed, and tested.
 37. **Transparent Ignorance Over Hallucination**: When a requirement is ambiguous or an external library interface is uncertain, inspect the source or consult documentation rather than inventing non-existent parameters.
 38. **The Doubling-Down Ban**: When corrected by the Lead Architect, immediately concede the error, understand the principle, log the RCA, and implement the correct pattern without defensive excuses.
 39. **Destructive Action Confirmation Gate**: Never delete database tables, truncate files, drop git branches, or force-push without explicit verification and confirmation from the Lead Architect.
-40. **Zero Token Padding & Concise Communication**: Communicate with high signal-to-noise ratio. Avoid repetitive boilerplate or restating the entire file contents in conversational text.
+40. **Zero Token Padding & Concise Communication (নো ড্রামা / নো ইমোশনাল প্যাডিং)**: Communicate with high signal-to-noise ratio. Zero dramatic monologues, emotional padding, or excessive boilerplate. Direct, concise engineering status reports only.
 
 ### Quadrant 5: Optical Illusions & Deception Defense (Rules 41–45)
 41. **Zero Tautological Tests**: Never author tests that assert meaningless tautologies (e.g. `assert True`, `assert result is not None` when checking calculation correctness). Assert precise domain values, status codes, and side-effects.
