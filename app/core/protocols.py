@@ -10,6 +10,7 @@ from __future__ import annotations
 from app.core.unit_of_work import UnitOfWorkProtocol
 from app.repositories.catalog_repository import CatalogRepositoryProtocol
 from app.repositories.document_repository import DocumentRepositoryProtocol
+from app.repositories.ledger_repository import LedgerRepositoryProtocol
 from app.repositories.order_repository import OrderRepositoryProtocol
 from app.repositories.outbox_repository import OutboxRepositoryProtocol
 from app.repositories.post_repository import PostRepositoryProtocol
@@ -19,6 +20,7 @@ from app.repositories.user_repository import UserRepositoryProtocol
 __all__ = [
     "CatalogRepositoryProtocol",
     "DocumentRepositoryProtocol",
+    "LedgerRepositoryProtocol",
     "OrderRepositoryProtocol",
     "OutboxRepositoryProtocol",
     "PostRepositoryProtocol",

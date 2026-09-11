@@ -370,3 +370,58 @@ class ConnectionPoolExhaustedException(BaseDomainException):
     ) -> None:
         self.retry_after = retry_after
         super().__init__(message=message, code=code)
+
+
+# ============================================================================
+# Fintech Double-Entry Ledger Domain Exceptions (Phase 8)
+# ============================================================================
+
+
+class UnbalancedJournalEntryException(BaseDomainException):
+    """Raised when journal entry postings violate the zero-sum balance invariant (HTTP 422)."""
+
+    def __init__(
+        self,
+        message: str = "Journal entry postings must satisfy the zero-sum balance invariant: sum(Debits) must equal sum(Credits).",
+        code: str = "UNBALANCED_JOURNAL_ENTRY",
+        total_debits: object = None,
+        total_credits: object = None,
+        imbalance: object = None,
+    ) -> None:
+        self.total_debits = total_debits
+        self.total_credits = total_credits
+        self.imbalance = imbalance
+        super().__init__(message=message, code=code)
+
+
+class LedgerAccountNotFoundException(EntityNotFoundException):
+    """Raised when a specified ledger account does not exist (HTTP 404)."""
+
+    def __init__(
+        self,
+        message: str = "Specified ledger account was not found.",
+        code: str = "LEDGER_ACCOUNT_NOT_FOUND",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+class InactiveLedgerAccountException(BusinessRuleViolationException):
+    """Raised when an operation attempts to post to a deactivated/frozen ledger account (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Cannot post journal transaction to an inactive ledger account.",
+        code: str = "INACTIVE_LEDGER_ACCOUNT",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+class DuplicateReferenceException(EntityConflictException):
+    """Raised when a journal entry reference_id has already been committed (HTTP 409)."""
+
+    def __init__(
+        self,
+        message: str = "A journal entry with this idempotency reference ID already exists.",
+        code: str = "DUPLICATE_JOURNAL_REFERENCE",
+    ) -> None:
+        super().__init__(message=message, code=code)

@@ -31,6 +31,10 @@ from app.core.permissions import ROLE_ADMIN, ROLE_USER, Permission, has_permissi
 from app.core.redis import get_redis
 from app.core.security import decode_jwt_token
 from app.core.unit_of_work import SqlAlchemyUnitOfWork, UnitOfWorkProtocol
+from app.repositories.ledger_repository import (
+    LedgerRepositoryProtocol,
+    SqlAlchemyLedgerRepository,
+)
 from app.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.repositories.user_repository import (
     InMemoryUserRepository,
@@ -45,6 +49,7 @@ from app.services.cache_service import CacheService
 from app.services.document_service import DocumentService
 from app.services.inventory_service import InventoryService
 from app.services.leaderboard_service import LeaderboardService
+from app.services.ledger_domain_service import LedgerDomainService
 from app.services.order_service import OrderService
 from app.services.outbox_relay_service import OutboxRelayService
 from app.services.rate_limiter_service import RateLimiterService
@@ -98,6 +103,20 @@ def get_outbox_relay_service(
 ) -> OutboxRelayService:
     """Dependency provider yielding an active OutboxRelayService instance."""
     return OutboxRelayService(uow=uow)
+
+
+def get_ledger_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> LedgerRepositoryProtocol:
+    """Dependency provider yielding an asynchronous SqlAlchemyLedgerRepository instance."""
+    return SqlAlchemyLedgerRepository(session=session)
+
+
+def get_ledger_service(
+    repo: Annotated[LedgerRepositoryProtocol, Depends(get_ledger_repository)],
+) -> LedgerDomainService:
+    """Dependency provider yielding an active LedgerDomainService instance."""
+    return LedgerDomainService(repo=repo)
 
 
 def get_cache_service(

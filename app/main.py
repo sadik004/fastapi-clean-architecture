@@ -44,6 +44,7 @@ from app.routers.job_router import router as job_router
 from app.routers.kafka_consumer_router import router as kafka_consumer_router
 from app.routers.kafka_router import router as kafka_router
 from app.routers.leaderboard_router import router as leaderboard_router
+from app.routers.ledger_router import router as ledger_router
 from app.routers.metrics_router import router as metrics_router
 from app.routers.observability_router import router as observability_router
 from app.routers.order_router import router as order_router
@@ -188,6 +189,7 @@ app.include_router(security_audit_router)
 app.include_router(profiling_router)
 app.include_router(dashboard_router)
 app.include_router(health_router)
+app.include_router(ledger_router)
 
 
 @app.get(
